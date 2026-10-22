@@ -2,6 +2,7 @@ import { Outlet, redirect } from "@tanstack/react-router";
 import { AppSkeleton } from "@/features/auth/components";
 import { nextDestination, safeRedirect } from "@/features/auth/navigation";
 import type { AuthState } from "@/features/auth/types";
+import { PendingDeletionBanner } from "@/features/settings/components/PendingDeletionBanner";
 import { useAuth } from "@/lib/auth-provider";
 export function requireAuthentication(auth: AuthState, href: string, pathname: string) {
   if (auth.sessionExpired) return;
@@ -21,5 +22,12 @@ export function requireAuthentication(auth: AuthState, href: string, pathname: s
 }
 export function AuthenticatedLayout() {
   const auth = useAuth();
-  return !auth.user || auth.mfaRequired ? <AppSkeleton /> : <Outlet />;
+  return !auth.user || auth.mfaRequired ? (
+    <AppSkeleton />
+  ) : (
+    <>
+      <PendingDeletionBanner />
+      <Outlet />
+    </>
+  );
 }

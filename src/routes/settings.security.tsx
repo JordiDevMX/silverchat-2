@@ -4,9 +4,10 @@ import { Copy, Download, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { generateBackupCodes } from "@/features/auth/backup-codes";
-import { AuthFrame, CodeInput, InlineError, Modal } from "@/features/auth/components";
+import { CodeInput, InlineError, Modal } from "@/features/auth/components";
 import { totpSchema } from "@/features/auth/schemas";
 import type { SessionPayload } from "@/features/auth/types";
+import { SettingsPage } from "@/features/settings/components/shared";
 import { refreshSession } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
@@ -112,8 +113,7 @@ export function SecurityPage() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   return (
-    <AuthFrame title="Security" subtitle="Keep your account in your hands.">
-      <a href="/chats">Back to chats</a>
+    <SettingsPage title="Security" description="Keep your account in your hands.">
       <div className="security-heading">
         <ShieldCheck size={28} strokeWidth={1.75} aria-hidden="true" />
         <h2>Two-factor authentication</h2>
@@ -260,6 +260,6 @@ export function SecurityPage() {
           </button>
         </Modal>
       )}
-    </AuthFrame>
+    </SettingsPage>
   );
 }

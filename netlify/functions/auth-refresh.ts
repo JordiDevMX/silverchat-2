@@ -7,7 +7,13 @@ import {
   REFRESH_COOKIE,
 } from "./_lib/cookies.ts";
 import { guard, json } from "./_lib/cors.ts";
-import { adminClient, anonClient, assurance, publicSession } from "./_lib/supabase-admin.ts";
+import {
+  adminClient,
+  anonClient,
+  assurance,
+  publicSession,
+  required,
+} from "./_lib/supabase-admin.ts";
 
 const schema = z
   .object({
@@ -16,7 +22,12 @@ const schema = z
       .regex(/^\d{6}$/)
       .optional(),
     factor_id: z.uuid().optional(),
-    action: z.enum(["refresh", "enroll", "disable", "replace_backups"]).default("refresh"),
+    action: z
+      .enum(["refresh", "enroll", "disable", "replace_backups", "change_email"])
+      .default("refresh"),
+    email: z.email().max(254).optional(),
+    device_fingerprint: z.uuid().nullable().optional(),
+    device_name: z.string().max(80).optional(),
     backup_hashes: z
       .array(z.string().regex(/^[a-f0-9]{64}$/))
       .length(10)
@@ -71,6 +82,36 @@ export default async function handler(req: Request): Promise<Response> {
     if (userError || !fresh.user) return json({ error: "refresh_unavailable" }, 503, headers);
     session.user = fresh.user;
     const aal = assurance(session.access_token);
+    if (!publicSession(session).mfaRequired && body.device_fingerprint) {
+      const registration = await adminClient()
+        .from("devices")
+        .upsert(
+          {
+            user_id: session.user.id,
+            device_fingerprint: body.device_fingerprint,
+            device_name: body.device_name || "Web Browser",
+            device_type: "web",
+            user_agent: (req.headers.get("user-agent") || "").slice(0, 1024),
+            last_active_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,device_fingerprint" },
+        );
+      if (registration.error) console.error("Device registration unavailable");
+    }
+    if (body.action === "change_email") {
+      if (publicSession(session).mfaRequired) return json({ error: "mfa_required" }, 403, headers);
+      if (!body.email) return json({ error: "invalid_request" }, 400, headers);
+      const updated = await client.auth.updateUser(
+        { email: body.email },
+        {
+          emailRedirectTo: new URL(
+            "/api/auth/callback?redirect=/settings/account",
+            required("SITE_URL"),
+          ).href,
+        },
+      );
+      if (updated.error) return json({ error: "email_change_failed" }, 400, headers);
+    }
     if (body.action === "enroll") {
       if (publicSession(session).mfaRequired) return json({ error: "mfa_required" }, 403, headers);
       if (session.user.factors?.some((factor) => factor.status === "verified")) {

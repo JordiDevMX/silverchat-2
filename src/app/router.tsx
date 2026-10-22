@@ -54,8 +54,8 @@ function AuthenticatedDestination() {
         !auth.user.factors?.some((factor) => factor.status === "verified") && (
           <p role="status">Backup code used. Please re-enable 2FA in settings.</p>
         )}
-      <a className="button primary" href="/settings/security">
-        Security settings
+      <a className="button primary" href="/settings">
+        Settings
       </a>
       <button
         className="button secondary"
@@ -114,6 +114,86 @@ const authenticated = createRoute({
   beforeLoad: ({ context, location }) =>
     requireAuthentication(context.auth, location.href, location.pathname),
 });
+const settings = createRoute({
+  getParentRoute: () => authenticated,
+  path: "/settings",
+  component: lazyRouteComponent(() => import("@/routes/settings"), "SettingsLayout"),
+});
+const settingsChildren = [
+  createRoute({
+    getParentRoute: () => settings,
+    path: "/",
+    component: lazyRouteComponent(() => import("@/routes/settings.index"), "SettingsIndexPage"),
+  }),
+  createRoute({
+    getParentRoute: () => settings,
+    path: "profile",
+    component: lazyRouteComponent(() => import("@/routes/settings.profile"), "EditProfilePage"),
+  }),
+  createRoute({
+    getParentRoute: () => settings,
+    path: "profile/social",
+    component: lazyRouteComponent(
+      () => import("@/routes/settings.profile.social"),
+      "SocialLinksPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => settings,
+    path: "account",
+    component: lazyRouteComponent(() => import("@/routes/settings.account"), "AccountPage"),
+  }),
+  createRoute({
+    getParentRoute: () => settings,
+    path: "devices",
+    component: lazyRouteComponent(() => import("@/routes/settings.devices"), "DevicesPage"),
+  }),
+  createRoute({
+    getParentRoute: () => settings,
+    path: "storage",
+    component: lazyRouteComponent(() => import("@/routes/settings.storage"), "StoragePage"),
+  }),
+  createRoute({
+    getParentRoute: () => settings,
+    path: "privacy",
+    component: lazyRouteComponent(() => import("@/routes/settings.privacy"), "PrivacyPage"),
+  }),
+  createRoute({
+    getParentRoute: () => settings,
+    path: "privacy/blocked",
+    component: lazyRouteComponent(
+      () => import("@/routes/settings.privacy.blocked"),
+      "BlockedContactsPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => settings,
+    path: "privacy/visibility",
+    component: lazyRouteComponent(
+      () => import("@/routes/settings.privacy.visibility"),
+      "VisibilityPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => settings,
+    path: "appearance",
+    component: lazyRouteComponent(() => import("@/routes/settings.appearance"), "AppearancePage"),
+  }),
+  createRoute({
+    getParentRoute: () => settings,
+    path: "notifications",
+    component: lazyRouteComponent(
+      () => import("@/routes/settings.notifications"),
+      "NotificationsPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => settings,
+    path: "about",
+    component: lazyRouteComponent(() => import("@/routes/settings.about"), "AboutPage"),
+  }),
+  createRoute({ getParentRoute: () => settings, path: "security", component: SecurityPage }),
+];
 const protectedRoutes = [
   createRoute({
     getParentRoute: () => authenticated,
@@ -125,12 +205,18 @@ const protectedRoutes = [
     path: "/onboarding/welcome",
     component: WelcomePage,
   }),
+  settings.addChildren(settingsChildren),
   createRoute({
     getParentRoute: () => authenticated,
-    path: "/settings/security",
-    component: SecurityPage,
+    path: "/profile/$username",
+    component: lazyRouteComponent(() => import("@/routes/profile.$username"), "PublicProfilePage"),
   }),
-  ...["chats", "channels", "communities", "calls", "settings", "profile"].map((path) =>
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/chats/$chatId",
+    component: AuthenticatedDestination,
+  }),
+  ...["chats", "channels", "communities", "calls", "profile"].map((path) =>
     createRoute({
       getParentRoute: () => authenticated,
       path: `/${path}`,

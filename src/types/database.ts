@@ -1,11 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.18";
-  };
   public: {
     Tables: {
       app_config: {
@@ -13,19 +8,20 @@ export type Database = {
           description: string | null;
           key: string;
           updated_at: string;
-          value: Json;
+          value: NonNullable<Json>;
         };
+        ComputedFields: never;
         Insert: {
           description?: string | null;
           key: string;
           updated_at?: string;
-          value: Json;
+          value: NonNullable<Json>;
         };
         Update: {
           description?: string | null;
           key?: string;
           updated_at?: string;
-          value?: Json;
+          value?: NonNullable<Json>;
         };
         Relationships: [];
       };
@@ -42,6 +38,7 @@ export type Database = {
           status: Database["public"]["Enums"]["call_status"];
           type: Database["public"]["Enums"]["call_type"];
         };
+        ComputedFields: never;
         Insert: {
           answered_at?: string | null;
           chat_id: string;
@@ -85,6 +82,13 @@ export type Database = {
             foreignKeyName: "calls_initiator_id_fkey";
             columns: ["initiator_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "calls_initiator_id_fkey";
+            columns: ["initiator_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -97,6 +101,7 @@ export type Database = {
           last_read_at: string;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           channel_id: string;
           followed_at?: string;
@@ -128,6 +133,13 @@ export type Database = {
             foreignKeyName: "channel_followers_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_followers_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -149,6 +161,7 @@ export type Database = {
           slug: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           avatar_url?: string | null;
           created_at?: string;
@@ -198,6 +211,13 @@ export type Database = {
             foreignKeyName: "channels_owner_id_fkey";
             columns: ["owner_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channels_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -215,6 +235,7 @@ export type Database = {
           role: Database["public"]["Enums"]["chat_member_role"];
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           archived_at?: string | null;
           chat_id: string;
@@ -256,6 +277,13 @@ export type Database = {
             foreignKeyName: "chat_members_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chat_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -271,6 +299,7 @@ export type Database = {
           sender_id: string;
           status: Database["public"]["Enums"]["chat_request_status"];
         };
+        ComputedFields: never;
         Insert: {
           chat_id: string;
           created_at?: string;
@@ -308,6 +337,13 @@ export type Database = {
             foreignKeyName: "chat_requests_recipient_id_fkey";
             columns: ["recipient_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chat_requests_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -316,6 +352,13 @@ export type Database = {
             columns: ["sender_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chat_requests_sender_id_fkey";
+            columns: ["sender_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
             referencedColumns: ["id"];
           },
           {
@@ -345,6 +388,7 @@ export type Database = {
           type: Database["public"]["Enums"]["chat_type"];
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           avatar_url?: string | null;
           community_id?: string | null;
@@ -398,6 +442,13 @@ export type Database = {
             foreignKeyName: "chats_created_by_fkey";
             columns: ["created_by"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chats_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -421,6 +472,7 @@ export type Database = {
           owner_id: string | null;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           avatar_url?: string | null;
           created_at?: string;
@@ -453,6 +505,13 @@ export type Database = {
             foreignKeyName: "communities_owner_id_fkey";
             columns: ["owner_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "communities_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -465,6 +524,7 @@ export type Database = {
           role: Database["public"]["Enums"]["chat_member_role"];
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           community_id: string;
           joined_at?: string;
@@ -496,6 +556,13 @@ export type Database = {
             foreignKeyName: "community_members_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -504,6 +571,7 @@ export type Database = {
       devices: {
         Row: {
           created_at: string;
+          device_fingerprint: string | null;
           device_name: string;
           device_type: string;
           id: string;
@@ -512,8 +580,10 @@ export type Database = {
           user_agent: string | null;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
+          device_fingerprint?: string | null;
           device_name: string;
           device_type?: string;
           id?: string;
@@ -524,6 +594,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          device_fingerprint?: string | null;
           device_name?: string;
           device_type?: string;
           id?: string;
@@ -538,6 +609,13 @@ export type Database = {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "devices_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
             referencedColumns: ["id"];
           },
           {
@@ -566,6 +644,7 @@ export type Database = {
           uploader_id: string;
           width: number | null;
         };
+        ComputedFields: never;
         Insert: {
           bucket: string;
           completed_at?: string | null;
@@ -610,6 +689,13 @@ export type Database = {
             foreignKeyName: "file_uploads_uploader_id_fkey";
             columns: ["uploader_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "file_uploads_uploader_id_fkey";
+            columns: ["uploader_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -621,6 +707,7 @@ export type Database = {
           message_id: string;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           deleted_at?: string;
           message_id: string;
@@ -650,6 +737,13 @@ export type Database = {
             foreignKeyName: "message_deletions_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "message_deletions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -662,6 +756,7 @@ export type Database = {
           message_id: string;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           emoji: string;
@@ -693,6 +788,13 @@ export type Database = {
             foreignKeyName: "message_reactions_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "message_reactions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -705,6 +807,7 @@ export type Database = {
           read_at: string | null;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           delivered_at?: string | null;
           message_id: string;
@@ -736,6 +839,13 @@ export type Database = {
             foreignKeyName: "message_receipts_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "message_receipts_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -758,7 +868,9 @@ export type Database = {
           reply_to_message_id: string | null;
           sender_id: string | null;
           type: Database["public"]["Enums"]["message_type"];
+          compute_message_preview: string | null;
         };
+        ComputedFields: "compute_message_preview";
         Insert: {
           channel_id?: string | null;
           chat_id?: string | null;
@@ -833,6 +945,13 @@ export type Database = {
             foreignKeyName: "messages_sender_id_fkey";
             columns: ["sender_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey";
+            columns: ["sender_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -848,10 +967,13 @@ export type Database = {
           id: string;
           last_name: string | null;
           last_seen_at: string | null;
-          social_links: Json;
+          scheduled_deletion_at: string | null;
+          social_links: NonNullable<Json>;
           updated_at: string;
           username: string;
+          username_changed_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           avatar_url?: string | null;
           bio?: string | null;
@@ -861,9 +983,11 @@ export type Database = {
           id: string;
           last_name?: string | null;
           last_seen_at?: string | null;
-          social_links?: Json;
+          scheduled_deletion_at?: string | null;
+          social_links?: NonNullable<Json>;
           updated_at?: string;
           username: string;
+          username_changed_at?: string | null;
         };
         Update: {
           avatar_url?: string | null;
@@ -874,9 +998,11 @@ export type Database = {
           id?: string;
           last_name?: string | null;
           last_seen_at?: string | null;
-          social_links?: Json;
+          scheduled_deletion_at?: string | null;
+          social_links?: NonNullable<Json>;
           updated_at?: string;
           username?: string;
+          username_changed_at?: string | null;
         };
         Relationships: [];
       };
@@ -894,6 +1020,7 @@ export type Database = {
           reviewed_by: string | null;
           status: Database["public"]["Enums"]["report_status"];
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           description?: string | null;
@@ -946,6 +1073,13 @@ export type Database = {
             foreignKeyName: "reports_reported_user_id_fkey";
             columns: ["reported_user_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_reported_user_id_fkey";
+            columns: ["reported_user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -954,6 +1088,13 @@ export type Database = {
             columns: ["reporter_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_reporter_id_fkey";
+            columns: ["reporter_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
             referencedColumns: ["id"];
           },
           {
@@ -968,6 +1109,13 @@ export type Database = {
             columns: ["reviewed_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
             referencedColumns: ["id"];
           },
           {
@@ -991,6 +1139,7 @@ export type Database = {
           text_content: string | null;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           background_color?: string | null;
           caption?: string | null;
@@ -1032,6 +1181,13 @@ export type Database = {
             foreignKeyName: "stories_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stories_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -1043,6 +1199,7 @@ export type Database = {
           viewed_at: string;
           viewer_id: string;
         };
+        ComputedFields: never;
         Insert: {
           story_id: string;
           viewed_at?: string;
@@ -1072,6 +1229,13 @@ export type Database = {
             foreignKeyName: "story_views_viewer_id_fkey";
             columns: ["viewer_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "story_views_viewer_id_fkey";
+            columns: ["viewer_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -1085,6 +1249,7 @@ export type Database = {
           used_at: string | null;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           code_hash: string;
           created_at?: string;
@@ -1111,6 +1276,13 @@ export type Database = {
             foreignKeyName: "two_factor_backup_codes_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "two_factor_backup_codes_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -1122,6 +1294,7 @@ export type Database = {
           blocker_id: string;
           created_at: string;
         };
+        ComputedFields: never;
         Insert: {
           blocked_id: string;
           blocker_id: string;
@@ -1144,6 +1317,13 @@ export type Database = {
             foreignKeyName: "user_blocks_blocked_id_fkey";
             columns: ["blocked_id"];
             isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey";
+            columns: ["blocked_id"];
+            isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -1152,6 +1332,13 @@ export type Database = {
             columns: ["blocker_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_blocks_blocker_id_fkey";
+            columns: ["blocker_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
             referencedColumns: ["id"];
           },
           {
@@ -1180,6 +1367,7 @@ export type Database = {
           updated_at: string;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           accent?: Database["public"]["Enums"]["accent_theme"];
           language?: Database["public"]["Enums"]["language_preference"];
@@ -1224,6 +1412,13 @@ export type Database = {
             foreignKeyName: "user_settings_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: true;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_settings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
@@ -1231,8 +1426,19 @@ export type Database = {
       };
     };
     Views: {
+      profiles_blocked: {
+        Row: {
+          avatar_initials: string | null;
+          display_name: string | null;
+          id: string | null;
+          username: string | null;
+        };
+        ComputedFields: never;
+        Relationships: [];
+      };
       profiles_visible: {
         Row: {
+          avatar_initials: string | null;
           avatar_url: string | null;
           bio: string | null;
           created_at: string | null;
@@ -1243,29 +1449,24 @@ export type Database = {
           updated_at: string | null;
           username: string | null;
         };
+        ComputedFields: never;
         Relationships: [];
       };
     };
     Functions: {
-      accept_chat_request: {
-        Args: { p_request_id: string };
-        Returns: undefined;
-      };
-      add_chat_member: {
-        Args: { p_chat_id: string; p_user_id: string };
-        Returns: undefined;
-      };
-      auth_mfa_satisfied: { Args: never; Returns: boolean };
-      can_view_avatar: {
-        Args: { p_owner: string; p_viewer: string };
-        Returns: boolean;
-      };
-      can_view_story: {
-        Args: { p_owner: string; p_viewer: string };
-        Returns: boolean;
-      };
+      accept_chat_request: { Args: { p_request_id: string }; Returns: undefined };
+      add_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
+      auth_mfa_satisfied: { Args: Record<PropertyKey, never>; Returns: boolean };
+      can_view_avatar: { Args: { p_owner: string; p_viewer: string }; Returns: boolean };
+      can_view_story: { Args: { p_owner: string; p_viewer: string }; Returns: boolean };
+      cancel_account_deletion: { Args: Record<PropertyKey, never>; Returns: undefined };
       compute_message_preview: {
-        Args: { m: Database["public"]["Tables"]["messages"]["Row"] };
+        Args: {
+          m: Omit<
+            Database["public"]["Tables"]["messages"]["Row"],
+            Database["public"]["Tables"]["messages"]["ComputedFields"]
+          >;
+        };
         Returns: string;
       };
       consume_backup_code: {
@@ -1276,76 +1477,38 @@ export type Database = {
         Args: { p_description: string; p_name: string; p_slug: string };
         Returns: string;
       };
-      create_community: {
-        Args: { p_description: string; p_name: string };
-        Returns: string;
-      };
+      create_community: { Args: { p_description: string; p_name: string }; Returns: string };
       create_direct_chat_request: {
         Args: { p_initial_content: string; p_target_user_id: string };
         Returns: string;
       };
-      create_group_chat: {
-        Args: { p_member_ids: string[]; p_name: string };
-        Returns: string;
-      };
-      create_self_chat: { Args: never; Returns: string };
-      delete_message_for_everyone: {
-        Args: { p_message_id: string };
-        Returns: undefined;
-      };
+      create_group_chat: { Args: { p_member_ids: string[]; p_name: string }; Returns: string };
+      create_self_chat: { Args: Record<PropertyKey, never>; Returns: string };
+      delete_message_for_everyone: { Args: { p_message_id: string }; Returns: undefined };
       follow_channel: { Args: { p_channel_id: string }; Returns: undefined };
-      get_my_storage_usage: { Args: never; Returns: number };
-      has_read_receipts_enabled: {
-        Args: { p_user_id: string };
-        Returns: boolean;
-      };
-      is_blocked: {
-        Args: { p_blocked: string; p_blocker: string };
-        Returns: boolean;
-      };
-      is_blocked_either_way: {
-        Args: { p_user_a: string; p_user_b: string };
-        Returns: boolean;
-      };
-      is_channel_follower: {
-        Args: { p_channel_id: string; p_user_id: string };
-        Returns: boolean;
-      };
-      is_channel_owner: {
-        Args: { p_channel_id: string; p_user_id: string };
-        Returns: boolean;
-      };
+      get_my_storage_usage: { Args: Record<PropertyKey, never>; Returns: number };
+      has_read_receipts_enabled: { Args: { p_user_id: string }; Returns: boolean };
+      is_blocked: { Args: { p_blocked: string; p_blocker: string }; Returns: boolean };
+      is_blocked_either_way: { Args: { p_user_a: string; p_user_b: string }; Returns: boolean };
+      is_channel_follower: { Args: { p_channel_id: string; p_user_id: string }; Returns: boolean };
+      is_channel_owner: { Args: { p_channel_id: string; p_user_id: string }; Returns: boolean };
       is_chat_active: { Args: { p_chat_id: string }; Returns: boolean };
-      is_chat_admin: {
-        Args: { p_chat_id: string; p_user_id: string };
-        Returns: boolean;
-      };
-      is_chat_member: {
-        Args: { p_chat_id: string; p_user_id: string };
-        Returns: boolean;
-      };
+      is_chat_admin: { Args: { p_chat_id: string; p_user_id: string }; Returns: boolean };
+      is_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: boolean };
       is_community_member: {
         Args: { p_community_id: string; p_user_id: string };
         Returns: boolean;
       };
-      is_contact: {
-        Args: { p_user_a: string; p_user_b: string };
-        Returns: boolean;
-      };
+      is_contact: { Args: { p_user_a: string; p_user_b: string }; Returns: boolean };
       is_message_deleted_for_user: {
         Args: { p_message_id: string; p_user_id: string };
         Returns: boolean;
       };
       join_community: { Args: { p_community_id: string }; Returns: undefined };
       mark_chat_as_read: { Args: { p_chat_id: string }; Returns: undefined };
-      reject_chat_request: {
-        Args: { p_request_id: string };
-        Returns: undefined;
-      };
-      replace_backup_codes: {
-        Args: { p_hashes: string[]; p_user_id: string };
-        Returns: undefined;
-      };
+      reject_chat_request: { Args: { p_request_id: string }; Returns: undefined };
+      replace_backup_codes: { Args: { p_hashes: string[]; p_user_id: string }; Returns: undefined };
+      schedule_account_deletion: { Args: Record<PropertyKey, never>; Returns: string };
     };
     Enums: {
       accent_theme: "blue" | "purple" | "red" | "orange" | "yellow" | "green";
@@ -1391,9 +1554,7 @@ export type Tables<
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R;
@@ -1417,9 +1578,7 @@ export type TablesInsert<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I;
     }
@@ -1442,9 +1601,7 @@ export type TablesUpdate<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U;
     }
@@ -1467,9 +1624,7 @@ export type Enums<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
@@ -1484,9 +1639,7 @@ export type CompositeTypes<
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
