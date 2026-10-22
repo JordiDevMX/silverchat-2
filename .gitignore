@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Supabase local state
+supabase/.branches/
+supabase/.temp/
+
+# Generated graph artifact (rebuild with `graphify .roadmap`)
+graphify-out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/

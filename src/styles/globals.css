@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+/*
+  Design tokens (colors, radii, spacing, typography, shadows) live here, CSS-first.
+  The full silver + electric-blue palette arrives in Prompt #3 (03-design-system.md).
+  Do NOT create a tailwind.config.js — Tailwind v4 is configured in CSS.
+*/
+/* biome-ignore lint/suspicious/noEmptyBlock: empty @theme placeholder until Prompt #3 */
+@theme {
+}
+
+@layer base {
+  /* Global resets, focus-visible rings, etc. — Prompt #3 */
+}
