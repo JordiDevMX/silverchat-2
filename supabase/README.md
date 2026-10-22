@@ -64,9 +64,9 @@ resource, as specified by 04b-1 section 5.2. Cron deletes metadata, not actual
 Storage objects. Realtime publication membership was checked; delivery through
 an external Realtime subscription was not tested.
 
-## Verification performed in this cloud instance
+## Previous local validation
 
-The local validation project lives at `/tmp/silverchat-backend-validation`,
+The local validation project was created at `/tmp/silverchat-backend-validation`,
 separate from the application checkout. Its Supabase Postgres version is
 15.19.0.004. Docker's `vfs` driver exhausted disk space with normal layered
 images; the same official image was imported as one layer after verifying
@@ -103,7 +103,7 @@ scheduled cleanup commands. Fixtures and test helpers are rolled back. They
 check cron registration and execute the job SQL; they do not wait for the
 scheduler's wall-clock execution.
 
-To repeat against this running local instance:
+When that local instance is available, repeat its checks with:
 
 ```bash
 cd /workspace/silverchat-2
@@ -129,42 +129,63 @@ pnpm lint
 This local database/process is not evidence of a published environment or of
 successful restoration in another cloud task.
 
-## Remote verification still blocked
+## Remote verification
 
-No project ref or usable Supabase access token was present. These actual
-commands failed before any remote migration was applied:
+The developer applied migrations `0001_initial_schema.sql`,
+`0002_rls_policies.sql`, and `0003_business_logic.sql` in numeric order using
+the Supabase SQL Editor and reported that all three succeeded. The SQL files
+were left unchanged. No remote `supabase link` or `supabase db push` was run
+for this verification, and CLI migration history was not reconciled.
+
+Read-only SQL through the Management API endpoint
+`POST /v1/projects/{ref}/database/query` confirmed:
+
+| Check | Actual result | Expected |
+| --- | --- | --- |
+| Tables in `public` | 21 | 21 |
+| Public tables with RLS disabled | 0 rows | 0 rows |
+| Matching known enum names | 13 | 13 |
+| `app_config` rows | 9 | 9 |
+| `cron.job` rows | 4 | 4 |
+| `supabase_realtime` publication tables | 5 | 5 |
+
+The cron jobs are `cleanup_expired_stories`, `cleanup_orphan_uploads`,
+`cleanup_pending_uploads`, and `cleanup_stale_calls`. The publication contains
+`public.calls`, `public.chat_members`, `public.message_receipts`,
+`public.messages`, and `public.stories`. All six checks passed; this verifies
+schema registration, not remote execution of the earlier local test suite.
+
+### Remote TypeScript definitions
+
+The existing access-token binding works with the Management API even though
+the CLI is blocked by environment secret masking. Types were fetched with
+`GET /v1/projects/{ref}/types/typescript?included_schemas=public`, validated
+in a temporary file, formatted using the existing Biome installation, and
+atomically moved to `src/types/database.ts` only after success. No token or
+project identifier was written into the repository. The package script and
+dependency files were left unchanged.
+
+Compared with the previous local generation, the remote generator adds
+PostgREST version metadata (`14.18`), removes `ComputedFields` markers and the
+computed `messages.Row.compute_message_preview` pseudo-field, and adjusts
+JSON and RPC argument types. The `compute_message_preview` function remains
+in `Functions`. No application tables or stored columns were added or renamed.
+The formatted type diff contains 93 insertions and 58 deletions.
+
+Validation with these remote definitions completed successfully:
 
 ```text
-supabase projects list:
-AccessTokenRequiredError: Access token not provided. Supply an access token
-by running supabase login or setting the SUPABASE_ACCESS_TOKEN environment variable.
-
-supabase db push --yes:
-ProjectRefNotLinkedError: Cannot find project ref. Have you run supabase link?
-
-pnpm db:types:
-Supabase CLI usage/help output
-ELIFECYCLE Command failed with exit code 1.
+pnpm build: exit 0; TypeScript passed; Vite transformed 153 modules
+pnpm lint: exit 0; Checked 22 files. No fixes applied.
 ```
 
-The existing `db:types` script uses `SUPABASE_PROJECT_ID`; that value is unset.
-The installed CLI also exposes `--schema` as required for this invocation.
-The script's redirection was restored after failure. `src/types/database.ts`
-was subsequently generated successfully from the migrated **local** database
-with `--local --schema public`, and formatted using the existing Biome tool.
-The package script and dependency files were not changed.
+### Manual follow-ups
 
-Requirements for `SUPABASE_PROJECT_ID` and `SUPABASE_ACCESS_TOKEN` were saved
-in environment settings. The token's permitted destination is
-`api.supabase.com`, which was added to the network draft. Supply values there
-securely, review/save the settings and publish the environment configuration
-when appropriate. Saving the draft alone does not inject credentials or apply
-migrations.
+A read-only query of `storage.buckets` returned zero rows for the four required
+bucket IDs. The developer still needs to create all four as **private** buckets:
+`avatars`, `chat-media`, `story-media`, and `channel-media`. Their Storage
+policies are already included in the migrations.
 
-After those bindings are available, link the intended project and inspect its
-migration history before pushing. A database password or project database
-hostname allowance may also be needed depending on the connection route; test
-the existing authentication first. Stop on the first migration error. Only
-then regenerate the remote types with `pnpm db:types --schema public` (protect
-the existing file from failed redirection), and rerun build/lint. The local
-successful checks do not substitute for this remaining remote verification.
+Auth email templates still need manual configuration. Cleanup of orphaned
+Storage objects remains deferred: existing cron jobs delete metadata and do
+not remove the underlying stored files.
