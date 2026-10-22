@@ -13,9 +13,6 @@ dist/
 supabase/.branches/
 supabase/.temp/
 
-# Generated graph artifact (rebuild with `graphify .roadmap`)
-graphify-out/
-
 # OS
 .DS_Store
 Thumbs.db

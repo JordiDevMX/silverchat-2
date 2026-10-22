@@ -1,0 +1,116 @@
+{
+  ".roadmap/01-foundations.md": {
+    "mtime": 1792473894.886329,
+    "seen": 1792633142.370905,
+    "ast_hash": "96ce5eee57e04e427ee6678bcb4ad0f3",
+    "semantic_hash": "96ce5eee57e04e427ee6678bcb4ad0f3"
+  },
+  ".roadmap/02-stack-setup.md": {
+    "mtime": 1792473899.3959112,
+    "seen": 1792633142.370913,
+    "ast_hash": "c3e50f605a54dfd0493319355244a03e",
+    "semantic_hash": "c3e50f605a54dfd0493319355244a03e"
+  },
+  ".roadmap/03-design-system.md": {
+    "mtime": 1792546726.723499,
+    "seen": 1792633142.3709166,
+    "ast_hash": "3a4ebd0bcdce56f083599c9b9be383d2",
+    "semantic_hash": "3a4ebd0bcdce56f083599c9b9be383d2"
+  },
+  ".roadmap/04a-data-model-entities.md": {
+    "mtime": 1792548388.3574264,
+    "seen": 1792633142.3709185,
+    "ast_hash": "d7dc8d418d1f9e231f834a5c35123359",
+    "semantic_hash": "d7dc8d418d1f9e231f834a5c35123359"
+  },
+  ".roadmap/04b1-rls-policies.md": {
+    "mtime": 1792549116.6856477,
+    "seen": 1792633142.3709207,
+    "ast_hash": "a5fe3bd3c7716fde92c22d91a99a478e",
+    "semantic_hash": "a5fe3bd3c7716fde92c22d91a99a478e"
+  },
+  ".roadmap/04b2-business-logic-rpc.md": {
+    "mtime": 1792549382.2515883,
+    "seen": 1792633142.370922,
+    "ast_hash": "db37f40d76e5b902e5537217ca4fe980",
+    "semantic_hash": "db37f40d76e5b902e5537217ca4fe980"
+  },
+  ".roadmap/05-authentication.md": {
+    "mtime": 1792558333.9373345,
+    "seen": 1792633142.3709235,
+    "ast_hash": "32ffad1454b6a54db8556d4e75ade5f8",
+    "semantic_hash": "32ffad1454b6a54db8556d4e75ade5f8"
+  },
+  ".roadmap/06-profile-settings.md": {
+    "mtime": 1792559398.550843,
+    "seen": 1792633142.3709247,
+    "ast_hash": "f8d0bec3c074d0297146e28a9d0ba492",
+    "semantic_hash": "f8d0bec3c074d0297146e28a9d0ba492"
+  },
+  ".roadmap/07-chats-list.md": {
+    "mtime": 1792560231.8212407,
+    "seen": 1792633142.3709261,
+    "ast_hash": "dca167580b7adef3f71dbb23122e7eed",
+    "semantic_hash": "dca167580b7adef3f71dbb23122e7eed"
+  },
+  ".roadmap/08a-chat-layout-messages.md": {
+    "mtime": 1792614312.4171517,
+    "seen": 1792633142.3709276,
+    "ast_hash": "3a83ad33cde72ad5b1e4275d3fb90fae",
+    "semantic_hash": "3a83ad33cde72ad5b1e4275d3fb90fae"
+  },
+  ".roadmap/08b-message-actions.md": {
+    "mtime": 1792615945.89116,
+    "seen": 1792633142.370929,
+    "ast_hash": "3d25923f48eef16c01c06fedcc1d900b",
+    "semantic_hash": "3d25923f48eef16c01c06fedcc1d900b"
+  },
+  ".roadmap/09-contact-profile-chat-settings.md": {
+    "mtime": 1792616308.7151127,
+    "seen": 1792633142.3709304,
+    "ast_hash": "e0b3a1a6105fb96f325e42c3efb9e7f2",
+    "semantic_hash": "e0b3a1a6105fb96f325e42c3efb9e7f2"
+  },
+  ".roadmap/10-novedades-stories-channels.md": {
+    "mtime": 1792617113.4134638,
+    "seen": 1792633142.3709316,
+    "ast_hash": "98aa1cc7ca832b64251c11cf089a5141",
+    "semantic_hash": "98aa1cc7ca832b64251c11cf089a5141"
+  },
+  ".roadmap/11-communities.md": {
+    "mtime": 1792617750.0005963,
+    "seen": 1792633142.3709333,
+    "ast_hash": "e633b6a75bc8749d72d5e04c910b24a5",
+    "semantic_hash": "e633b6a75bc8749d72d5e04c910b24a5"
+  },
+  ".roadmap/12-calls.md": {
+    "mtime": 1792618166.6069157,
+    "seen": 1792633142.3709345,
+    "ast_hash": "24677d1f0f7f8929a45e59f8fe64583a",
+    "semantic_hash": "24677d1f0f7f8929a45e59f8fe64583a"
+  },
+  ".roadmap/13-pwa-offline.md": {
+    "mtime": 1792618975.5108175,
+    "seen": 1792633142.370936,
+    "ast_hash": "be27cc390b7e78a6d3bbf0e94daf981d",
+    "semantic_hash": "be27cc390b7e78a6d3bbf0e94daf981d"
+  },
+  ".roadmap/14-i18n-theme.md": {
+    "mtime": 1792619663.0058222,
+    "seen": 1792633142.3709373,
+    "ast_hash": "68b05bc1974ba2bc22d2ca0c3849ee57",
+    "semantic_hash": "68b05bc1974ba2bc22d2ca0c3849ee57"
+  },
+  ".roadmap/15-privacy-security.md": {
+    "mtime": 1792620007.2435117,
+    "seen": 1792633142.3709393,
+    "ast_hash": "90956541839da8030c9aba67ccbf210f",
+    "semantic_hash": "90956541839da8030c9aba67ccbf210f"
+  },
+  ".roadmap/16-deployment-metadata.md": {
+    "mtime": 1792620532.710591,
+    "seen": 1792633142.3709407,
+    "ast_hash": "0d220632844cc3bfd01f632aa5ecb6f7",
+    "semantic_hash": "0d220632844cc3bfd01f632aa5ecb6f7"
+  }
+}
