@@ -1,5 +1,10 @@
 # SilverChat backend foundation
 
+Authentication now adds migration `0004_auth_backup_codes.sql`; see
+[authentication deployment notes](../docs/authentication.md). It is locally
+validated but has not been applied remotely. The remote results below describe
+0001–0003 only. The new local schema has 22 application tables.
+
 Built from roadmap 01, 02, 04a, 04b-1 and 04b-2, after refreshing `main` to
 `bf12b71`. No roadmap files from 05 onward were read for this implementation.
 
@@ -28,6 +33,9 @@ place. This change adds no UI or application dependencies.
 | `0001_initial_schema.sql` | 21 tables, 13 named enums, FKs, checks, indexes, timestamp/signup triggers, nine config rows; RLS enabled immediately |
 | `0002_rls_policies.sql` | 13 security helpers, `profiles_visible`, all 58 listed application policies and 13 Storage policies, plus five restrictive policies and a message-update guard |
 | `0003_business_logic.sql` | Three policy replacements, channel last-message FK/index, preview helper, seven business trigger functions, 13 RPCs, five Realtime publication members, four cron jobs |
+
+`0004_auth_backup_codes.sql` adds backup codes, device uniqueness, service-only
+recovery RPCs, and MFA assurance gates. Apply it separately before deploying auth.
 
 ### Resolved inconsistencies in the specs
 

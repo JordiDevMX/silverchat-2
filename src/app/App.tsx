@@ -1,22 +1,39 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
-
-import { AuthProvider } from "./providers/auth-provider";
+import { useEffect } from "react";
+import { AppSkeleton, AuthFrame } from "@/features/auth/components";
+import { AuthProvider, useAuth } from "@/lib/auth-provider";
 import { I18nProvider } from "./providers/i18n-provider";
 import { ThemeProvider } from "./providers/theme-provider";
 import { router } from "./router";
 
 const queryClient = new QueryClient();
-
-// Prompt #2 §10 — initial providers tree. ThemeProvider/I18nProvider/AuthProvider
-// are stubs; real implementations arrive in Prompt #5 and Prompt #14.
+function AuthenticatedRouter() {
+  const auth = useAuth();
+  useEffect(() => {
+    if (auth.isLoading || auth.error || (auth.user && !auth.mfaRequired && !auth.profile)) return;
+    router.update({ context: { auth } });
+    void router.invalidate();
+  }, [auth]);
+  if (auth.error)
+    return (
+      <AuthFrame title="Let’s reconnect">
+        <p>{auth.error}</p>
+        <button className="button primary" type="button" onClick={() => window.location.reload()}>
+          Try again
+        </button>
+      </AuthFrame>
+    );
+  if (auth.isLoading || (auth.user && !auth.mfaRequired && !auth.profile)) return <AppSkeleton />;
+  return <RouterProvider router={router} context={{ auth }} />;
+}
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <I18nProvider>
           <AuthProvider>
-            <RouterProvider router={router} />
+            <AuthenticatedRouter />
           </AuthProvider>
         </I18nProvider>
       </ThemeProvider>
