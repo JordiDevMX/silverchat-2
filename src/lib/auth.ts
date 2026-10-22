@@ -1,5 +1,7 @@
 import type { RefreshBody, SessionPayload } from "@/features/auth/types";
 
+import { getDeviceName, getOrCreateDeviceFingerprint } from "./devices";
+
 let accessToken: string | null = null;
 let snapshot: SessionPayload | null = null;
 let refreshPromise: Promise<SessionPayload> | null = null;
@@ -72,7 +74,11 @@ export function refreshSession(body: RefreshBody = {}): Promise<SessionPayload> 
   const version = epoch;
   const task = withSessionLock(async () => {
     try {
-      const data = await authApi<SessionPayload>("refresh", body);
+      const data = await authApi<SessionPayload>("refresh", {
+        ...body,
+        device_fingerprint: getOrCreateDeviceFingerprint(),
+        device_name: getDeviceName(),
+      });
       if (!data.accessToken || !data.user?.id || !data.expiresAt)
         throw new Error("Invalid session response");
       if (version !== epoch) throw new Error("Session changed");
@@ -114,4 +120,19 @@ export async function logoutSession(all = false) {
       setAccessToken(null);
     }
   });
+}
+
+export async function signOutOtherDevices() {
+  return withSessionLock(() => authApi("logout-all", { scope: "others" }));
+}
+
+const beforeSignOut = new Set<() => Promise<void>>();
+export function registerBeforeSignOut(callback: () => Promise<void>) {
+  beforeSignOut.add(callback);
+  return () => {
+    beforeSignOut.delete(callback);
+  };
+}
+export async function settleBeforeSignOut() {
+  await Promise.all([...beforeSignOut].map((callback) => callback()));
 }

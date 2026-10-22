@@ -412,3 +412,97 @@ test("backup regeneration requires fresh TOTP and submits ten hashes atomically"
   assert.equal(allowed.status, 200);
   assert.equal(replaced, true);
 });
+
+test("sign out others preserves current cookie and sends JWT with others scope", async () => {
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith("/user")) return response(user);
+    assert.ok(String(input).includes("scope=others"));
+    return new Response(null, { status: 204 });
+  };
+  const req = request("logout-all", { scope: "others" }, true, true);
+  req.headers.set("Authorization", `Bearer ${token("aal2")}`);
+  const result = await logout(req);
+  assert.equal(result.status, 200);
+  assert.equal(result.headers.get("set-cookie"), null);
+});
+test("failed other-device revocation never clears current cookie", async () => {
+  globalThis.fetch = async (input) =>
+    String(input).endsWith("/user") ? response(user) : response({ message: "unavailable" }, 503);
+  const req = request("logout-all", { scope: "others" }, true, true);
+  req.headers.set("Authorization", `Bearer ${token("aal2")}`);
+  const result = await logout(req);
+  assert.equal(result.status, 503);
+  assert.equal(result.headers.get("set-cookie"), null);
+});
+test("pending MFA cannot revoke other sessions", async () => {
+  globalThis.fetch = async (input) => {
+    assert.ok(String(input).endsWith("/user"));
+    return response(user);
+  };
+  const result = await logout(request("logout-all", { scope: "others" }, true, true));
+  assert.equal(result.status, 403);
+  assert.equal(result.headers.get("set-cookie"), null);
+});
+test("refresh registers a fingerprint without persisting tokens", async () => {
+  let registered = false;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/token")) return response(session("aal2"));
+    if (url.endsWith("/user")) return response(user);
+    assert.ok(url.includes("/devices"));
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.user_id, userId);
+    assert.equal(body.device_fingerprint, challengeId);
+    assert.equal(body.device_name, "Test browser");
+    assert.equal(body.access_token, undefined);
+    assert.equal(body.refresh_token, undefined);
+    assert.ok(url.includes("on_conflict=user_id%2Cdevice_fingerprint"));
+    registered = true;
+    return response(null, 201);
+  };
+  assert.equal(
+    (
+      await refresh(
+        request("refresh", { device_fingerprint: challengeId, device_name: "Test browser" }),
+      )
+    ).status,
+    200,
+  );
+  assert.ok(registered);
+});
+test("email change uses refreshed cookie session and returns only public session", async () => {
+  let changed = false;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/token")) return response(session("aal2"));
+    if (init?.method === "PUT") {
+      assert.ok(url.includes("/user"));
+      assert.equal(new Headers(init.headers).get("authorization"), `Bearer ${token("aal2")}`);
+      assert.equal(JSON.parse(String(init.body)).email, "new@example.test");
+      assert.ok(url.includes("redirect_to="));
+      changed = true;
+      return response({ ...user, new_email: "new@example.test" });
+    }
+    return response(user);
+  };
+  const result = await refresh(
+    request("refresh", { action: "change_email", email: "new@example.test" }),
+  );
+  assert.equal(result.status, 200);
+  assert.ok(changed);
+  assert.ok(result.headers.get("set-cookie")?.includes("rotated-first"));
+  const body = await result.json();
+  assert.equal(body.refresh_token, undefined);
+  assert.equal(body.user.email, user.email);
+});
+test("pending MFA cannot change email", async () => {
+  globalThis.fetch = async (input, init) => {
+    assert.notEqual(init?.method, "PUT");
+    return String(input).includes("/token") ? response(session()) : response(user);
+  };
+  assert.equal(
+    (await refresh(request("refresh", { action: "change_email", email: "new@example.test" })))
+      .status,
+    403,
+  );
+});

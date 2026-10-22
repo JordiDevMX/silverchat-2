@@ -19,8 +19,10 @@ import {
   logoutSession,
   refreshSession,
   SESSION_EXPIRED,
+  settleBeforeSignOut,
   subscribeSession,
 } from "./auth";
+import { getDeviceName, getOrCreateDeviceFingerprint } from "./devices";
 import { supabase } from "./supabase";
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -111,16 +113,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const mfaRequired = session?.mfaRequired ?? false;
   useEffect(() => {
     if (!id || mfaRequired) return;
-    const agent = navigator.userAgent;
-    const name = /Edg\//.test(agent)
-      ? "Edge"
-      : /Firefox\//.test(agent)
-        ? "Firefox"
-        : /Chrome\//.test(agent)
-          ? "Chrome"
-          : /Safari\//.test(agent)
-            ? "Safari"
-            : "Web browser";
+    const fingerprint = getOrCreateDeviceFingerprint();
     const update = async () => {
       if (document.visibilityState !== "visible" || !getAccessToken()) return;
       const now = new Date().toISOString();
@@ -130,24 +123,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
           .from("devices")
           .update({ last_active_at: now })
           .eq("user_id", id)
-          .eq("user_agent", agent),
+          .eq("device_fingerprint", fingerprint ?? ""),
       ]);
       if (results.some((r) => r.error)) console.error("Presence update failed");
     };
-    // INSERT + UPDATE respects the existing column grants; upsert would also UPDATE user_id.
-    void supabase
-      .from("devices")
-      .insert({ user_id: id, device_name: name, device_type: "web", user_agent: agent })
-      .then(({ error }) => {
-        if (error && error.code !== "23505") console.error("Device registration failed");
-        void update();
-      });
+    void update();
     const timer = window.setInterval(() => {
       void update();
     }, 60_000);
     return () => clearInterval(timer);
   }, [id, mfaRequired]);
   const signOut = async (all = false) => {
+    await settleBeforeSignOut();
     try {
       await logoutSession(all);
     } finally {
@@ -186,7 +173,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
         completeMfa,
         completeMfaWithBackupCode,
         signIn: async (email, mode, redirect, turnstileToken) => {
-          await authApi("signin", { email, mode, redirect, turnstileToken });
+          await authApi("signin", {
+            email,
+            mode,
+            redirect,
+            turnstileToken,
+            device_fingerprint: getOrCreateDeviceFingerprint(),
+            device_name: getDeviceName(),
+          });
         },
       }}
     >

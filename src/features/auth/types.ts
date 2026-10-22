@@ -14,7 +14,8 @@ export interface SessionPayload {
 export interface RefreshBody {
   totp_code?: string;
   factor_id?: string;
-  action?: "refresh" | "enroll" | "disable" | "replace_backups";
+  action?: "refresh" | "enroll" | "disable" | "replace_backups" | "change_email";
+  email?: string;
   backup_hashes?: string[];
 }
 export interface AuthState {

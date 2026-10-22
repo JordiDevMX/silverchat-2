@@ -14,14 +14,14 @@ export default async function handler(req: Request): Promise<Response> {
   const code = url.searchParams.get("code");
   const hash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type");
-  if (!code && (!hash || !["email", "signup", "magiclink"].includes(type ?? "")))
+  if (!code && (!hash || !["email", "signup", "magiclink", "email_change"].includes(type ?? "")))
     return redirect("/auth/error?code=missing_token");
   try {
     const result = code
       ? await pkceClient(req, headers).auth.exchangeCodeForSession(code)
       : await anonClient().auth.verifyOtp({
           token_hash: hash ?? "",
-          type: type as "email" | "signup" | "magiclink",
+          type: type as "email" | "signup" | "magiclink" | "email_change",
         });
     if (result.error || !result.data.session)
       return redirect(

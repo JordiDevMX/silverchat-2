@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import tailwindcss from "@tailwindcss/vite";
@@ -11,6 +12,11 @@ const alias = {
 };
 
 export default defineConfig({
+  define: {
+    "import.meta.env.VITE_APP_VERSION": JSON.stringify(
+      JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version,
+    ),
+  },
   plugins: [react(), tailwindcss()],
   resolve: { alias },
 });

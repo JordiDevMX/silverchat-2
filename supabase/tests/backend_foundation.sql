@@ -1,4 +1,4 @@
--- Run against a disposable Supabase DB, after 0001 -> 0002 -> 0003 -> 0004.
+-- Run against a disposable Supabase DB after migrations 0001 through 0006.
 -- psql -X -v ON_ERROR_STOP=1 --file supabase/tests/backend_foundation.sql
 -- All fixtures and helper functions roll back. No additional extensions needed.
 BEGIN;
@@ -206,7 +206,7 @@ INSERT INTO public.stories(id,user_id,media_type,text_content,expires_at)
  VALUES ('55555555-5555-4555-8555-555555555555','11111111-1111-4111-8111-111111111111','text','Expired',now()-interval '2 hours');
 INSERT INTO public.file_uploads(uploader_id,bucket,path,original_filename,mime_type,size_bytes,created_at,status)
  VALUES ('11111111-1111-4111-8111-111111111111','avatars','backend-old-pending','pending.webp','image/webp',100,now()-interval '2 hours','pending'),
-        ('11111111-1111-4111-8111-111111111111','avatars','backend-old-orphan','orphan.webp','image/webp',100,now()-interval '8 days','completed');
+        ('11111111-1111-4111-8111-111111111111','chat-media','backend-old-orphan','orphan.webp','image/webp',100,now()-interval '8 days','completed');
 DO $$
 DECLARE job record;
 BEGIN
