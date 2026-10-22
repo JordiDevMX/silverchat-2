@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import type { Context } from "@netlify/functions";
-import { buildSetCookie, parseCookies } from "../netlify/functions/_lib/cookies.ts";
+import {
+  buildSetCookie,
+  parseCookies,
+  REDIRECT_COOKIE,
+} from "../netlify/functions/_lib/cookies.ts";
 import { safeRedirect } from "../netlify/functions/_lib/cors.ts";
 import { resendGrant, validResend } from "../netlify/functions/_lib/resend.ts";
 import backup, { allowAttempt } from "../netlify/functions/auth-backup-code-verify.ts";
@@ -208,6 +212,7 @@ test("token-hash callback sets cookie, no-store, and preserves safe destination"
   const result = await callback(
     new Request(
       "https://silverchat.test/api/auth/callback?token_hash=test&type=email&redirect=%2Fchats%3Ftab%3Dmedia",
+      { headers: { Cookie: `${REDIRECT_COOKIE}=${encodeURIComponent("/chats?tab=media")}` } },
     ),
   );
   assert.equal(result.status, 303);
@@ -505,4 +510,170 @@ test("pending MFA cannot change email", async () => {
       .status,
     403,
   );
+});
+
+test("login, signup and signed resend use the exact callback URL and a consumed destination cookie", async () => {
+  const email = "redirect@example.test";
+  const destination = "/chats?tab=media#last";
+  for (const mode of ["login", "signup", "resend"] as const) {
+    let requestedCallback = "";
+    let captchaCalls = 0;
+    let verifier = "";
+    let issuedAccessToken = "";
+    globalThis.fetch = async (input, init) => {
+      const url = new URL(String(input));
+      if (url.hostname === "challenges.cloudflare.com") {
+        captchaCalls++;
+        return response({ success: true, hostname: "silverchat.test", action: "signup" });
+      }
+      if (url.pathname.endsWith("/otp")) {
+        requestedCallback = url.searchParams.get("redirect_to") ?? "";
+        assert.equal(requestedCallback, "https://silverchat.test/api/auth/callback");
+        assert.equal(new URL(requestedCallback).search, "");
+        const body = JSON.parse(String(init?.body));
+        assert.equal(body.create_user, mode !== "login");
+        assert.equal(body.code_challenge_method, "s256");
+        return response({});
+      }
+      assert.equal(url.searchParams.get("grant_type"), "pkce");
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.auth_code, "email-code");
+      assert.equal(body.code_verifier, verifier);
+      const issued = session();
+      issuedAccessToken = issued.access_token;
+      return response(issued);
+    };
+    const req = request("signin", {
+      email,
+      mode,
+      redirect: destination,
+      ...(mode === "signup" ? { turnstileToken: "verified" } : {}),
+    });
+    const grant = resendGrant(email);
+    if (mode === "resend") req.headers.set("Cookie", `sb-resend=${encodeURIComponent(grant)}`);
+    const sent = await signin(req, context);
+    assert.equal(sent.status, 200);
+    assert.equal(captchaCalls, mode === "signup" ? 1 : 0);
+    const cookies = sent.headers.getSetCookie();
+    const destinationCookie = cookies.find((value) => value.startsWith(`${REDIRECT_COOKIE}=`));
+    assert.ok(destinationCookie);
+    assert.equal(parseCookies(destinationCookie)[REDIRECT_COOKIE], destination);
+    for (const flag of ["Path=/", "HttpOnly", "Secure", "SameSite=Lax", "Max-Age=600"])
+      assert.ok(destinationCookie.includes(flag));
+    const resendCookie = cookies.find((value) => value.startsWith("sb-resend="));
+    if (mode === "signup")
+      assert.ok(validResend(parseCookies(resendCookie ?? null)["sb-resend"], email));
+    else assert.equal(resendCookie, undefined);
+    const cookieHeader = cookies.map((value) => value.split(";")[0]).join("; ");
+    const encodedVerifier = parseCookies(cookieHeader)["sb-pkce-code-verifier"] ?? "";
+    assert.ok(encodedVerifier.startsWith("base64-"));
+    verifier = JSON.parse(Buffer.from(encodedVerifier.slice(7), "base64url").toString());
+    const result = await callback(
+      new Request(`${requestedCallback}?code=email-code&redirect=/settings`, {
+        headers: { Cookie: cookieHeader },
+      }),
+    );
+    assert.equal(result.status, 303);
+    const final = new URL(result.headers.get("location") ?? "");
+    assert.equal(final.pathname, "/auth/post-login");
+    assert.equal(final.searchParams.get("redirect"), destination);
+    assert.equal(final.searchParams.get("at"), issuedAccessToken);
+    assert.ok(result.headers.getSetCookie().includes(clearRedirectCookie()));
+    assert.ok(
+      result.headers
+        .getSetCookie()
+        .some((value) => value.startsWith("sb-refresh-token=rotated-first;")),
+    );
+  }
+});
+function clearRedirectCookie() {
+  return buildSetCookie(REDIRECT_COOKIE, "", 0);
+}
+test("callback defaults missing, malformed or unsafe destination cookies to chats and ignores URL destinations", async () => {
+  globalThis.fetch = async () => response(session());
+  for (const value of [
+    undefined,
+    "",
+    "%ZZ",
+    encodeURIComponent("https://evil.test"),
+    encodeURIComponent("//evil.test"),
+    encodeURIComponent("/auth/login"),
+    encodeURIComponent("/api/auth/logout"),
+    encodeURIComponent("/chats\n"),
+  ]) {
+    const result = await callback(
+      new Request(
+        "https://silverchat.test/api/auth/callback?token_hash=test&type=email&redirect=/settings",
+        {
+          headers: value === undefined ? {} : { Cookie: `${REDIRECT_COOKIE}=${value}` },
+        },
+      ),
+    );
+    assert.equal(result.status, 303);
+    assert.equal(
+      new URL(result.headers.get("location") ?? "").searchParams.get("redirect"),
+      "/chats",
+    );
+    assert.ok(result.headers.getSetCookie().includes(clearRedirectCookie()));
+  }
+});
+test("callback clears the destination cookie for missing, invalid, expired and rejected requests", async () => {
+  const cookie = `${REDIRECT_COOKIE}=${encodeURIComponent("/settings")}`;
+  const cases = [
+    { path: "", method: "GET", status: 303, error: "missing_token" },
+    { path: "?token_hash=test&type=recovery", method: "GET", status: 303, error: "missing_token" },
+    { path: "?token_hash=test&type=email", method: "GET", status: 303, error: "invalid_token" },
+    { path: "?token_hash=expired&type=email", method: "GET", status: 303, error: "expired_token" },
+    { path: "?code=test", method: "POST", status: 405, error: null },
+    { path: "?code=test", method: "GET", status: 403, error: null, origin: "https://evil.test" },
+  ];
+  globalThis.fetch = async (_input, init) => {
+    const result = response(
+      {
+        code:
+          JSON.parse(String(init?.body)).token_hash === "expired" ? "otp_expired" : "otp_disabled",
+        msg: "Invalid or expired token",
+      },
+      403,
+    );
+    result.headers.set("x-supabase-api-version", "2024-01-01");
+    return result;
+  };
+  for (const sample of cases) {
+    const result = await callback(
+      new Request(`https://silverchat.test/api/auth/callback${sample.path}`, {
+        method: sample.method,
+        headers: { Cookie: cookie, ...(sample.origin ? { Origin: sample.origin } : {}) },
+      }),
+    );
+    assert.equal(result.status, sample.status);
+    if (sample.error)
+      assert.equal(
+        new URL(result.headers.get("location") ?? "").searchParams.get("code"),
+        sample.error,
+      );
+    assert.ok(result.headers.getSetCookie().includes(clearRedirectCookie()));
+    assert.equal(
+      result.headers.getSetCookie().some((value) => value.startsWith("sb-refresh-token=")),
+      false,
+    );
+    assert.equal(result.headers.get("cache-control"), "no-store");
+  }
+});
+test("signin sanitizes an external destination before storing the cookie", async () => {
+  globalThis.fetch = async (input) => {
+    assert.equal(
+      new URL(String(input)).searchParams.get("redirect_to"),
+      "https://silverchat.test/api/auth/callback",
+    );
+    return response({});
+  };
+  const result = await signin(
+    request("signin", { email: "person@example.test", redirect: "https://evil.test" }),
+    context,
+  );
+  const cookie = result.headers
+    .getSetCookie()
+    .find((value) => value.startsWith(`${REDIRECT_COOKIE}=`));
+  assert.equal(parseCookies(cookie ?? null)[REDIRECT_COOKIE], "/chats");
 });

@@ -1,15 +1,28 @@
-import { buildSetCookie, COOKIE_MAX_AGE, REFRESH_COOKIE } from "./_lib/cookies.ts";
+import {
+  buildSetCookie,
+  COOKIE_MAX_AGE,
+  clearCookie,
+  parseCookies,
+  REDIRECT_COOKIE,
+  REFRESH_COOKIE,
+} from "./_lib/cookies.ts";
 import { safeRedirect, verifyOrigin } from "./_lib/cors.ts";
 import { anonClient, pkceClient, required } from "./_lib/supabase-admin.ts";
 export default async function handler(req: Request): Promise<Response> {
   const headers = new Headers({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
+  // Consume the destination on every outcome, including invalid or expired links.
+  headers.append("Set-Cookie", clearCookie(REDIRECT_COOKIE));
   const redirect = (path: string) => {
     headers.set("Location", new URL(path, required("SITE_URL")).href);
     return new Response(null, { status: 303, headers });
   };
-  if (req.method !== "GET") return new Response(null, { status: 405, headers: { Allow: "GET" } });
+  if (req.method !== "GET") {
+    headers.set("Allow", "GET");
+    return new Response(null, { status: 405, headers });
+  }
   // Email navigations have no Origin. Validate it when supplied; POSTs always require it.
-  if (req.headers.has("origin") && !verifyOrigin(req)) return new Response(null, { status: 403 });
+  if (req.headers.has("origin") && !verifyOrigin(req))
+    return new Response(null, { status: 403, headers });
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const hash = url.searchParams.get("token_hash");
@@ -34,7 +47,7 @@ export default async function handler(req: Request): Promise<Response> {
     );
     const search = new URLSearchParams({
       at: session.access_token,
-      redirect: safeRedirect(url.searchParams.get("redirect")),
+      redirect: safeRedirect(parseCookies(req.headers.get("cookie"))[REDIRECT_COOKIE] || "/chats"),
     });
     return redirect(`/auth/post-login?${search}`);
   } catch {

@@ -1,4 +1,5 @@
 export const REFRESH_COOKIE = "sb-refresh-token";
+export const REDIRECT_COOKIE = "sb-redirect";
 export const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 export function buildSetCookie(name: string, value: string, maxAgeSeconds: number): string {
   return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
