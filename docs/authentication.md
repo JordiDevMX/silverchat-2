@@ -116,8 +116,14 @@ included in the frontend or Functions configuration.
 In Supabase Auth settings:
 
 1. Enable email OTP/magic links and TOTP MFA; keep default email templates.
-2. Set the site URL and allow the HTTPS callback URL, including its redirect
-   query parameters (for example `https://your-site.netlify.app/api/auth/callback**`).
+2. Allow the exact callback URL (for example
+   `https://your-site.netlify.app/api/auth/callback`). The BFF sends this URL
+   without query parameters; the requested destination travels in the ten-minute
+   HttpOnly `sb-redirect` cookie instead. Existing exact callback allowlist entries
+   need no changes for this fix. The callback revalidates and consumes the cookie
+   on success or error, defaults to `/chats` when it is missing or unsafe, and
+   ignores destination query parameters. PKCE still requires the browser that
+   requested the email; the most recent request in that browser sets the destination.
 3. Explicitly set email OTP expiry to **600 seconds**. Ten minutes is a product
    setting, not a guaranteed Supabase default.
 4. Review actual Auth rate limits and email delivery quotas. The prompt's
