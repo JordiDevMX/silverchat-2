@@ -14,7 +14,8 @@
     "db:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > src/types/database.ts",
     "test:auth": "node --experimental-strip-types --test tests/auth*.test.ts",
     "test:settings": "node --experimental-strip-types --test tests/settings.test.ts",
-    "test:chats": "node --experimental-strip-types --test tests/chats.test.ts"
+    "test:chats": "node --experimental-strip-types --test tests/chats.test.ts",
+    "test:messages": "node --experimental-strip-types --test tests/messages.test.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
@@ -25,6 +26,9 @@
     "@tanstack/react-query": "^5.104.5",
     "@tanstack/react-router": "^1.170.45",
     "browser-image-compression": "^2.0.2",
+    "frimousse": "^0.4.0",
+    "linkify-react": "^4.3.3",
+    "linkifyjs": "^4.3.3",
     "lucide-react": "^1.60.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
