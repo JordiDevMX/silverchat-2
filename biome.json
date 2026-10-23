@@ -13,6 +13,16 @@
       "!**/graphify-out",
       "!**/.opencode",
       "!**/src/types/database.ts"
+    ],
+    "ignore": [
+      "dist",
+      "node_modules",
+      ".netlify",
+      "src/types/database.ts",
+      ".agents",
+      ".claude",
+      "skills",
+      "*.md"
     ]
   },
   "css": {
