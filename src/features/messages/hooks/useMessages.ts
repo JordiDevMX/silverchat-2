@@ -48,7 +48,8 @@ export async function enrichMessages(rows: MessageRow[], userId: string): Promis
         .from("message_reactions")
         .select("*")
         .in("message_id", ids)
-        .order("id")
+        .order("message_id")
+        .order("user_id")
         .range(from, to),
     ),
   ]);
