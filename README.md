@@ -81,3 +81,12 @@ pinned messages, and voice notes with exclusive playback. Apply **migration 0010
 after 0001–0009** before deploying. See the [deployment notes and checklist](docs/message-actions.md).
 Run `pnpm test:message-actions` alongside the existing checks. No extra library
 is required; voice waveforms use SVG and native audio.
+
+## Contact profiles and chat settings
+
+Prompt 09 adds contact modals, chat menus, group administration, reporting,
+shared media/files, and personal clear-chat. Apply **migration 0011 after
+0001–0010** manually in the SQL Editor before deploying this frontend. See the
+[deployment notes and manual checklist](docs/chat-settings.md). Run
+`pnpm test:chat-settings` alongside the existing checks. Calls remain part of
+Prompt 12. No new dependencies are required.

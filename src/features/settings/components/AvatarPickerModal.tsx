@@ -10,8 +10,10 @@ export function AvatarPickerModal({
   profile,
   onClose,
   onSaved,
+  onSave,
 }: {
-  profile: Profile;
+  profile: Pick<Profile, "id" | "avatar_url">;
+  onSave?: (file: File | null) => Promise<{ cleanupPending: boolean }>;
   onClose: () => void;
   onSaved: (warning: boolean) => void;
 }) {
@@ -47,8 +49,10 @@ export function AvatarPickerModal({
     void action.run(async () => {
       if (!remove && !area) return;
       const file = remove ? null : await cropAvatar(source, area as Area);
-      const result = await saveAvatar(profile.id, file, profile.avatar_url);
-      await refresh();
+      const result = onSave
+        ? await onSave(file)
+        : await saveAvatar(profile.id, file, profile.avatar_url);
+      if (!onSave) await refresh();
       onSaved(result.cleanupPending);
       onClose();
     });

@@ -47,7 +47,7 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
   const lastIds = memberships.flatMap((m) =>
     m.chat.last_message_id ? [m.chat.last_message_id] : [],
   );
-  const [members, unread, lastReceipts, blocks] = await Promise.all([
+  const [members, unread, lastReceipts, blocks, hidden] = await Promise.all([
     Promise.all(
       chunks(ids).map((part) =>
         allRows((from, to) =>
@@ -96,7 +96,21 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
         .order("blocked_id")
         .range(from, to),
     ),
+    Promise.all(
+      chunks(lastIds).map((part) =>
+        allRows((from, to) =>
+          supabase
+            .from("message_deletions")
+            .select("message_id")
+            .eq("user_id", userId)
+            .in("message_id", part)
+            .order("message_id")
+            .range(from, to),
+        ),
+      ),
+    ).then((rows) => rows.flat()),
   ]);
+  const hiddenIds = new Set(hidden.map((row) => row.message_id));
   const people = [
     ...new Set([
       ...members.map((m) => m.user_id),
@@ -134,6 +148,7 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
   return orderChats(
     memberships.map((m) => {
       const c = m.chat;
+      const cleared = !!c.last_message_id && hiddenIds.has(c.last_message_id);
       const others = members.filter(
         (member) => member.chat_id === c.id && member.user_id !== userId,
       );
@@ -179,18 +194,19 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
         ),
         senderName: sender?.display_name ?? "Someone",
         lastMessageAt: c.last_message_at,
-        lastMessagePreview: c.last_message_preview,
-        lastMessageType: c.last_message?.type ?? null,
+        lastMessagePreview: cleared ? null : c.last_message_preview,
+        lastMessageType: cleared ? null : (c.last_message?.type ?? null),
         lastMessageStatus:
-          c.last_message?.sender_id === userId
+          !cleared && c.last_message?.sender_id === userId
             ? receiptStatus(
                 lastReceipts.filter((r) => r.message_id === c.last_message_id),
                 recipients,
               )
             : null,
         deletedForEveryone:
-          !!c.last_message?.deleted_for_everyone ||
-          (!c.last_message && c.last_message_preview === "This message was deleted"),
+          !cleared &&
+          (!!c.last_message?.deleted_for_everyone ||
+            (!c.last_message && c.last_message_preview === "This message was deleted")),
         isMyLastMessage: c.last_message?.sender_id === userId,
         unreadCount: unread.filter((r) => r.messages.chat_id === c.id).length,
         manuallyUnread: m.manually_unread,

@@ -19,6 +19,11 @@ export type Message = MessageRow & {
   clientId?: string;
 };
 export interface ChatDetails {
+  status: Tables["chats"]["Row"]["status"];
+  createdBy: string | null;
+  createdAt: string;
+  description: string | null;
+  otherUserId?: string;
   id: string;
   type: Tables["chats"]["Row"]["type"];
   name: string;

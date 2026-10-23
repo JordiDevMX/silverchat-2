@@ -1483,6 +1483,7 @@ export type Database = {
     Functions: {
       accept_chat_request: { Args: { p_request_id: string }; Returns: undefined };
       add_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
+      add_chat_members: { Args: { p_chat_id: string; p_user_ids: string[] }; Returns: number };
       auth_mfa_satisfied: { Args: Record<PropertyKey, never>; Returns: boolean };
       can_access_chat_message: {
         Args: { p_include_deleted?: boolean; p_message_id: string };
@@ -1491,6 +1492,7 @@ export type Database = {
       can_view_avatar: { Args: { p_owner: string; p_viewer: string }; Returns: boolean };
       can_view_story: { Args: { p_owner: string; p_viewer: string }; Returns: boolean };
       cancel_account_deletion: { Args: Record<PropertyKey, never>; Returns: undefined };
+      clear_chat_for_me: { Args: { p_chat_id: string }; Returns: number };
       compute_message_preview: {
         Args: {
           m: Omit<
@@ -1519,6 +1521,7 @@ export type Database = {
       delete_direct_chat_for_me: { Args: { p_chat_id: string }; Returns: undefined };
       delete_message_for_everyone: { Args: { p_message_id: string }; Returns: undefined };
       delete_self_chat: { Args: { p_chat_id: string }; Returns: undefined };
+      demote_chat_admin: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
       follow_channel: { Args: { p_channel_id: string }; Returns: undefined };
       forward_chat_message: {
         Args: { p_chat_ids: string[]; p_message_id: string; p_message_ids: string[] };
@@ -1576,12 +1579,18 @@ export type Database = {
       mark_chat_as_read: { Args: { p_chat_id: string }; Returns: undefined };
       mark_chat_as_unread: { Args: { p_chat_id: string }; Returns: undefined };
       own_upload_is_referenced: { Args: { p_upload_id: string }; Returns: boolean };
+      promote_chat_admin: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
       reject_chat_request: { Args: { p_request_id: string }; Returns: undefined };
+      remove_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
       replace_backup_codes: { Args: { p_hashes: string[]; p_user_id: string }; Returns: undefined };
       schedule_account_deletion: { Args: Record<PropertyKey, never>; Returns: string };
       set_message_pin: { Args: { p_message_id: string; p_pin: boolean }; Returns: undefined };
       set_message_reaction: {
         Args: { p_emoji?: string; p_message_id: string };
+        Returns: undefined;
+      };
+      update_group_info: {
+        Args: { p_avatar_url?: string; p_chat_id: string; p_description?: string; p_name?: string };
         Returns: undefined;
       };
     };

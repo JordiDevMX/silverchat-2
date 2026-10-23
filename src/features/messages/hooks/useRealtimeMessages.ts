@@ -17,6 +17,7 @@ export function useRealtimeMessages(chatId: string) {
           detailKey(userId, chatId),
           ["chats", userId],
           ["pinned", userId, chatId],
+          ["shared-media", userId, chatId],
           ["reply-draft", userId, chatId],
         ])
           void cache.invalidateQueries({ queryKey: key });
