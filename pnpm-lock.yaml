@@ -32,6 +32,12 @@ importers:
       browser-image-compression:
         specifier: ^2.0.2
         version: 2.0.2
+      frimousse:
+        specifier: ^0.4.0
+        version: 0.4.0(react@19.3.1)(typescript@6.0.3)
+      linkify-react:
+        specifier: ^4.4.0
+        version: 4.4.0(linkifyjs@4.4.0)(react@19.3.1)
       lucide-react:
         specifier: ^1.60.0
         version: 1.61.0(@types/react@19.3.0)(react@19.3.1)
@@ -677,6 +683,15 @@ packages:
       picomatch:
         optional: true
 
+  frimousse@0.4.0:
+    resolution: {integrity: sha512-wA/1Xt9UTk51wYNpy+EvHKPUA4jdm4NuEFzSNNZxqT0Nxrj4RFwYByjRMuaq4qSLOco/ikDCpLKesB8W1w2q+Q==}
+    peerDependencies:
+      react: ^18 || ^19
+      typescript: '>=5.1.0'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -850,6 +865,15 @@ packages:
   lightningcss@1.33.0:
     resolution: {integrity: sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==}
     engines: {node: '>= 12.0.0'}
+
+  linkify-react@4.4.0:
+    resolution: {integrity: sha512-7mST+yaoW15MujtQYTM7TtSEqTnnBw1TUBVO8mIgn1za0RZfEQdGDLe1avTlxP58LJ9/Bu1pFvbGyDJMz8QX2A==}
+    peerDependencies:
+      linkifyjs: 4.4.0
+      react: '>= 15.0.0'
+
+  linkifyjs@4.4.0:
+    resolution: {integrity: sha512-InTexvtbai+2c+dEVGcc6O6P2DMVIiwD9a/i4zFroazOIYLOS6FSVmAJ7kFeumnCMx6/gQqNAkbUvgMubV4+MA==}
 
   lucide-react@1.61.0:
     resolution: {integrity: sha512-v2SQPPPNjnr+BlhL9Spuzmo5yR+hLkftfuE4E3jaxdNPgSH0hJKPcLJBP7yAta87jQNPsSERS59PJjCJ/CorBA==}
@@ -1407,6 +1431,12 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.7
 
+  frimousse@0.4.0(react@19.3.1)(typescript@6.0.3):
+    dependencies:
+      react: 19.3.1
+    optionalDependencies:
+      typescript: 6.0.3
+
   fsevents@2.3.3:
     optional: true
 
@@ -1519,6 +1549,13 @@ snapshots:
       lightningcss-linux-x64-musl: 1.33.0
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
+
+  linkify-react@4.4.0(linkifyjs@4.4.0)(react@19.3.1):
+    dependencies:
+      linkifyjs: 4.4.0
+      react: 19.3.1
+
+  linkifyjs@4.4.0: {}
 
   lucide-react@1.61.0(@types/react@19.3.0)(react@19.3.1):
     dependencies:

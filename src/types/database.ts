@@ -868,6 +868,8 @@ export type Database = {
           id: string;
           is_pinned_in_chat: boolean;
           location_data: Json | null;
+          media_thumbnail_upload_id: string | null;
+          mentions: string[] | null;
           reply_to_message_id: string | null;
           sender_id: string | null;
           type: Database["public"]["Enums"]["message_type"];
@@ -887,6 +889,8 @@ export type Database = {
           id?: string;
           is_pinned_in_chat?: boolean;
           location_data?: Json | null;
+          media_thumbnail_upload_id?: string | null;
+          mentions?: string[] | null;
           reply_to_message_id?: string | null;
           sender_id?: string | null;
           type?: Database["public"]["Enums"]["message_type"];
@@ -904,6 +908,8 @@ export type Database = {
           id?: string;
           is_pinned_in_chat?: boolean;
           location_data?: Json | null;
+          media_thumbnail_upload_id?: string | null;
+          mentions?: string[] | null;
           reply_to_message_id?: string | null;
           sender_id?: string | null;
           type?: Database["public"]["Enums"]["message_type"];
@@ -926,6 +932,13 @@ export type Database = {
           {
             foreignKeyName: "messages_file_upload_id_fkey";
             columns: ["file_upload_id"];
+            isOneToOne: false;
+            referencedRelation: "file_uploads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_media_thumbnail_upload_id_fkey";
+            columns: ["media_thumbnail_upload_id"];
             isOneToOne: false;
             referencedRelation: "file_uploads";
             referencedColumns: ["id"];
@@ -1491,6 +1504,34 @@ export type Database = {
       delete_message_for_everyone: { Args: { p_message_id: string }; Returns: undefined };
       delete_self_chat: { Args: { p_chat_id: string }; Returns: undefined };
       follow_channel: { Args: { p_channel_id: string }; Returns: undefined };
+      get_chat_messages: {
+        Args: { p_before_at?: string; p_before_id?: string; p_chat_id: string };
+        Returns: {
+          channel_id: string | null;
+          chat_id: string | null;
+          contact_data: Json | null;
+          content: string | null;
+          created_at: string;
+          deleted_at: string | null;
+          deleted_for_everyone: boolean;
+          edited_at: string | null;
+          file_upload_id: string | null;
+          id: string;
+          is_pinned_in_chat: boolean;
+          location_data: Json | null;
+          media_thumbnail_upload_id: string | null;
+          mentions: string[] | null;
+          reply_to_message_id: string | null;
+          sender_id: string | null;
+          type: Database["public"]["Enums"]["message_type"];
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "messages";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       get_my_storage_usage: { Args: Record<PropertyKey, never>; Returns: number };
       has_read_receipts_enabled: { Args: { p_user_id: string }; Returns: boolean };
       is_blocked: { Args: { p_blocked: string; p_blocker: string }; Returns: boolean };
@@ -1512,6 +1553,7 @@ export type Database = {
       join_community: { Args: { p_community_id: string }; Returns: undefined };
       mark_chat_as_read: { Args: { p_chat_id: string }; Returns: undefined };
       mark_chat_as_unread: { Args: { p_chat_id: string }; Returns: undefined };
+      own_upload_is_referenced: { Args: { p_upload_id: string }; Returns: boolean };
       reject_chat_request: { Args: { p_request_id: string }; Returns: undefined };
       replace_backup_codes: { Args: { p_hashes: string[]; p_user_id: string }; Returns: undefined };
       schedule_account_deletion: { Args: Record<PropertyKey, never>; Returns: string };

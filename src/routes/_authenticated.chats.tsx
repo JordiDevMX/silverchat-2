@@ -1,6 +1,7 @@
 import { useRouter } from "@tanstack/react-router";
 import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "@/app/providers/i18n-provider";
 import { ChatContextMenu } from "@/features/chats/components/ChatContextMenu";
 import { ChatFilters } from "@/features/chats/components/ChatFilters";
 import { ChatListItem } from "@/features/chats/components/ChatListItem";
@@ -23,6 +24,7 @@ import { useAuth } from "@/lib/auth-provider";
 
 export function ChatsPage() {
   const t = useChatText();
+  const { language } = useI18n();
   const auth = useAuth();
   const router = useRouter();
   const query = useChats(),
@@ -118,6 +120,13 @@ export function ChatsPage() {
         setPull(0);
       }}
     >
+      {filters.notice && (
+        <p role="status" className="conversation-unavailable">
+          {language === "es"
+            ? "Esta conversación ya no está disponible."
+            : "This conversation is no longer available."}
+        </p>
+      )}
       <div className="chats-surface">
         {filters.select ? (
           <MultiSelectToolbar

@@ -62,5 +62,14 @@ Prompt 07 adds the active chat list, seven filters, local search, message
 requests, realtime unread/receipt updates, drafts, selection and touch actions.
 Apply **migration 0007 after 0001–0006 before deploying the frontend**. See the
 [chat-list deployment notes and verification checklist](docs/chats-list.md).
-Run `pnpm test:chats` alongside the existing checks. Chat composition and
-creation forms remain reserved for Prompt 08.
+Run `pnpm test:chats` alongside the existing checks.
+
+
+## Chat conversations
+
+Prompt 08a adds message history, all nine message renderers, optimistic sends,
+drafts, mentions, emoji, private attachments and media viewing. Apply **migration
+0008 after 0001–0007** before releasing the frontend. See the
+[conversation deployment notes and verification checklist](docs/messages.md).
+Run `pnpm test:messages` alongside the existing checks. New chat/group creation
+forms and the message actions reserved for Prompt 08b remain future work.
