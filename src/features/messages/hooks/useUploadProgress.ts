@@ -11,14 +11,21 @@ export function useUploadProgress(chatId: string) {
     progress,
     uploading,
     cancel: () => controller.current?.abort(),
-    upload: async (file: File) => {
+    upload: async (file: File, options?: { durationSeconds?: number }) => {
       if (controller.current) throw new Error("An upload is already in progress");
       const next = new AbortController();
       controller.current = next;
       setProgress(0);
       setUploading(true);
       try {
-        return await prepareAndUpload(file, chatId, user?.id ?? "", next.signal, setProgress);
+        return await prepareAndUpload(
+          file,
+          chatId,
+          user?.id ?? "",
+          next.signal,
+          setProgress,
+          options,
+        );
       } finally {
         controller.current = null;
         setUploading(false);

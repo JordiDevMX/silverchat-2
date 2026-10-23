@@ -72,4 +72,12 @@ drafts, mentions, emoji, private attachments and media viewing. Apply **migratio
 0008 after 0001–0007** before releasing the frontend. See the
 [conversation deployment notes and verification checklist](docs/messages.md).
 Run `pnpm test:messages` alongside the existing checks. New chat/group creation
-forms and the message actions reserved for Prompt 08b remain future work.
+forms remain future work.
+
+## Message actions and voice notes
+
+Prompt 08b adds replies, reactions, editing, deletion, forwarding, local search,
+pinned messages, and voice notes with exclusive playback. Apply **migration 0010
+after 0001–0009** before deploying. See the [deployment notes and checklist](docs/message-actions.md).
+Run `pnpm test:message-actions` alongside the existing checks. No extra library
+is required; voice waveforms use SVG and native audio.

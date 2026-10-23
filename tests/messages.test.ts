@@ -21,6 +21,8 @@ const message = (patch: Partial<MessageRow> = {}): MessageRow => ({
   file_upload_id: null,
   media_thumbnail_upload_id: null,
   mentions: null,
+  media_peaks: null,
+  forwarded_from_message_id: null,
   location_data: null,
   contact_data: null,
   ...patch,

@@ -228,6 +228,7 @@ async function setup(context) {
       });
     }
     if (p.endsWith("/messages")) {
+      if (s.has("is_pinned_in_chat")) return result([]);
       if (method === "POST") {
         const body = req.postDataJSON();
         if (sendDelay) await new Promise((r) => setTimeout(r, sendDelay));
@@ -567,7 +568,7 @@ try {
   rows.push(...extra);
   emit("messages", extra.at(-1));
   await page.getByText("Sofia joined the conversation").waitFor();
-  await page.locator(".message-audio").waitFor();
+  await page.locator(".voice-player").waitFor();
   await page.locator(".message-file").waitFor();
   await page.locator(".message-sticker").waitFor();
   assert.match(
