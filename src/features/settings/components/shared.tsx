@@ -210,7 +210,7 @@ export function Avatar({
   return (
     <span className={`avatar avatar-${size}`} style={{ background: gradient.data }}>
       {url.data && broken !== url.data ? (
-        <img src={url.data} alt="" onError={() => setBroken(url.data)} />
+        <img loading="lazy" src={url.data} alt="" onError={() => setBroken(url.data)} />
       ) : (
         <span aria-hidden="true">{profile.avatar_initials ?? initials}</span>
       )}
