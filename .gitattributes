@@ -1,0 +1,3 @@
+# Force LF in working tree for migration SQL to preserve byte-for-byte
+# matching in DO-block string comparisons (see 0005/0007 safety checks)
+supabase/migrations/*.sql text eol=lf
