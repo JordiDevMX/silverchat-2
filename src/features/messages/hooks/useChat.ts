@@ -67,9 +67,26 @@ export function useChat(chatId: string) {
       }
       return {
         id: chatId,
+        status: chat.data?.status ?? "pending_request",
+        createdBy: chat.data?.created_by ?? null,
+        createdAt: chat.data?.created_at ?? "",
+        description: chat.data?.description ?? null,
+        otherUserId:
+          chat.data?.type === "direct"
+            ? (chat.data.direct_pair_key?.split("::").find((id) => id !== user?.id) ??
+              other?.id ??
+              undefined)
+            : request
+              ? pendingRecipient
+                ? request.sender_id
+                : request.recipient_id
+              : (other?.id ?? undefined),
         type: chat.data?.type ?? "direct",
         name: chat.data?.name ?? other?.display_name ?? "SilverChat",
-        avatar: chat.data?.avatar_url ?? other?.avatar_url ?? null,
+        avatar:
+          chat.data?.type === "group" || chat.data?.type === "community_chat"
+            ? chat.data.avatar_url
+            : (chat.data?.avatar_url ?? other?.avatar_url ?? null),
         members: members.map((m) => ({ ...m, profile: profiles.find((p) => p.id === m.user_id) })),
         own,
         other,

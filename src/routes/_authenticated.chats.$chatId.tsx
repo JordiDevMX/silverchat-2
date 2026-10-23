@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppSkeleton, Modal } from "@/features/auth/components";
+import { ChatSettingsLayer } from "@/features/chat-settings/components/ChatSettingsLayer";
 import { readDrafts } from "@/features/chats/drafts";
 import { useRequestMutation } from "@/features/chats/hooks/useMessageRequests";
 import { ChatHeader } from "@/features/messages/components/ChatHeader";
@@ -13,7 +14,6 @@ import { PinnedMessagesBar } from "@/features/messages/components/PinnedMessages
 import { useChat } from "@/features/messages/hooks/useChat";
 import { useInChatSearch } from "@/features/messages/hooks/useInChatSearch";
 import { enrichMessages, useMessages } from "@/features/messages/hooks/useMessages";
-import { useRealtimeMessages } from "@/features/messages/hooks/useRealtimeMessages";
 import { useSendMessage } from "@/features/messages/hooks/useSendMessage";
 import { useMessageText } from "@/features/messages/i18n";
 import { detailKey, type Message, type SendInput } from "@/features/messages/types";
@@ -83,7 +83,7 @@ function Conversation({ chatId }: { chatId: string }) {
   };
   const [error, setError] = useState(false);
   const [decline, setDecline] = useState(false);
-  useRealtimeMessages(chatId);
+
   useEffect(() => {
     if (chat.isSuccess && !chat.data)
       void router.navigate({ href: "/chats?notice=unavailable", replace: true });
@@ -144,6 +144,7 @@ function Conversation({ chatId }: { chatId: string }) {
           <ChatHeader chat={details} onSearch={() => setSearchOpen(true)} />
         )}
         <PinnedMessagesBar chatId={chatId} />
+        <ChatSettingsLayer chat={details} onSearch={() => setSearchOpen(true)} />
         {details.request && (
           <div className="conversation-request" role="status">
             <span>

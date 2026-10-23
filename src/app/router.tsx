@@ -8,6 +8,8 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useState } from "react";
+import { ChatSettingsNotice } from "@/features/chat-settings/components/ChatSettingsNotice";
+import "@/styles/chat-settings.css";
 import { AuthFrame, InlineError, SessionExpiredModal } from "@/features/auth/components";
 import type { AuthState } from "@/features/auth/types";
 import { validateChatSearch } from "@/features/chats/utils/chatSearch";
@@ -38,6 +40,7 @@ function Root() {
       </a>
       <Outlet />
       <SessionExpiredModal />
+      <ChatSettingsNotice />
     </>
   );
 }
@@ -234,6 +237,33 @@ const protectedRoutes = [
     validateSearch: validateChatSearch,
     search: { middlewares: [stripSearchParams({ filter: "all", q: "", selectedIds: "" })] },
     component: lazyRouteComponent(() => import("@/routes/_authenticated.chats"), "ChatsPage"),
+  }),
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/chats/$chatId/info",
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.chats.$chatId.info"),
+      "GroupInfoPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/chats/$chatId/members",
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.chats.$chatId.members"),
+      "GroupMembersPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/chats/$chatId/media",
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.chats.$chatId.media"),
+      "SharedMediaPage",
+    ),
+    validateSearch: (search: Record<string, unknown>): { tab: "media" | "files" } => ({
+      tab: search.tab === "files" ? "files" : "media",
+    }),
   }),
   ...["/chats/new", "/chats/new-group", "/channels/new"].map((path) =>
     createRoute({
