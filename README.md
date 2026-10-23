@@ -22,6 +22,16 @@ pnpm typecheck               # verify zero TypeScript errors
 pnpm lint                    # verify zero Biome lint/format errors
 ```
 
+## Supabase CLI
+
+See [docs/SUPABASE_CLI.md](./docs/SUPABASE_CLI.md) for one-time setup
+(`supabase login` + `supabase link`). Quick health check:
+
+```bash
+bash scripts/setup-supabase.sh        # Linux / macOS / Git Bash
+powershell -File scripts/setup-supabase.ps1   # Windows PowerShell
+```
+
 ## Scripts
 
 | Script          | What it does                                                     |
