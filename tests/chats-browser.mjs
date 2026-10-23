@@ -151,6 +151,11 @@ async function mockContext(browserContext) {
     if (path.endsWith("/profiles_visible")) return fulfill(route, profiles);
     if (path.endsWith("/profiles_blocked") || path.endsWith("/user_blocks"))
       return fulfill(route, []);
+    if (path.endsWith("/chats"))
+      return fulfill(
+        route,
+        memberships.find((m) => m.chat_id === s.get("id")?.slice(3))?.chat ?? null,
+      );
     if (path.endsWith("/chat_members")) {
       const id = s.get("chat_id")?.replace("eq.", "");
       if (method === "PATCH") {
@@ -164,6 +169,8 @@ async function mockContext(browserContext) {
         memberships = memberships.filter((m) => m.chat_id !== id);
         return fulfill(route, [{ chat_id: id }]);
       }
+      if (s.get("chat_id")?.startsWith("eq.") && s.get("select") === "*")
+        return fulfill(route, [{ chat_id: id, user_id: me, role: "member", joined_at: ago(200) }]);
       if (s.get("select")?.includes("chat:chats")) {
         mainReads++;
         assert.equal(s.get("limit"), "200");
@@ -186,6 +193,7 @@ async function mockContext(browserContext) {
       );
     }
     if (path.endsWith("/message_receipts")) {
+      if (s.get("select")?.includes("message:messages")) return fulfill(route, null);
       if (s.has("read_at")) {
         const rows = [...unreadCounts].flatMap(([chat_id, count]) =>
           Array.from({ length: count }, (_, i) => ({
@@ -201,7 +209,7 @@ async function mockContext(browserContext) {
         { message_id: uid(202), user_id: uid(2), delivered_at: ago(1), read_at: ago(0.5) },
       ]);
     }
-    if (path.endsWith("/chat_requests")) return fulfill(route, requests);
+    if (path.endsWith("/chat_requests")) return fulfill(route, s.has("chat_id") ? null : requests);
     if (path.endsWith("/messages"))
       return fulfill(
         route,
@@ -223,6 +231,7 @@ async function mockContext(browserContext) {
       if (action === failAction && id === failId)
         return fulfill(route, { message: "Permission denied" }, 403);
       const row = memberships.find((m) => m.chat_id === id);
+      if (action === "get_chat_messages") return fulfill(route, []);
       if (action === "mark_chat_as_read") {
         if (row) row.manually_unread = false;
         unreadCounts.set(id, 0);
@@ -476,12 +485,12 @@ try {
   console.log("PASS partial bulk delete retries only failed items");
   await page.locator(".new-chat-fab").click();
   await page.getByRole("button", { name: "Message yourself", exact: true }).click();
-  await page.getByRole("heading", { name: "Coming next" }).waitFor();
-  await page.getByRole("link", { name: "Back to chats", exact: true }).click();
+  await page.getByRole("heading", { name: "A little space for you" }).waitFor();
+  await page.locator('.app-navigation a[href="/chats"]').click();
   await row(120).waitFor();
   assert.equal(memberships.find((m) => m.chat_id === uid(120)).pinned_at, null);
   assert.deepEqual(errors, []);
-  console.log("PASS self-chat creation remains unpinned and no Prompt 08 composer is introduced");
+  console.log("PASS self-chat creation remains unpinned and opens the conversation composer");
   // A separate mobile browser context uses native touch media and input.
   await page.close();
   const mobileContext = await browser.newContext({

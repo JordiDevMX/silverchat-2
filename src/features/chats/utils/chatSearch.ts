@@ -1,6 +1,7 @@
 import { type FilterKey, filterKeys } from "../types.ts";
 export function validateChatSearch(s: Record<string, unknown>) {
   return {
+    notice: s.notice === "unavailable" ? "unavailable" : undefined,
     filter: filterKeys.includes(s.filter as FilterKey)
       ? (s.filter as FilterKey)
       : ("all" as FilterKey),

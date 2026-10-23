@@ -216,7 +216,17 @@ const protectedRoutes = [
   createRoute({
     getParentRoute: () => authenticated,
     path: "/chats/$chatId",
-    component: lazyRouteComponent(() => import("@/routes/_authenticated.chats"), "FutureChatPage"),
+    validateSearch: (search: Record<string, unknown>): { scrollTo?: string } => ({
+      scrollTo:
+        typeof search.scrollTo === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(search.scrollTo)
+          ? search.scrollTo
+          : undefined,
+    }),
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.chats.$chatId"),
+      "ChatPage",
+    ),
   }),
   createRoute({
     getParentRoute: () => authenticated,
