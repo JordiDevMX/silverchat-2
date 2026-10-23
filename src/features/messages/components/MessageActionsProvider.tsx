@@ -147,6 +147,7 @@ export function MessageActionsProvider({
           />
         ) : selected.mode === "react" ? (
           <ReactionsPicker
+            limited={!!chat.channelMode}
             busy={busy}
             onClose={close}
             onSelect={(emoji) => {

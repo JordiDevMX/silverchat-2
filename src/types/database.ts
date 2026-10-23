@@ -96,6 +96,7 @@ export type Database = {
       };
       channel_followers: {
         Row: {
+          muted_until: string | null;
           channel_id: string;
           followed_at: string;
           last_read_at: string;
@@ -103,12 +104,14 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          muted_until?: string | null;
           channel_id: string;
           followed_at?: string;
           last_read_at?: string;
           user_id: string;
         };
         Update: {
+          muted_until?: string | null;
           channel_id?: string;
           followed_at?: string;
           last_read_at?: string;
@@ -856,6 +859,7 @@ export type Database = {
       };
       messages: {
         Row: {
+          reply_to_story_id: string | null;
           channel_id: string | null;
           chat_id: string | null;
           contact_data: Json | null;
@@ -879,6 +883,7 @@ export type Database = {
         };
         ComputedFields: "compute_message_preview";
         Insert: {
+          reply_to_story_id?: string | null;
           channel_id?: string | null;
           chat_id?: string | null;
           contact_data?: Json | null;
@@ -900,6 +905,7 @@ export type Database = {
           type?: Database["public"]["Enums"]["message_type"];
         };
         Update: {
+          reply_to_story_id?: string | null;
           channel_id?: string | null;
           chat_id?: string | null;
           contact_data?: Json | null;
@@ -921,6 +927,13 @@ export type Database = {
           type?: Database["public"]["Enums"]["message_type"];
         };
         Relationships: [
+          {
+            foreignKeyName: "messages_reply_to_story_id_fkey";
+            columns: ["reply_to_story_id"];
+            isOneToOne: false;
+            referencedRelation: "stories";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "messages_channel_id_fkey";
             columns: ["channel_id"];
@@ -1158,6 +1171,7 @@ export type Database = {
       };
       stories: {
         Row: {
+          media_thumbnail_upload_id: string | null;
           background_color: string | null;
           caption: string | null;
           created_at: string;
@@ -1170,6 +1184,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          media_thumbnail_upload_id?: string | null;
           background_color?: string | null;
           caption?: string | null;
           created_at?: string;
@@ -1181,6 +1196,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          media_thumbnail_upload_id?: string | null;
           background_color?: string | null;
           caption?: string | null;
           created_at?: string;
@@ -1192,6 +1208,13 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "stories_media_thumbnail_upload_id_fkey";
+            columns: ["media_thumbnail_upload_id"];
+            isOneToOne: false;
+            referencedRelation: "file_uploads";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "stories_file_upload_id_fkey";
             columns: ["file_upload_id"];
@@ -1481,6 +1504,41 @@ export type Database = {
       };
     };
     Functions: {
+      update_channel_info: {
+        Args: {
+          p_channel_id: string;
+          p_name?: string;
+          p_slug?: string;
+          p_description?: string;
+          p_avatar_url?: string;
+        };
+        Returns: undefined;
+      };
+      unfollow_channel: { Args: { p_channel_id: string }; Returns: undefined };
+      get_story_viewers: {
+        Args: { p_story_id: string };
+        Returns: {
+          viewer_id: string;
+          username: string;
+          display_name: string;
+          avatar_url: string;
+          viewed_at: string;
+        }[];
+      };
+      delete_story: { Args: { p_story_id: string }; Returns: undefined };
+      mark_story_viewed: { Args: { p_story_id: string }; Returns: undefined };
+      create_story: {
+        Args: {
+          p_media_type: Database["public"]["Enums"]["story_media_type"];
+          p_file_upload_id?: string;
+          p_text_content?: string;
+          p_background_color?: string;
+          p_caption?: string;
+          p_thumbnail_upload_id?: string;
+          p_story_id?: string;
+        };
+        Returns: string;
+      };
       accept_chat_request: { Args: { p_request_id: string }; Returns: undefined };
       add_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
       add_chat_members: { Args: { p_chat_id: string; p_user_ids: string[] }; Returns: number };
@@ -1547,6 +1605,7 @@ export type Database = {
           media_thumbnail_upload_id: string | null;
           mentions: string[] | null;
           reply_to_message_id: string | null;
+          reply_to_story_id: string | null;
           sender_id: string | null;
           type: Database["public"]["Enums"]["message_type"];
         }[];

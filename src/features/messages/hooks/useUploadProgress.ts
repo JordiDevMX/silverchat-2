@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-provider";
 import { prepareAndUpload } from "../lib/upload";
-export function useUploadProgress(chatId: string) {
+export function useUploadProgress(chatId: string, channelMode = false) {
   const { user } = useAuth();
   const controller = useRef<AbortController | null>(null);
   const [progress, setProgress] = useState(0);
@@ -18,14 +18,10 @@ export function useUploadProgress(chatId: string) {
       setProgress(0);
       setUploading(true);
       try {
-        return await prepareAndUpload(
-          file,
-          chatId,
-          user?.id ?? "",
-          next.signal,
-          setProgress,
-          options,
-        );
+        return await prepareAndUpload(file, chatId, user?.id ?? "", next.signal, setProgress, {
+          ...options,
+          bucket: channelMode ? "channel-media" : "chat-media",
+        });
       } finally {
         controller.current = null;
         setUploading(false);

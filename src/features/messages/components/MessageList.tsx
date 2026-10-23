@@ -26,9 +26,25 @@ export function MessageList({
   onRetry,
   query,
   navigation,
+  channelMode = false,
 }: {
   chat: ChatDetails;
-  query: ReturnType<typeof useMessages>;
+  channelMode?: boolean;
+  query: Pick<
+    ReturnType<typeof useMessages>,
+    | "messages"
+    | "hasNextPage"
+    | "isFetching"
+    | "isFetchNextPageError"
+    | "fetchNextPage"
+    | "isPending"
+    | "isError"
+    | "firstUnread"
+    | "unreadLoading"
+    | "unreadError"
+    | "isFetchingNextPage"
+    | "refetch"
+  > & { refetchUnread: () => Promise<unknown> };
   navigation: { id: string; serial: number } | null;
   scrollTo?: string;
   onRetry: (m: Message) => Promise<void>;
@@ -182,7 +198,7 @@ export function MessageList({
     atBottom,
     newId,
     messages.some((m) => m.unreadForMe) || !!chat.own?.manually_unread,
-    !chat.readOnly && initialized.current,
+    !channelMode && !chat.readOnly && initialized.current,
   );
   const EmptyIcon =
     chat.type === "self"
@@ -241,22 +257,32 @@ export function MessageList({
               <EmptyIcon size={30} />
             </div>
             <h2>
-              {chat.type === "self"
-                ? say("A little space for you", "Un espacio para ti")
-                : chat.type === "group" || chat.type === "community_chat"
-                  ? say("Bring the conversation to life", "Dale vida a la conversación")
-                  : say("Every connection starts with hello", "Cada conexión empieza con un hola")}
+              {channelMode
+                ? say("No channel posts yet", "Aún no hay publicaciones")
+                : chat.type === "self"
+                  ? say("A little space for you", "Un espacio para ti")
+                  : chat.type === "group" || chat.type === "community_chat"
+                    ? say("Bring the conversation to life", "Dale vida a la conversación")
+                    : say(
+                        "Every connection starts with hello",
+                        "Cada conexión empieza con un hola",
+                      )}
             </h2>
             <p>
-              {chat.type === "self"
+              {channelMode
                 ? say(
-                    "Keep notes, ideas, and things you want to remember.",
-                    "Guarda notas, ideas y lo que quieras recordar.",
+                    "Posts from the channel owner appear here.",
+                    "Aquí aparecen las publicaciones del canal.",
                   )
-                : say(
-                    "Send the first message and make yourself at home.",
-                    "Envía el primer mensaje y siéntete en casa.",
-                  )}
+                : chat.type === "self"
+                  ? say(
+                      "Keep notes, ideas, and things you want to remember.",
+                      "Guarda notas, ideas y lo que quieras recordar.",
+                    )
+                  : say(
+                      "Send the first message and make yourself at home.",
+                      "Envía el primer mensaje y siéntete en casa.",
+                    )}
             </p>
           </div>
         )}
@@ -271,7 +297,9 @@ export function MessageList({
                 own={message.sender_id === (user?.id ?? "")}
                 grouped={groupedBefore}
                 showAvatar={
-                  !groupedBefore && (chat.type === "group" || chat.type === "community_chat")
+                  !channelMode &&
+                  !groupedBefore &&
+                  (chat.type === "group" || chat.type === "community_chat")
                 }
                 onMedia={setMedia}
                 onRetry={(m) => {

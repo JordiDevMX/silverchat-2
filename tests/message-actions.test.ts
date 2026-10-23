@@ -24,6 +24,7 @@ const row = (patch: Partial<Message> = {}): Message => ({
   edited_at: null,
   is_pinned_in_chat: false,
   reply_to_message_id: null,
+  reply_to_story_id: null,
   file_upload_id: null,
   media_thumbnail_upload_id: null,
   media_peaks: null,
@@ -158,4 +159,18 @@ test("exclusive playback handles toggle, unmount, rejected play, and late play p
   assert.equal(delayed.paused, true);
   assert.equal(store().currentId, "b");
   store().stop();
+});
+
+test("channel followers only react/copy; owners retain editing without chat reply or pins", () => {
+  const post = row({ chat_id: null, channel_id: "channel", sender_id: "other" });
+  assert.deepEqual(getAvailableActions(post, "me", false, now), ["react", "copy"]);
+  assert.deepEqual(
+    getAvailableActions({ ...post, deleted_for_everyone: true }, "me", false, now),
+    [],
+  );
+  const owner = getAvailableActions({ ...post, sender_id: "me" }, "me", false, now);
+  for (const action of ["edit", "forward", "delete_for_everyone"])
+    assert.ok(owner.includes(action as (typeof owner)[number]));
+  for (const action of ["reply", "pin", "unpin"])
+    assert.ok(!owner.includes(action as (typeof owner)[number]));
 });

@@ -17,6 +17,7 @@
     "test:chats": "node --experimental-strip-types --test tests/chats.test.ts",
     "test:messages": "node --experimental-strip-types --test tests/messages.test.ts",
     "test:message-actions": "node --experimental-strip-types --test tests/message-actions.test.ts",
+    "test:novedades": "node --experimental-strip-types --test tests/novedades.test.ts",
     "test:chat-settings": "node --experimental-strip-types --test tests/chat-settings.test.ts"
   },
   "dependencies": {

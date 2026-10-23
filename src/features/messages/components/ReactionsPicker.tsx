@@ -7,10 +7,12 @@ export function ReactionsPicker({
   onSelect,
   onClose,
   busy,
+  limited = false,
 }: {
   onSelect: (emoji: string) => void;
   onClose: () => void;
   busy: boolean;
+  limited?: boolean;
 }) {
   const { say } = useMessageText();
   const [all, setAll] = useState(false);
@@ -28,16 +30,18 @@ export function ReactionsPicker({
             {emoji}
           </button>
         ))}
-        <button
-          type="button"
-          disabled={busy}
-          aria-label={say("More emoji", "Más emojis")}
-          onClick={() => setAll(!all)}
-        >
-          +
-        </button>
+        {!limited && (
+          <button
+            type="button"
+            disabled={busy}
+            aria-label={say("More emoji", "Más emojis")}
+            onClick={() => setAll(!all)}
+          >
+            +
+          </button>
+        )}
       </div>
-      {all && !busy && (
+      {all && !limited && !busy && (
         <Suspense fallback={<p>{say("Loading…", "Cargando…")}</p>}>
           <EmojiPanel onSelect={onSelect} />
         </Suspense>

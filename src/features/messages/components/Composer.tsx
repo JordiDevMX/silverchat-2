@@ -180,6 +180,7 @@ export function Composer({
         <VoiceRecorder
           recorder={recorder}
           chatId={chat.id}
+          channelMode={chat.channelMode}
           onSend={onSend}
           onClose={() => setRecordMode(false)}
         />
@@ -334,6 +335,7 @@ export function Composer({
         <MediaPreviewModal
           file={file}
           chatId={chat.id}
+          channelMode={chat.channelMode}
           onSend={onSend}
           onClose={() => setFile(undefined)}
         />

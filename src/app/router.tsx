@@ -4,6 +4,7 @@ import {
   createRouter,
   lazyRouteComponent,
   Outlet,
+  redirect,
   stripSearchParams,
   useRouter,
 } from "@tanstack/react-router";
@@ -90,7 +91,7 @@ const root = createRootRouteWithContext<{ auth: AuthState }>()({
   component: Root,
   beforeLoad: ({ context, location }) => {
     if (
-      /^\/(chats|channels|communities|calls|settings|profile|onboarding)(\/|$)/.test(
+      /^\/(chats|channels|novedades|communities|calls|settings|profile|onboarding)(\/|$)/.test(
         location.pathname,
       )
     ) {
@@ -265,7 +266,56 @@ const protectedRoutes = [
       tab: search.tab === "files" ? "files" : "media",
     }),
   }),
-  ...["/chats/new", "/chats/new-group", "/channels/new"].map((path) =>
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/novedades",
+    validateSearch: (s: Record<string, unknown>): { create?: boolean } => ({
+      create: s.create === true || s.create === "true" ? true : undefined,
+    }),
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.novedades"),
+      "NovedadesPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/novedades/explore",
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.novedades"),
+      "ExploreChannelsPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/channels/$channelId",
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.channels.$channelId"),
+      "ChannelPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/channels/$channelId/info",
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.channels.$channelId.info"),
+      "ChannelPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/channels/new",
+    beforeLoad: () => {
+      throw redirect({ to: "/novedades", search: { create: true } });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/channels",
+    beforeLoad: () => {
+      throw redirect({ to: "/novedades", search: { create: undefined } });
+    },
+  }),
+  ...["/chats/new", "/chats/new-group"].map((path) =>
     createRoute({
       getParentRoute: () => authenticated,
       path,
@@ -275,7 +325,7 @@ const protectedRoutes = [
       ),
     }),
   ),
-  ...["channels", "communities", "calls", "profile"].map((path) =>
+  ...["communities", "calls", "profile"].map((path) =>
     createRoute({
       getParentRoute: () => authenticated,
       path: `/${path}`,
