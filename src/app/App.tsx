@@ -45,3 +45,5 @@ export default function App() {
 }
 
 import "@/styles/settings.css";
+
+import "@/styles/chats.css";

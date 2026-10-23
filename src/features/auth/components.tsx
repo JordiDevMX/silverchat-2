@@ -73,7 +73,8 @@ export function Modal({
   title,
   children,
   onClose,
-}: PropsWithChildren<{ title: string; onClose?: () => void }>) {
+  className = "",
+}: PropsWithChildren<{ title: string; onClose?: () => void; className?: string }>) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current;
@@ -88,7 +89,7 @@ export function Modal({
         event.preventDefault();
         onClose?.();
       }}
-      className="auth-modal"
+      className={`auth-modal ${className}`}
     >
       <h2>{title}</h2>
       {children}

@@ -165,7 +165,7 @@ try {
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("heading", { name: "Welcome to SilverChat, Alice!" }).waitFor();
   await page.getByRole("button", { name: "Skip for now" }).click();
-  await page.getByRole("heading", { name: "You’re signed in, Alice." }).waitFor();
+  await page.getByRole("heading", { name: "Chats", exact: true }).waitFor();
   console.log("PASS callback cleanup and required/skippable onboarding");
   factor = true;
   aal = "aal1";
@@ -177,9 +177,9 @@ try {
   assert.ok(page.url().includes("/auth/2fa-verify"));
   rejectCode = false;
   await page.getByLabel("Digit 1", { exact: true }).fill("123456");
-  await page.getByRole("heading", { name: "You’re signed in, Alice." }).waitFor();
+  await page.getByRole("heading", { name: "Chats", exact: true }).waitFor();
   await page.reload();
-  await page.getByRole("heading", { name: "You’re signed in, Alice." }).waitFor();
+  await page.getByRole("heading", { name: "Chats", exact: true }).waitFor();
   assert.equal(page.url().includes("2fa-verify"), false);
   console.log("PASS invalid TOTP retry, AAL2 login and reload");
   await page.goto("http://127.0.0.1:5173/settings/security");
@@ -232,7 +232,7 @@ try {
   assert.deepEqual(failures, []);
   console.log("Browser checks passed; no uncaught page errors.");
 } catch (error) {
-  console.error("Failed at:", page.url(), await page.locator("body").innerText());
+  console.error("Failed at:", page.url(), await page.locator("body").textContent());
   throw error;
 } finally {
   await browser.close();

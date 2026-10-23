@@ -24,11 +24,11 @@ pnpm lint                    # verify zero Biome lint/format errors
 
 ## Scripts
 
-| Script        | What it does                                                  |
-| ------------- | ------------------------------------------------------------- |
-| `pnpm dev`    | Start the Vite dev server                                     |
-| `pnpm build`  | Type-check then production build                              |
-| `pnpm lint`   | Biome check (lint + format)                                   |
+| Script          | What it does                                                     |
+| --------------- | ---------------------------------------------------------------- |
+| `pnpm dev`      | Start the Vite dev server                                        |
+| `pnpm build`    | Type-check then production build                                 |
+| `pnpm lint`     | Biome check (lint + format)                                      |
 | `pnpm db:types` | Regenerate `src/types/database.ts` from the live Supabase schema |
 
 ## Roadmap
@@ -45,3 +45,12 @@ See [deployment and verification instructions](docs/profile-settings.md) before
 releasing: migrations **0005–0006**, private Storage buckets, single-confirmation
 email settings and the Netlify scheduled function must be configured together.
 Run `pnpm test:auth` and `pnpm test:settings` alongside build and lint.
+
+## Chats list
+
+Prompt 07 adds the active chat list, seven filters, local search, message
+requests, realtime unread/receipt updates, drafts, selection and touch actions.
+Apply **migration 0007 after 0001–0006 before deploying the frontend**. See the
+[chat-list deployment notes and verification checklist](docs/chats-list.md).
+Run `pnpm test:chats` alongside the existing checks. Chat composition and
+creation forms remain reserved for Prompt 08.

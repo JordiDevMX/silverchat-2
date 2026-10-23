@@ -229,7 +229,8 @@ export type Database = {
           chat_id: string;
           favorited_at: string | null;
           joined_at: string;
-          last_read_at: string;
+          last_read_at: string | null;
+          manually_unread: boolean;
           muted_until: string | null;
           pinned_at: string | null;
           role: Database["public"]["Enums"]["chat_member_role"];
@@ -241,7 +242,8 @@ export type Database = {
           chat_id: string;
           favorited_at?: string | null;
           joined_at?: string;
-          last_read_at?: string;
+          last_read_at?: string | null;
+          manually_unread?: boolean;
           muted_until?: string | null;
           pinned_at?: string | null;
           role?: Database["public"]["Enums"]["chat_member_role"];
@@ -252,7 +254,8 @@ export type Database = {
           chat_id?: string;
           favorited_at?: string | null;
           joined_at?: string;
-          last_read_at?: string;
+          last_read_at?: string | null;
+          manually_unread?: boolean;
           muted_until?: string | null;
           pinned_at?: string | null;
           role?: Database["public"]["Enums"]["chat_member_role"];
@@ -1484,7 +1487,9 @@ export type Database = {
       };
       create_group_chat: { Args: { p_member_ids: string[]; p_name: string }; Returns: string };
       create_self_chat: { Args: Record<PropertyKey, never>; Returns: string };
+      delete_direct_chat_for_me: { Args: { p_chat_id: string }; Returns: undefined };
       delete_message_for_everyone: { Args: { p_message_id: string }; Returns: undefined };
+      delete_self_chat: { Args: { p_chat_id: string }; Returns: undefined };
       follow_channel: { Args: { p_channel_id: string }; Returns: undefined };
       get_my_storage_usage: { Args: Record<PropertyKey, never>; Returns: number };
       has_read_receipts_enabled: { Args: { p_user_id: string }; Returns: boolean };
@@ -1506,6 +1511,7 @@ export type Database = {
       };
       join_community: { Args: { p_community_id: string }; Returns: undefined };
       mark_chat_as_read: { Args: { p_chat_id: string }; Returns: undefined };
+      mark_chat_as_unread: { Args: { p_chat_id: string }; Returns: undefined };
       reject_chat_request: { Args: { p_request_id: string }; Returns: undefined };
       replace_backup_codes: { Args: { p_hashes: string[]; p_user_id: string }; Returns: undefined };
       schedule_account_deletion: { Args: Record<PropertyKey, never>; Returns: string };

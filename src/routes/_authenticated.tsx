@@ -1,7 +1,8 @@
-import { Outlet, redirect } from "@tanstack/react-router";
+import { Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { AppSkeleton } from "@/features/auth/components";
 import { nextDestination, safeRedirect } from "@/features/auth/navigation";
 import type { AuthState } from "@/features/auth/types";
+import { AppNavigation } from "@/features/chats/components/AppNavigation";
 import { PendingDeletionBanner } from "@/features/settings/components/PendingDeletionBanner";
 import { useAuth } from "@/lib/auth-provider";
 export function requireAuthentication(auth: AuthState, href: string, pathname: string) {
@@ -22,12 +23,18 @@ export function requireAuthentication(auth: AuthState, href: string, pathname: s
 }
 export function AuthenticatedLayout() {
   const auth = useAuth();
+  const onboarding = useRouterState({
+    select: (state) => state.location.pathname.startsWith("/onboarding"),
+  });
   return !auth.user || auth.mfaRequired ? (
     <AppSkeleton />
   ) : (
     <>
       <PendingDeletionBanner />
-      <Outlet />
+      {!onboarding && <AppNavigation />}
+      <div className={onboarding ? undefined : "authenticated-content"}>
+        <Outlet />
+      </div>
     </>
   );
 }

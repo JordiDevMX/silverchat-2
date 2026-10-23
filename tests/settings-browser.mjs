@@ -146,6 +146,9 @@ await page.route("https://supabase.test/**", async (route) => {
         last_active_at: new Date().toISOString(),
       },
     ]);
+  if (path.endsWith("/chat_requests")) return fulfill(route, []);
+  if (path.endsWith("/chat_members") && url.searchParams.get("select")?.includes("chat:chats"))
+    return fulfill(route, []);
   if (path.endsWith("/chat_members"))
     return fulfill(
       route,
@@ -358,7 +361,7 @@ try {
   await page.getByRole("button", { name: "Schedule deletion" }).click();
   await page.getByRole("dialog").waitFor({ state: "hidden" });
   await page.locator(".deletion-banner").waitFor();
-  await visit("/chats", /You’re signed in/);
+  await visit("/chats", /^Chats$/);
   await page.locator(".deletion-banner").getByRole("button", { name: "Cancel deletion" }).click();
   await page.locator(".deletion-banner").waitFor({ state: "hidden" });
   assert.equal(profile.scheduled_deletion_at, null);

@@ -4,11 +4,13 @@ import {
   createRouter,
   lazyRouteComponent,
   Outlet,
+  stripSearchParams,
   useRouter,
 } from "@tanstack/react-router";
 import { useState } from "react";
 import { AuthFrame, InlineError, SessionExpiredModal } from "@/features/auth/components";
 import type { AuthState } from "@/features/auth/types";
+import { validateChatSearch } from "@/features/chats/utils/chatSearch";
 import { useAuth } from "@/lib/auth-provider";
 import { AuthenticatedLayout, requireAuthentication } from "@/routes/_authenticated";
 
@@ -214,9 +216,26 @@ const protectedRoutes = [
   createRoute({
     getParentRoute: () => authenticated,
     path: "/chats/$chatId",
-    component: AuthenticatedDestination,
+    component: lazyRouteComponent(() => import("@/routes/_authenticated.chats"), "FutureChatPage"),
   }),
-  ...["chats", "channels", "communities", "calls", "profile"].map((path) =>
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/chats",
+    validateSearch: validateChatSearch,
+    search: { middlewares: [stripSearchParams({ filter: "all", q: "", selectedIds: "" })] },
+    component: lazyRouteComponent(() => import("@/routes/_authenticated.chats"), "ChatsPage"),
+  }),
+  ...["/chats/new", "/chats/new-group", "/channels/new"].map((path) =>
+    createRoute({
+      getParentRoute: () => authenticated,
+      path,
+      component: lazyRouteComponent(
+        () => import("@/routes/_authenticated.chats"),
+        "FutureChatPage",
+      ),
+    }),
+  ),
+  ...["channels", "communities", "calls", "profile"].map((path) =>
     createRoute({
       getParentRoute: () => authenticated,
       path: `/${path}`,
