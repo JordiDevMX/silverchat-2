@@ -195,7 +195,7 @@ export function Avatar({
     first_name?: string | null;
     last_name?: string | null;
     avatar_url?: string | null;
-    avatar_initials?: string | null;
+    initials?: string | null;
   };
   size?: "small" | "medium" | "large";
 }) {
@@ -212,7 +212,7 @@ export function Avatar({
       {url.data && broken !== url.data ? (
         <img loading="lazy" src={url.data} alt="" onError={() => setBroken(url.data)} />
       ) : (
-        <span aria-hidden="true">{profile.avatar_initials ?? initials}</span>
+        <span aria-hidden="true">{profile.initials ?? initials}</span>
       )}
     </span>
   );

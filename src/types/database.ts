@@ -1444,7 +1444,6 @@ export type Database = {
     Views: {
       profiles_blocked: {
         Row: {
-          avatar_initials: string | null;
           display_name: string | null;
           id: string | null;
           username: string | null;
@@ -1454,7 +1453,6 @@ export type Database = {
       };
       profiles_visible: {
         Row: {
-          avatar_initials: string | null;
           avatar_url: string | null;
           bio: string | null;
           created_at: string | null;

@@ -37,7 +37,7 @@ export function useSendMessage(chatId: string) {
         ...fields,
         upload,
         thumbnail,
-        sender: profile ? { ...profile, avatar_initials: null } : undefined,
+        sender: profile ?? undefined,
         receipts: [],
         reactions: [],
         unreadForMe: false,
