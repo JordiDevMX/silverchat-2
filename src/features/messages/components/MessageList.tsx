@@ -3,7 +3,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Modal } from "@/features/auth/components";
 import { useAuth } from "@/lib/auth-provider";
 import { useMarkAsRead } from "../hooks/useMarkAsRead";
-import { useMessages } from "../hooks/useMessages";
+import type { useMessages } from "../hooks/useMessages";
+import { useSearchHighlight } from "../hooks/useSearchHighlight";
 import { useMessageText } from "../i18n";
 import { groupMessages } from "../lib/groupMessages";
 import type { ChatDetails, Message } from "../types";
@@ -11,6 +12,7 @@ import { DateSeparator } from "./DateSeparator";
 import { MediaLightbox } from "./MediaLightbox";
 import { MessageBubble } from "./MessageBubble";
 import { ScrollToBottomButton } from "./ScrollToBottomButton";
+import { SearchHighlight } from "./SearchHighlight";
 import { UnreadMarker } from "./UnreadMarker";
 
 // Scoped to the signed-in user; no message content is persisted here.
@@ -22,14 +24,19 @@ export function MessageList({
   chat,
   scrollTo,
   onRetry,
+  query,
+  navigation,
 }: {
   chat: ChatDetails;
+  query: ReturnType<typeof useMessages>;
+  navigation: { id: string; serial: number } | null;
   scrollTo?: string;
   onRetry: (m: Message) => Promise<void>;
 }) {
   const { user } = useAuth();
   const { say } = useMessageText();
-  const query = useMessages(chat.id);
+  const { highlightedId, highlight, clear } = useSearchHighlight();
+  const navigated = useRef<number | null>(null);
   const { messages } = query;
   const box = useRef<HTMLElement>(null);
   const initialized = useRef(false);
@@ -139,6 +146,37 @@ export function MessageList({
     observer.observe(el);
     return () => observer.disconnect();
   });
+  useEffect(() => {
+    if (!navigation) {
+      clear();
+      return;
+    }
+    if (navigated.current === navigation.serial || !initialized.current) return;
+    const loaded = messages.some((message) => message.id === navigation.id);
+    const node = loaded
+      ? box.current?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(navigation.id)}"]`)
+      : null;
+    if (node) {
+      navigated.current = navigation.serial;
+      node.scrollIntoView({ block: "center", behavior: "instant" });
+      highlight(navigation.id);
+      setTargetMissing(false);
+    } else if (query.hasNextPage) {
+      if (!query.isFetching && !query.isFetchNextPageError) void query.fetchNextPage();
+    } else {
+      navigated.current = navigation.serial;
+      setTargetMissing(true);
+    }
+  }, [
+    navigation,
+    query.isFetching,
+    query.hasNextPage,
+    query.isFetchNextPageError,
+    query.fetchNextPage,
+    messages,
+    highlight,
+    clear,
+  ]);
   const readError = useMarkAsRead(
     chat.id,
     atBottom,
@@ -226,20 +264,22 @@ export function MessageList({
           <div key={message.clientId ?? message.id}>
             {newDay && <DateSeparator date={message.created_at} />}{" "}
             {!markerHidden && message.id === initialMarker && <UnreadMarker />}
-            <MessageBubble
-              message={message}
-              chat={chat}
-              own={message.sender_id === (user?.id ?? "")}
-              grouped={groupedBefore}
-              showAvatar={
-                !groupedBefore && (chat.type === "group" || chat.type === "community_chat")
-              }
-              onMedia={setMedia}
-              onRetry={(m) => {
-                setRetry(m);
-                setRetryError(false);
-              }}
-            />
+            <SearchHighlight active={highlightedId === message.id}>
+              <MessageBubble
+                message={message}
+                chat={chat}
+                own={message.sender_id === (user?.id ?? "")}
+                grouped={groupedBefore}
+                showAvatar={
+                  !groupedBefore && (chat.type === "group" || chat.type === "community_chat")
+                }
+                onMedia={setMedia}
+                onRetry={(m) => {
+                  setRetry(m);
+                  setRetryError(false);
+                }}
+              />
+            </SearchHighlight>
           </div>
         ))}
         {readError && (

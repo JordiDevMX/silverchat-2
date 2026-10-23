@@ -32,7 +32,15 @@ export interface ChatDetails {
 }
 export type SendInput = Pick<MessageRow, "type" | "content"> &
   Partial<
-    Pick<MessageRow, "file_upload_id" | "media_thumbnail_upload_id" | "contact_data" | "mentions">
+    Pick<
+      MessageRow,
+      | "file_upload_id"
+      | "media_thumbnail_upload_id"
+      | "contact_data"
+      | "mentions"
+      | "reply_to_message_id"
+      | "media_peaks"
+    >
   > & { upload?: Upload; thumbnail?: Upload };
 export type Cursor = { at: string; id: string } | null;
 export const messageKey = (userId: string, chatId: string) => ["messages", userId, chatId] as const;

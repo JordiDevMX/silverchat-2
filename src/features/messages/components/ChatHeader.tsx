@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronLeft, MoreVertical, Phone, Video } from "lucide-react";
+import { ChevronLeft, MoreVertical, Phone, Search, Video } from "lucide-react";
 import { Avatar } from "@/features/settings/components/shared";
 import { useChatPresence } from "../hooks/useChatPresence";
 import { useMessageText } from "../i18n";
 import type { ChatDetails } from "../types";
-export function ChatHeader({ chat }: { chat: ChatDetails }) {
+export function ChatHeader({ chat, onSearch }: { chat: ChatDetails; onSearch: () => void }) {
   const { say, language } = useMessageText();
   const presence = useChatPresence(chat);
   const last = presence.data?.find((p) => p.id === chat.other?.id)?.last_seen_at;
@@ -72,6 +72,14 @@ export function ChatHeader({ chat }: { chat: ChatDetails }) {
         <div className="conversation-identity">{identity}</div>
       )}
       <div className="conversation-actions">
+        <button
+          type="button"
+          className="message-icon"
+          aria-label={say("Search messages", "Buscar mensajes")}
+          onClick={onSearch}
+        >
+          <Search size={20} />
+        </button>
         {[
           { Icon: Phone, label: say("Voice calls coming soon", "Llamadas próximamente") },
           { Icon: Video, label: say("Video calls coming soon", "Videollamadas próximamente") },

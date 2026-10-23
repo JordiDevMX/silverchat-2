@@ -73,13 +73,17 @@ export async function prepareAndUpload(
   userId: string,
   signal: AbortSignal,
   onProgress: (percent: number) => void,
+  options?: { durationSeconds?: number },
 ) {
   const tracked: Upload[] = [];
   try {
     let main = file;
     let width: number | undefined;
     let height: number | undefined;
-    let duration: number | undefined;
+    let duration: number | undefined =
+      options?.durationSeconds === undefined
+        ? undefined
+        : Math.max(1, Math.ceil(options.durationSeconds));
     let thumb: File | undefined;
     const type = file.type.startsWith("image/")
       ? "image"

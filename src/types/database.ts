@@ -865,9 +865,11 @@ export type Database = {
           deleted_for_everyone: boolean;
           edited_at: string | null;
           file_upload_id: string | null;
+          forwarded_from_message_id: string | null;
           id: string;
           is_pinned_in_chat: boolean;
           location_data: Json | null;
+          media_peaks: number[] | null;
           media_thumbnail_upload_id: string | null;
           mentions: string[] | null;
           reply_to_message_id: string | null;
@@ -886,9 +888,11 @@ export type Database = {
           deleted_for_everyone?: boolean;
           edited_at?: string | null;
           file_upload_id?: string | null;
+          forwarded_from_message_id?: string | null;
           id?: string;
           is_pinned_in_chat?: boolean;
           location_data?: Json | null;
+          media_peaks?: number[] | null;
           media_thumbnail_upload_id?: string | null;
           mentions?: string[] | null;
           reply_to_message_id?: string | null;
@@ -905,9 +909,11 @@ export type Database = {
           deleted_for_everyone?: boolean;
           edited_at?: string | null;
           file_upload_id?: string | null;
+          forwarded_from_message_id?: string | null;
           id?: string;
           is_pinned_in_chat?: boolean;
           location_data?: Json | null;
+          media_peaks?: number[] | null;
           media_thumbnail_upload_id?: string | null;
           mentions?: string[] | null;
           reply_to_message_id?: string | null;
@@ -934,6 +940,13 @@ export type Database = {
             columns: ["file_upload_id"];
             isOneToOne: false;
             referencedRelation: "file_uploads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_forwarded_from_message_id_fkey";
+            columns: ["forwarded_from_message_id"];
+            isOneToOne: false;
+            referencedRelation: "messages";
             referencedColumns: ["id"];
           },
           {
@@ -1471,6 +1484,10 @@ export type Database = {
       accept_chat_request: { Args: { p_request_id: string }; Returns: undefined };
       add_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
       auth_mfa_satisfied: { Args: Record<PropertyKey, never>; Returns: boolean };
+      can_access_chat_message: {
+        Args: { p_include_deleted?: boolean; p_message_id: string };
+        Returns: boolean;
+      };
       can_view_avatar: { Args: { p_owner: string; p_viewer: string }; Returns: boolean };
       can_view_story: { Args: { p_owner: string; p_viewer: string }; Returns: boolean };
       cancel_account_deletion: { Args: Record<PropertyKey, never>; Returns: undefined };
@@ -1498,10 +1515,15 @@ export type Database = {
       };
       create_group_chat: { Args: { p_member_ids: string[]; p_name: string }; Returns: string };
       create_self_chat: { Args: Record<PropertyKey, never>; Returns: string };
+      delete_chat_message_for_me: { Args: { p_message_id: string }; Returns: undefined };
       delete_direct_chat_for_me: { Args: { p_chat_id: string }; Returns: undefined };
       delete_message_for_everyone: { Args: { p_message_id: string }; Returns: undefined };
       delete_self_chat: { Args: { p_chat_id: string }; Returns: undefined };
       follow_channel: { Args: { p_channel_id: string }; Returns: undefined };
+      forward_chat_message: {
+        Args: { p_chat_ids: string[]; p_message_id: string; p_message_ids: string[] };
+        Returns: undefined;
+      };
       get_chat_messages: {
         Args: { p_before_at?: string; p_before_id?: string; p_chat_id: string };
         Returns: {
@@ -1514,9 +1536,11 @@ export type Database = {
           deleted_for_everyone: boolean;
           edited_at: string | null;
           file_upload_id: string | null;
+          forwarded_from_message_id: string | null;
           id: string;
           is_pinned_in_chat: boolean;
           location_data: Json | null;
+          media_peaks: number[] | null;
           media_thumbnail_upload_id: string | null;
           mentions: string[] | null;
           reply_to_message_id: string | null;
@@ -1555,6 +1579,11 @@ export type Database = {
       reject_chat_request: { Args: { p_request_id: string }; Returns: undefined };
       replace_backup_codes: { Args: { p_hashes: string[]; p_user_id: string }; Returns: undefined };
       schedule_account_deletion: { Args: Record<PropertyKey, never>; Returns: string };
+      set_message_pin: { Args: { p_message_id: string; p_pin: boolean }; Returns: undefined };
+      set_message_reaction: {
+        Args: { p_emoji?: string; p_message_id: string };
+        Returns: undefined;
+      };
     };
     Enums: {
       accent_theme: "blue" | "purple" | "red" | "orange" | "yellow" | "green";

@@ -16,6 +16,8 @@ export function useRealtimeMessages(chatId: string) {
           messageKey(userId, chatId),
           detailKey(userId, chatId),
           ["chats", userId],
+          ["pinned", userId, chatId],
+          ["reply-draft", userId, chatId],
         ])
           void cache.invalidateQueries({ queryKey: key });
       }, 100);
@@ -60,6 +62,16 @@ export function useRealtimeMessages(chatId: string) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_requests", filter: `chat_id=eq.${chatId}` },
+        refresh,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "message_deletions",
+          filter: `user_id=eq.${userId}`,
+        },
         refresh,
       )
       .subscribe((status) => {
