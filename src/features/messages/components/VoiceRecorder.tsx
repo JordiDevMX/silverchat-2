@@ -8,16 +8,18 @@ import { VoicePlayer } from "./VoicePlayer";
 export function VoiceRecorder({
   recorder,
   chatId,
+  channelMode = false,
   onSend,
   onClose,
 }: {
   recorder: ReturnType<typeof useVoiceRecorder>;
   chatId: string;
+  channelMode?: boolean;
   onSend: (input: SendInput) => Promise<void>;
   onClose: () => void;
 }) {
   const { say, language } = useMessageText();
-  const upload = useUploadProgress(chatId);
+  const upload = useUploadProgress(chatId, channelMode);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const touch = useRef<number | null>(null);

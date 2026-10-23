@@ -31,7 +31,7 @@ export function AppNavigation() {
       {(
         [
           [MessageCircle, "Chats", "/chats"],
-          [Radio, "Channels", "/channels"],
+          [Radio, "Updates", "/novedades"],
           [Users, "Communities", "/communities"],
           [Phone, "Calls", "/calls"],
           [Settings, "Settings", "/settings"],
@@ -40,7 +40,7 @@ export function AppNavigation() {
         <NavLink
           key={href}
           href={href}
-          className={`app-nav-link ${pathname.startsWith(href) ? "active" : ""}`}
+          className={`app-nav-link ${pathname.startsWith(href) || (href === "/novedades" && pathname.startsWith("/channels")) ? "active" : ""}`}
         >
           <span className="app-nav-icon">
             <Icon size={23} />
@@ -50,7 +50,7 @@ export function AppNavigation() {
               </span>
             )}
           </span>
-          <span>{t(label)}</span>
+          <span>{label === "Updates" ? t("Updates", "Novedades") : t(label)}</span>
         </NavLink>
       ))}
     </nav>

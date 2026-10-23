@@ -1,5 +1,3 @@
--- INCOMPLETE DRAFT: local application failed. Do not apply or rename to .sql.
--- See docs/novedades-implementation-status.md for the exact error.
 -- Prompt 10. Version 0011 belongs to contact profiles/chat settings.
 -- Apply after 0001–0011. Do not edit previously deployed migrations.
 BEGIN;
@@ -21,13 +19,15 @@ REVOKE INSERT(id,user_id,media_type,file_upload_id,text_content,background_color
 CREATE FUNCTION public.create_story(
  p_media_type public.story_media_type, p_file_upload_id uuid DEFAULT NULL,
  p_text_content text DEFAULT NULL, p_background_color text DEFAULT NULL,
- p_caption text DEFAULT NULL, p_thumbnail_upload_id uuid DEFAULT NULL
+ p_caption text DEFAULT NULL, p_thumbnail_upload_id uuid DEFAULT NULL, p_story_id uuid DEFAULT NULL
 ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE v_id uuid; f public.file_uploads;
 BEGIN
  IF auth.uid() IS NULL OR NOT public.auth_mfa_satisfied() THEN RAISE EXCEPTION 'Authentication and MFA required'; END IF;
  -- Serialize concurrent creations for the same user before counting active stories.
  PERFORM 1 FROM public.profiles WHERE id=auth.uid() FOR UPDATE;
+ -- A stable client UUID makes retries safe after a response is lost.
+ IF p_story_id IS NOT NULL AND EXISTS(SELECT 1 FROM public.stories WHERE id=p_story_id AND user_id=auth.uid()) THEN RETURN p_story_id; END IF;
  IF (SELECT count(*) FROM public.stories WHERE user_id=auth.uid() AND expires_at>now())>=10
  THEN RAISE EXCEPTION 'You can have up to 10 active stories'; END IF;
  IF p_media_type IS NULL THEN RAISE EXCEPTION 'Story media type required'; END IF;
@@ -50,8 +50,8 @@ BEGIN
     AND bucket='story-media' AND split_part(path,'/',1)=auth.uid()::text AND mime_type LIKE 'image/%'
   )) THEN RAISE EXCEPTION 'Invalid story thumbnail'; END IF;
  END IF;
- INSERT INTO public.stories(user_id,media_type,file_upload_id,text_content,background_color,caption,media_thumbnail_upload_id)
- VALUES(auth.uid(),p_media_type,p_file_upload_id,p_text_content,p_background_color,p_caption,p_thumbnail_upload_id) RETURNING id INTO v_id;
+ INSERT INTO public.stories(id,user_id,media_type,file_upload_id,text_content,background_color,caption,media_thumbnail_upload_id)
+ VALUES(coalesce(p_story_id,gen_random_uuid()),auth.uid(),p_media_type,p_file_upload_id,p_text_content,p_background_color,p_caption,p_thumbnail_upload_id) RETURNING id INTO v_id;
  RETURN v_id;
 END $$;
 
@@ -158,7 +158,7 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
     (m.chat_id IS NOT NULL AND (public.is_chat_member(m.chat_id,auth.uid()) OR EXISTS(
      SELECT 1 FROM public.chat_requests r WHERE r.chat_id=m.chat_id AND r.recipient_id=auth.uid() AND r.status='pending')))
     OR (m.channel_id IS NOT NULL AND (public.is_channel_follower(m.channel_id,auth.uid()) OR public.is_channel_owner(m.channel_id,auth.uid())))
- );
+ ));
 $$;
 CREATE OR REPLACE FUNCTION public.set_message_reaction(p_message_id uuid,p_emoji text DEFAULT NULL) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
@@ -175,6 +175,12 @@ BEGIN
    ON CONFLICT(message_id,user_id) DO UPDATE SET emoji=excluded.emoji,created_at=now();
  END IF;
 END $$;
+DROP POLICY message_reactions_select ON public.message_reactions;
+CREATE POLICY message_reactions_select ON public.message_reactions FOR SELECT TO authenticated USING (
+ EXISTS (SELECT 1 FROM public.messages m WHERE m.id=message_id AND
+ ((m.chat_id IS NOT NULL AND public.is_chat_member(m.chat_id,auth.uid())) OR
+  (m.channel_id IS NOT NULL AND (public.is_channel_owner(m.channel_id,auth.uid()) OR public.is_channel_follower(m.channel_id,auth.uid())))))
+);
 DROP POLICY reactions_insert_accessible_message ON public.message_reactions;
 CREATE POLICY reactions_insert_accessible_message ON public.message_reactions AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK(
  EXISTS(SELECT 1 FROM public.messages m WHERE m.id=message_id AND NOT m.deleted_for_everyone AND m.type<>'system' AND
@@ -202,7 +208,7 @@ CREATE POLICY file_uploads_select_novedades_thumbnail ON public.file_uploads FOR
 -- Channel avatar read access follows public channel discovery; writes require ownership.
 CREATE POLICY avatars_select_channel ON storage.objects FOR SELECT TO authenticated USING(bucket_id='avatars' AND CASE
  WHEN split_part(name,'/',1) ~ '^chat-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
- THEN EXISTS(SELECT 1 FROM public.channels WHERE id=substring(split_part(name,'/',1) from 6)::uuid) ELSE false END);
+ THEN EXISTS(SELECT 1 FROM public.channels WHERE id=substring(split_part(storage.objects.name,'/',1) from 6)::uuid) ELSE false END);
 CREATE POLICY avatars_insert_channel ON storage.objects FOR INSERT TO authenticated WITH CHECK(bucket_id='avatars' AND CASE WHEN split_part(name,'/',1) ~ '^chat-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN public.is_channel_owner(substring(split_part(name,'/',1) from 6)::uuid,auth.uid()) ELSE false END);
 CREATE POLICY avatars_update_channel ON storage.objects FOR UPDATE TO authenticated USING(bucket_id='avatars' AND CASE WHEN split_part(name,'/',1) ~ '^chat-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN public.is_channel_owner(substring(split_part(name,'/',1) from 6)::uuid,auth.uid()) ELSE false END) WITH CHECK(bucket_id='avatars' AND CASE WHEN split_part(name,'/',1) ~ '^chat-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN public.is_channel_owner(substring(split_part(name,'/',1) from 6)::uuid,auth.uid()) ELSE false END);
 CREATE POLICY avatars_delete_channel ON storage.objects FOR DELETE TO authenticated USING(bucket_id='avatars' AND CASE WHEN split_part(name,'/',1) ~ '^chat-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN public.is_channel_owner(substring(split_part(name,'/',1) from 6)::uuid,auth.uid()) ELSE false END) ;
@@ -212,7 +218,7 @@ CREATE POLICY channel_media_select_forwarded ON storage.objects FOR SELECT TO au
 );
 DO $$ DECLARE fn text; BEGIN
  FOREACH fn IN ARRAY ARRAY[
-  'create_story(public.story_media_type,uuid,text,text,text,uuid)','mark_story_viewed(uuid)',
+  'create_story(public.story_media_type,uuid,text,text,text,uuid,uuid)','mark_story_viewed(uuid)',
   'delete_story(uuid)','get_story_viewers(uuid)','unfollow_channel(uuid)',
   'update_channel_info(uuid,text,text,text,text)','create_channel(text,text,text)'
  ] LOOP
@@ -220,4 +226,17 @@ DO $$ DECLARE fn text; BEGIN
   EXECUTE 'GRANT EXECUTE ON FUNCTION public.'||fn||' TO authenticated';
  END LOOP;
 END $$;
+CREATE POLICY story_media_select_active ON storage.objects AS RESTRICTIVE FOR SELECT TO authenticated USING (
+ bucket_id <> 'story-media' OR EXISTS (
+  SELECT 1 FROM public.file_uploads f WHERE f.bucket=storage.objects.bucket_id AND f.path=storage.objects.name
+   AND (f.uploader_id=auth.uid() OR EXISTS(SELECT 1 FROM public.stories s
+     WHERE s.expires_at>now() AND (s.file_upload_id=f.id OR s.media_thumbnail_upload_id=f.id)))
+ )
+);
+SELECT cron.schedule('cleanup_orphan_uploads','0 3 * * *',$job$
+ DELETE FROM public.file_uploads
+ WHERE bucket <> 'avatars' AND status='completed' AND created_at < now()-interval '7 days'
+ AND NOT EXISTS(SELECT 1 FROM public.messages WHERE file_upload_id=file_uploads.id OR media_thumbnail_upload_id=file_uploads.id)
+ AND NOT EXISTS(SELECT 1 FROM public.stories WHERE file_upload_id=file_uploads.id OR media_thumbnail_upload_id=file_uploads.id);
+$job$);
 COMMIT;

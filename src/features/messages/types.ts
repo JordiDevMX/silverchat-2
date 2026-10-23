@@ -19,6 +19,7 @@ export type Message = MessageRow & {
   clientId?: string;
 };
 export interface ChatDetails {
+  channelMode?: boolean;
   status: Tables["chats"]["Row"]["status"];
   createdBy: string | null;
   createdAt: string;

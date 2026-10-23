@@ -3,7 +3,7 @@ import { readDrafts, writeDraft } from "@/features/chats/drafts";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { type Message, messageKey, outboxKey, type SendInput } from "../types";
-export function useSendMessage(chatId: string) {
+export function useSendMessage(chatId: string, channelMode = false) {
   const { user, profile } = useAuth();
   const cache = useQueryClient();
   const userId = user?.id ?? "";
@@ -18,8 +18,9 @@ export function useSendMessage(chatId: string) {
     }) => {
       const { upload, thumbnail, ...fields } = input;
       const local: Message = {
-        channel_id: null,
-        chat_id: chatId,
+        channel_id: channelMode ? chatId : null,
+        chat_id: channelMode ? null : chatId,
+        reply_to_story_id: null,
         contact_data: null,
         created_at: new Date().toISOString(),
         deleted_at: null,
@@ -52,7 +53,12 @@ export function useSendMessage(chatId: string) {
       try {
         const result = await supabase
           .from("messages")
-          .insert({ ...fields, id: clientId, chat_id: chatId, sender_id: userId })
+          .insert({
+            ...fields,
+            id: clientId,
+            ...(channelMode ? { channel_id: chatId } : { chat_id: chatId }),
+            sender_id: userId,
+          })
           .select("id")
           .single();
         if (result.error) {
@@ -62,7 +68,7 @@ export function useSendMessage(chatId: string) {
             .from("messages")
             .select("id")
             .eq("id", clientId)
-            .eq("chat_id", chatId)
+            .eq(channelMode ? "channel_id" : "chat_id", chatId)
             .eq("sender_id", userId)
             .maybeSingle();
           if (existing.error || !existing.data) throw result.error;
@@ -78,7 +84,7 @@ export function useSendMessage(chatId: string) {
         } catch {
           /* Optional storage. */
         }
-        void cache.invalidateQueries({ queryKey: ["chats", userId] });
+        void cache.invalidateQueries({ queryKey: [channelMode ? "channels" : "chats", userId] });
       } catch (error) {
         cache.setQueryData<Message[]>(key, (old = []) =>
           old.map((m) => (m.clientId === clientId ? { ...m, localStatus: "failed" } : m)),

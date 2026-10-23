@@ -39,6 +39,8 @@ export async function invalidateActions(cache: QueryClient, userId: string, chat
       ["pinned", userId, chatId],
       ["reply-draft", userId, chatId],
       ["chats", userId],
+      ["channels", userId],
+      ["channel-info", userId, chatId],
       ["first-unread", userId, chatId],
     ].map((queryKey) => cache.invalidateQueries({ queryKey })),
   );

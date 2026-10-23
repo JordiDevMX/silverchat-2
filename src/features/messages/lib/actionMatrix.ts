@@ -22,6 +22,13 @@ export function getAvailableActions(
       message.content
       ? ["copy"]
       : [];
+  if (message.channel_id && message.sender_id !== userId)
+    return message.deleted_for_everyone
+      ? []
+      : [
+          "react",
+          ...(["text", "file"].includes(message.type) && message.content ? ["copy" as const] : []),
+        ];
   if (message.deleted_for_everyone) return ["delete_for_me"];
   const actions: MessageAction[] = ["reply", "react"];
   if (["text", "file"].includes(message.type) && message.content) actions.push("copy");
@@ -37,5 +44,7 @@ export function getAvailableActions(
   actions.push("delete_for_me");
   if (message.sender_id === userId && age >= 0 && age < 3600000)
     actions.push("delete_for_everyone");
-  return actions;
+  return message.channel_id
+    ? actions.filter((a) => !["reply", "pin", "unpin"].includes(a))
+    : actions;
 }

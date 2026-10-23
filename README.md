@@ -90,3 +90,11 @@ shared media/files, and personal clear-chat. Apply **migration 0011 after
 [deployment notes and manual checklist](docs/chat-settings.md). Run
 `pnpm test:chat-settings` alongside the existing checks. Calls remain part of
 Prompt 12. No new dependencies are required.
+
+### Novedades (Prompt 10)
+
+Stories and broadcast Channels are implemented on `feat/novedades-stories-channels`.
+See [implementation/deployment notes](docs/novedades.md) and
+[verification status](docs/novedades-implementation-status.md). Migration 0012
+is locally validated; staging application and manual end-to-end checks remain
+pending. Do not change deployed migrations 0001–0011.

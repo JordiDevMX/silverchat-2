@@ -73,9 +73,14 @@ export async function prepareAndUpload(
   userId: string,
   signal: AbortSignal,
   onProgress: (percent: number) => void,
-  options?: { durationSeconds?: number },
+  options?: {
+    durationSeconds?: number;
+    bucket?: "chat-media" | "channel-media" | "story-media";
+    maxVideoSeconds?: number;
+  },
 ) {
   const tracked: Upload[] = [];
+  const bucket = options?.bucket ?? "chat-media";
   try {
     let main = file;
     let width: number | undefined;
@@ -111,7 +116,9 @@ export async function prepareAndUpload(
       const preview = await videoThumbnail(file, signal);
       width = preview.width;
       height = preview.height;
-      duration = preview.duration;
+      duration = Math.ceil(preview.duration);
+      if (options?.maxVideoSeconds && preview.duration > options.maxVideoSeconds)
+        throw new Error(`Video must be at most ${options.maxVideoSeconds} seconds`);
       thumb = preview.file;
     }
     signal.throwIfAborted();
@@ -131,7 +138,7 @@ export async function prepareAndUpload(
         .insert({
           id,
           uploader_id: userId,
-          bucket: "chat-media",
+          bucket,
           path,
           original_filename: blob.name,
           mime_type: blob.type || "application/octet-stream",
@@ -152,7 +159,7 @@ export async function prepareAndUpload(
         .eq("id", id);
       if (uploading.error) throw uploading.error;
       await uploadToStorage(
-        "chat-media",
+        bucket,
         path,
         blob,
         (p) => onProgress(thumb ? (thumbnail ? 90 + p * 0.1 : p * 0.9) : p),

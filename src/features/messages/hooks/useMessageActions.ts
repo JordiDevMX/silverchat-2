@@ -28,14 +28,14 @@ export function useMessageActions(chatId: string) {
                   .from("messages")
                   .update({ deleted_at: new Date().toISOString(), deleted_for_everyone: true })
                   .eq("id", id)
-                  .eq("chat_id", chatId)
+                  .eq(action.message.channel_id ? "channel_id" : "chat_id", chatId)
                   .select("id")
                   .single()
               : await supabase
                   .from("messages")
                   .update({ content: action.content ?? "", edited_at: new Date().toISOString() })
                   .eq("id", id)
-                  .eq("chat_id", chatId)
+                  .eq(action.message.channel_id ? "channel_id" : "chat_id", chatId)
                   .select("id")
                   .single();
       if (result.error) throw result.error;
@@ -107,6 +107,8 @@ export function useMessageActions(chatId: string) {
             id: `temp-${ids[index]}`,
             clientId: ids[index],
             chat_id: target,
+            channel_id: null,
+            reply_to_story_id: null,
             sender_id: userId,
             sender: profile ?? undefined,
             created_at: new Date().toISOString(),

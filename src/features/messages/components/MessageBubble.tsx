@@ -133,6 +133,11 @@ export function MessageBubble({
                   {message.sender?.display_name ?? say("Member", "Miembro")}
                 </strong>
               )}
+              {message.reply_to_story_id && (
+                <small className="story-reply-reference">
+                  {say("Reply to a story", "Respuesta a una historia")}
+                </small>
+              )}
               {message.reply_to_message_id && <ReplyPreview message={message} />}
               <MessageContent
                 message={message}

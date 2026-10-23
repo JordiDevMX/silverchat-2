@@ -8,11 +8,13 @@ import { formatBytes } from "../utils/formatMessageTime";
 export function MediaPreviewModal({
   file,
   chatId,
+  channelMode = false,
   onSend,
   onClose,
 }: {
   file: File;
   chatId: string;
+  channelMode?: boolean;
   onSend: (input: SendInput) => Promise<void>;
   onClose: () => void;
 }) {
@@ -21,7 +23,7 @@ export function MediaPreviewModal({
   const [caption, setCaption] = useState("");
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
-  const upload = useUploadProgress(chatId);
+  const upload = useUploadProgress(chatId, channelMode);
   const media = file.type.startsWith("image/") || file.type.startsWith("video/");
   useEffect(() => {
     const next = URL.createObjectURL(file);

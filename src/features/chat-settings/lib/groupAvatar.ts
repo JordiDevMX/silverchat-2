@@ -6,11 +6,12 @@ export async function saveGroupAvatar(
   file: File | null,
   previous: string | null,
   save: (patch: { avatar_url: string }) => Promise<void>,
+  kind: "group" | "channel" = "group",
 ) {
   let path: string | null = null;
   let id: string | null = null;
   if (file) {
-    path = `chat-${chatId}/group-${Date.now()}-${crypto.randomUUID()}.webp`;
+    path = `chat-${chatId}/${kind}-${Date.now()}-${crypto.randomUUID()}.webp`;
     id = crypto.randomUUID();
     const meta = await supabase.from("file_uploads").insert({
       id,
@@ -41,7 +42,7 @@ export async function saveGroupAvatar(
     await save({ avatar_url: path ?? "" });
   } catch (error) {
     const current = await supabase
-      .from("chats")
+      .from(kind === "channel" ? "channels" : "chats")
       .select("avatar_url")
       .eq("id", chatId)
       .maybeSingle();

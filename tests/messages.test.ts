@@ -18,6 +18,7 @@ const message = (patch: Partial<MessageRow> = {}): MessageRow => ({
   edited_at: null,
   is_pinned_in_chat: false,
   reply_to_message_id: null,
+  reply_to_story_id: null,
   file_upload_id: null,
   media_thumbnail_upload_id: null,
   mentions: null,
