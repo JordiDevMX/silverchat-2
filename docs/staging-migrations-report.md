@@ -123,3 +123,41 @@ Run with `read_only: true`:
 3. `SELECT count(*) FROM app_config;` → expect 9
 4. `SELECT jobname, count(*) FROM cron.job GROUP BY jobname;` → expect 4 jobnames
 5. `SELECT proname FROM pg_proc WHERE proname IN ('mark_chat_as_read','mark_chat_as_unread','delete_self_chat','delete_direct_chat_for_me') AND pronamespace = 'public'::regnamespace;` → expect 4 pronames
+
+## Recovery outcome (2026-10-23, authorized Option 1 with Variants A + B)
+
+Recovery Option 1 was applied. Step 1 pre-state matched the documented state
+exactly (history 0001–0004 only; 0005/0006/0007 artifacts absent; function
+present with 54 CR bytes). Normalization through a single non-read-only
+`/database/query` call (note: the authorized snippet's closing `END $$;` was
+not valid PL/pgSQL; the identical SEMICOLON-correct form `END; $$;` was run):
+
+| Metric | Before | After |
+| --- | --- | --- |
+| CR bytes in `create_direct_chat_request` body | 54 | 0 |
+| Body length | 3037 | 2983 |
+
+`0005_profile_settings`, `0006_account_deletion_rpcs` and
+`0007_chat_delete_adjustments` were then applied from **committed (LF) bytes**
+via `git show HEAD:…` (Variant A) as names `0005_profile_settings`,
+`0006_account_deletion_rpcs`, `0007_chat_delete_adjustments`, versions
+`20261023180925`, `20261023180927`, `20261023180930` respectively. All were
+HTTP 200; 0005's response confirmed cron re-registration (`schedule: 4`).
+
+Full verification suite results (all read-only):
+
+1. Migration history: 7 rows, versions `…174155`, `…174156`, `…174321`,
+   `…174323`, `…180925`, `…180927`, `…180930`.
+2. Table count: 22. 3. RLS-disabled tables: 0 rows. 4. `app_config`: 9 rows.
+5. Cron: exactly 4 jobnames, each `count = 1`. 6. The 4 RPCs from 0007:
+   4 pronames. 7. `chat_members.manually_unread`: present, `boolean`,
+   default `false`. 8. `chat_members_delete_own` qual: restricts to
+   authenticated member plus direct/group/community_chat row checks.
+9. `create_direct_chat_request`: membership-restore patch present
+   (`true`) and LF-clean (`true`).
+
+Variant B: `.gitattributes` enforces
+`supabase/migrations/*.sql text eol=lf`; `git ls-files --eol` verifies every
+migration file as `i/lf`. Staging is green and ready for further testing.
+Production work and history reconciliation remain the developer's
+responsibility.
