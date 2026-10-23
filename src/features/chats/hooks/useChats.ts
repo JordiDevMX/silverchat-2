@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-provider";
+import { getInitials } from "@/lib/avatar";
 import { supabase } from "@/lib/supabase";
 import type { Chat } from "../types";
 import { orderChats, receiptStatus } from "../utils/computeChatDisplay";
@@ -113,7 +114,7 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
         allRows((from, to) =>
           supabase
             .from("profiles_visible")
-            .select("id,display_name,username,avatar_url,avatar_initials,last_seen_at")
+            .select("id,display_name,username,avatar_url,last_seen_at")
             .in("id", part)
             .order("id")
             .range(from, to),
@@ -125,7 +126,7 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
     ? await allRows((from, to) =>
         supabase
           .from("profiles_blocked")
-          .select("id,display_name,username,avatar_initials")
+          .select("id,display_name,username")
           .order("id")
           .range(from, to),
       )
@@ -144,6 +145,7 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
       const fallback = blockedProfiles.find((p) => p.id === otherId);
       const own = profiles.find((p) => p.id === userId);
       const sender = profiles.find((p) => p.id === c.last_message?.sender_id);
+      const otherProfile = other ?? fallback;
       const recipients = c.type === "direct" && otherId ? [otherId] : others.map((o) => o.user_id);
       return {
         id: c.id,
@@ -161,10 +163,13 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
               ? (own?.avatar_url ?? null)
               : c.avatar_url,
         avatarInitials:
-          c.type === "direct"
-            ? (other?.avatar_initials ?? fallback?.avatar_initials)
-            : c.type === "self"
-              ? own?.avatar_initials
+          c.type === "direct" && otherProfile
+            ? getInitials({
+                display_name: otherProfile.display_name ?? "",
+                username: otherProfile.username ?? "",
+              })
+            : c.type === "self" && own
+              ? getInitials({ display_name: own.display_name ?? "", username: own.username ?? "" })
               : undefined,
         otherUserId: otherId,
         otherUsername: other?.username ?? fallback?.username ?? undefined,

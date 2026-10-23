@@ -132,7 +132,7 @@ export function ChatListItem({
                     id: chat.otherUserId ?? chat.id,
                     display_name: chat.displayName,
                     avatar_url: chat.avatarUrl,
-                    avatar_initials: chat.avatarInitials,
+                    initials: chat.avatarInitials,
                   }}
                 />
                 {online && <span className="presence-dot" title={t("Online")} />}
