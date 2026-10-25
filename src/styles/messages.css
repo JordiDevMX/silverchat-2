@@ -955,6 +955,11 @@
 .message-context-menu .danger {
   color: #dc4545;
 }
+.message-context-menu-separator {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 6px 4px;
+}
 .quick-reactions {
   display: flex;
   flex-wrap: wrap;
@@ -969,6 +974,10 @@
   background: var(--background);
   color: var(--foreground);
   cursor: pointer;
+}
+.quick-reactions button[aria-pressed="true"] {
+  border-color: #6b64d8;
+  background: color-mix(in oklab, #8b7cf8 18%, var(--background));
 }
 .message-reactions button {
   display: inline-flex;

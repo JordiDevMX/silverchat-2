@@ -7,11 +7,13 @@ export function ReactionsPicker({
   onSelect,
   onClose,
   busy,
+  mine,
   limited = false,
 }: {
   onSelect: (emoji: string) => void;
   onClose: () => void;
   busy: boolean;
+  mine?: string;
   limited?: boolean;
 }) {
   const { say } = useMessageText();
@@ -25,6 +27,7 @@ export function ReactionsPicker({
             key={emoji}
             disabled={busy}
             aria-label={emoji}
+            aria-pressed={emoji === mine}
             onClick={() => onSelect(emoji)}
           >
             {emoji}
