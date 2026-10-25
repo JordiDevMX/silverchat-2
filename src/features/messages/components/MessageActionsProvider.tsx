@@ -149,6 +149,7 @@ export function MessageActionsProvider({
           <ReactionsPicker
             limited={!!chat.channelMode}
             busy={busy}
+            mine={message.reactions.find((r) => r.user_id === user?.id)?.emoji}
             onClose={close}
             onSelect={(emoji) => {
               close();

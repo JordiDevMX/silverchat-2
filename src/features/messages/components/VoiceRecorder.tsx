@@ -145,6 +145,11 @@ export function VoiceRecorder({
         </p>
       )}
       {error && <p role="alert">{error}</p>}
+      {recorder.limitReached && (
+        <p role="status">
+          {say("Maximum 5 minutes reached", "Se alcanzó el máximo de 5 minutos")}
+        </p>
+      )}
     </div>
   );
 }

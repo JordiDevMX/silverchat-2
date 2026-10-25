@@ -9,9 +9,10 @@ export function ReactionsDisplay({ message, members }: { message: Message; membe
   const groups = new Map<string, Message["reactions"]>();
   for (const reaction of message.reactions)
     groups.set(reaction.emoji, [...(groups.get(reaction.emoji) ?? []), reaction]);
+  const ordered = [...groups].sort((a, b) => b[1].length - a[1].length);
   return (
     <div className="message-reactions">
-      {[...groups].map(([emoji, rows]) => {
+      {ordered.map(([emoji, rows]) => {
         const names =
           rows
             .slice(0, 5)

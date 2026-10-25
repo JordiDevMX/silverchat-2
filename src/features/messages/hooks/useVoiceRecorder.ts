@@ -11,6 +11,7 @@ export function useVoiceRecorder() {
   const [elapsed, setElapsed] = useState(0);
   const [livePeaks, setLivePeaks] = useState<number[]>([]);
   const [recording, setRecording] = useState<Recording>();
+  const [limitReached, setLimitReached] = useState(false);
   const session = useRef(0);
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -44,6 +45,7 @@ export function useVoiceRecorder() {
     setRecording(undefined);
     setElapsed(0);
     setLivePeaks([]);
+    setLimitReached(false);
     setError("");
     setState("idle");
   };
@@ -62,6 +64,7 @@ export function useVoiceRecorder() {
     setRecording(undefined);
     setElapsed(0);
     setLivePeaks([]);
+    setLimitReached(false);
     setError("");
     const mime = audioMimeType();
     if (!mime || !navigator.mediaDevices?.getUserMedia) {
@@ -144,7 +147,10 @@ export function useVoiceRecorder() {
         for (const sample of samples) peak = Math.max(peak, Math.abs(sample));
         setLivePeaks((old) => [...old.slice(-39), Math.round(peak * 100)]);
       }, 100);
-      deadline.current = setTimeout(stop, recordingLimitMs);
+      deadline.current = setTimeout(() => {
+        setLimitReached(true);
+        stop();
+      }, recordingLimitMs);
     } catch (cause) {
       if (epoch !== session.current) return;
       discard();
@@ -156,5 +162,5 @@ export function useVoiceRecorder() {
       );
     }
   };
-  return { state, error, elapsed, livePeaks, recording, start, stop, cancel };
+  return { state, error, elapsed, livePeaks, recording, limitReached, start, stop, cancel };
 }

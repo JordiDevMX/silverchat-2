@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/lib/auth-provider";
 import { useMessageText } from "../i18n";
@@ -73,16 +73,22 @@ export function MessageContextMenu({
         } as CSSProperties
       }
     >
-      {actions.map((action) => (
-        <button
-          type="button"
-          role="menuitem"
-          key={action}
-          className={action.startsWith("delete") ? "danger" : ""}
-          onClick={() => onChoose(action)}
-        >
-          {labels[action]}
-        </button>
+      {actions.map((action, index) => (
+        <Fragment key={action}>
+          {index > 0 &&
+            action.startsWith("delete") &&
+            !actions[index - 1]?.startsWith("delete") && (
+              <hr className="message-context-menu-separator" />
+            )}
+          <button
+            type="button"
+            role="menuitem"
+            className={action.startsWith("delete") ? "danger" : ""}
+            onClick={() => onChoose(action)}
+          >
+            {labels[action]}
+          </button>
+        </Fragment>
       ))}
     </div>,
     document.body,
