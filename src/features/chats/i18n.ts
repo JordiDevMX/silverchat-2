@@ -97,9 +97,28 @@ const es: Record<string, string> = {
   delivered: "Entregado",
   read: "Leído",
   "Back to chats": "Volver a chats",
-  "Coming next": "Próximamente",
-  "Chat creation and messaging are coming in the next update.":
-    "La creación de chats y la mensajería llegarán en la próxima actualización.",
+  Contacts: "Contactos",
+  "Search results": "Resultados de búsqueda",
+  "Search by name or @username": "Buscar por nombre o @usuario",
+  Message: "Mensaje",
+  Dismiss: "Cerrar",
+  "Loading contacts…": "Cargando contactos…",
+  "Searching users…": "Buscando usuarios…",
+  "Could not load contacts.": "No se pudieron cargar los contactos.",
+  "Could not search users. Please try again.":
+    "No se pudieron buscar usuarios. Inténtalo de nuevo.",
+  "You don't have any contacts yet. Search by username to start a new conversation.":
+    "Aún no tienes contactos. Busca por nombre de usuario para iniciar una conversación.",
+  "You don't have any contacts yet. Search by username to add group members.":
+    "Aún no tienes contactos. Busca por nombre de usuario para añadir miembros al grupo.",
+  "No users found for": "No se encontraron usuarios para",
+  Create: "Crear",
+  "Group name": "Nombre del grupo",
+  "Enter group name…": "Introduce el nombre del grupo…",
+  Members: "Miembros",
+  "Selected members": "Miembros seleccionados",
+  Remove: "Quitar",
+  "You can select up to 100 members": "Puedes seleccionar hasta 100 miembros",
 };
 export function useChatText() {
   const { language } = useI18n();
