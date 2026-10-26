@@ -79,3 +79,4 @@ Implemented the **New Chat** (`/chats/new`) and **New Group** (`/chats/new-group
 ## Known Limitations
 
 - Because remote migration `0005_profile_settings.sql` has not yet been applied to production (`lmzbaxlojgsdwgcxkmzx`), `create_direct_chat_request` on the remote DB still requires a non-empty `p_initial_content` when creating a brand-new request (`useCreateDirectChat` defaults to `"👋"` when no initial content is supplied), and blocked-user fallback labels are derived from `user_blocks` until `profiles_blocked` is deployed remotely.
+
