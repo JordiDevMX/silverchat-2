@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
 import { useCreateGroupChat } from "@/features/chats/hooks/useCreateGroupChat";
 import {
+  matchesUserFilter,
   sanitizeUserSearchTerm,
   type UserSearchResult,
   useDirectContacts,
@@ -69,12 +70,8 @@ export function NewGroupPage() {
   const contactCandidates = useMemo(() => {
     const list = (contacts.data ?? []).map((c) => c.user).filter((u) => u.id !== currentUserId);
     if (!normalizedFilter) return list;
-    return list.filter(
-      (u) =>
-        u.display_name.toLocaleLowerCase().includes(normalizedFilter) ||
-        u.username.toLocaleLowerCase().includes(normalizedFilter),
-    );
-  }, [contacts.data, currentUserId, normalizedFilter]);
+    return list.filter((u) => matchesUserFilter(u, searchQuery));
+  }, [contacts.data, currentUserId, normalizedFilter, searchQuery]);
 
   const contactIds = useMemo(
     () => new Set(contactCandidates.map((u) => u.id)),

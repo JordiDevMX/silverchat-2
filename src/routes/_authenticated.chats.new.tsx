@@ -191,13 +191,20 @@ export function NewChatPage() {
               </div>
             ) : search.results.length > 0 ? (
               <ul className="new-chat-user-list">
-                {search.results.map((user) =>
-                  renderUserRow(
+                {search.results.map((user) => {
+                  const existingContact = contacts.data?.find((c) => c.user.id === user.id);
+                  return renderUserRow(
                     user,
-                    () => createDirectChat.mutate(user.id),
+                    () => {
+                      if (existingContact) {
+                        void router.navigate({ href: `/chats/${existingContact.chatId}` });
+                      } else {
+                        createDirectChat.mutate(user.id);
+                      }
+                    },
                     createDirectChat.isPending,
-                  ),
-                )}
+                  );
+                })}
               </ul>
             ) : (
               <div className="chats-empty new-chat-empty">
@@ -211,4 +218,3 @@ export function NewChatPage() {
     </main>
   );
 }
-

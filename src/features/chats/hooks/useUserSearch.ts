@@ -11,182 +11,216 @@ export interface UserSearchResult {
   bio: string | null;
 }
 
-export interface DirectContact {
+export interface DirectContactItem {
   chatId: string;
   user: UserSearchResult;
 }
 
 export function sanitizeUserSearchTerm(raw: string): string {
-  return raw
-    .trim()
-    .replace(/^@+/, "")
-    .replace(/[^\p{L}\p{N} _.-]/gu, "")
-    .trim();
+  return raw.trim().replace(/^@+/, "");
 }
 
-function normalizeProfileRow(row: {
-  id: string | null;
-  username: string | null;
-  display_name: string | null;
-  avatar_url: string | null;
-  bio: string | null;
-}): UserSearchResult | null {
-  if (!row.id || !row.username) return null;
-  return {
-    id: row.id,
-    username: row.username,
-    display_name: row.display_name ?? row.username,
-    avatar_url: row.avatar_url ?? null,
-    bio: row.bio ?? null,
-  };
+export function escapeIlikePattern(term: string): string {
+  return sanitizeUserSearchTerm(term).replace(/[\\%_,"().]/g, (match) => `\\${match}`);
 }
 
-export function useUserSearch(query: string) {
+export function matchesUserFilter(user: UserSearchResult, rawQuery: string): boolean {
+  const q = sanitizeUserSearchTerm(rawQuery).toLocaleLowerCase();
+  if (!q) return true;
+  if (
+    user.display_name.toLocaleLowerCase().includes(q) ||
+    user.username.toLocaleLowerCase().includes(q)
+  ) {
+    return true;
+  }
+  const hexMatch = q.match(/^(?:user_)?([0-9a-f]{4,8})$/i);
+  if (hexMatch?.[1] && user.id.toLocaleLowerCase().startsWith(hexMatch[1].toLocaleLowerCase())) {
+    return true;
+  }
+  return false;
+}
+
+export function buildUserSearchOrFilter(raw: string): string {
+  const stripped = sanitizeUserSearchTerm(raw);
+  const escaped = escapeIlikePattern(raw);
+  const clauses = [`username.ilike.%${escaped}%`, `display_name.ilike.%${escaped}%`];
+  const hexMatch = stripped.match(/^(?:user_)?([0-9a-f]{4,8})$/i);
+  if (hexMatch?.[1]) {
+    const hex = hexMatch[1].toLowerCase();
+    const minUuid = `${hex.padEnd(8, "0")}-0000-0000-0000-000000000000`;
+    const maxUuid = `${hex.padEnd(8, "f")}-ffff-ffff-ffff-ffffffffffff`;
+    clauses.push(`and(id.gte.${minUuid},id.lte.${maxUuid})`);
+  }
+  return clauses.join(",");
+}
+
+export function useUserSearch(rawQuery: string, debounceMs = 300) {
   const { user, mfaRequired } = useAuth();
-  const userId = user?.id ?? "";
-  const cleanedImmediate = sanitizeUserSearchTerm(query);
-  const [debouncedTerm, setDebouncedTerm] = useState(cleanedImmediate);
+  const immediateSanitized = sanitizeUserSearchTerm(rawQuery);
+  const [debouncedTerm, setDebouncedTerm] = useState(immediateSanitized);
 
   useEffect(() => {
+    if (!immediateSanitized) {
+      setDebouncedTerm("");
+      return;
+    }
     const timer = setTimeout(() => {
-      setDebouncedTerm(sanitizeUserSearchTerm(query));
-    }, 300);
+      setDebouncedTerm(immediateSanitized);
+    }, debounceMs);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [immediateSanitized, debounceMs]);
 
-  const searchQuery = useQuery({
-    queryKey: ["user-search", userId, debouncedTerm],
-    enabled: Boolean(userId && !mfaRequired && debouncedTerm.length > 0),
+  const isDebouncing = immediateSanitized !== debouncedTerm;
+
+  const query = useQuery({
+    queryKey: ["user-search", user?.id ?? "", debouncedTerm],
+    enabled: Boolean(user && !mfaRequired && debouncedTerm.length > 0),
+    staleTime: 15_000,
     queryFn: async (): Promise<UserSearchResult[]> => {
-      const escaped = debouncedTerm.replace(/_/g, "\\_");
+      const currentUserId = user?.id ?? "";
+      if (!currentUserId || !debouncedTerm) return [];
+
+      const orFilter = buildUserSearchOrFilter(debouncedTerm);
+
       const [profilesRes, blocksRes] = await Promise.all([
         supabase
           .from("profiles_visible")
           .select("id, username, display_name, avatar_url, bio")
-          .neq("id", userId)
-          .or(`username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`)
+          .neq("id", currentUserId)
+          .or(orFilter)
+          .order("display_name", { ascending: true })
           .order("username", { ascending: true })
           .limit(20),
-        supabase
-          .from("user_blocks")
-          .select("blocker_id, blocked_id")
-          .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
+        supabase.from("user_blocks").select("blocked_id").eq("blocker_id", currentUserId),
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
+      if (blocksRes.error) throw blocksRes.error;
 
-      const blockedIds = new Set<string>();
-      for (const b of blocksRes.data ?? []) {
-        if (b.blocker_id && b.blocker_id !== userId) blockedIds.add(b.blocker_id);
-        if (b.blocked_id && b.blocked_id !== userId) blockedIds.add(b.blocked_id);
-      }
-
+      const blockedIds = new Set((blocksRes.data ?? []).map((b) => b.blocked_id));
       const results: UserSearchResult[] = [];
+
       for (const row of profilesRes.data ?? []) {
-        const normalized = normalizeProfileRow(row);
-        if (!normalized) continue;
-        if (normalized.id === userId) continue;
-        if (blockedIds.has(normalized.id)) continue;
-        results.push(normalized);
+        if (!row.id || row.id === currentUserId || blockedIds.has(row.id)) continue;
+        results.push({
+          id: row.id,
+          username: row.username ?? "",
+          display_name: row.display_name ?? row.username ?? "",
+          avatar_url: row.avatar_url ?? null,
+          bio: row.bio ?? null,
+        });
       }
+
       return results;
     },
   });
 
-  const isDebouncing = cleanedImmediate !== debouncedTerm;
-
   return {
-    ...searchQuery,
-    term: debouncedTerm,
-    hasQuery: cleanedImmediate.length > 0,
-    isLoading: cleanedImmediate.length > 0 && (isDebouncing || searchQuery.isFetching),
-    results: cleanedImmediate.length > 0 ? (searchQuery.data ?? []) : [],
+    ...query,
+    results: immediateSanitized ? (query.data ?? []) : [],
+    debouncedTerm,
+    isDebouncing,
+    isLoading: Boolean(immediateSanitized) && (isDebouncing || query.isPending || query.isFetching),
+    hasQuery: Boolean(immediateSanitized),
   };
 }
 
 export function useDirectContacts() {
   const { user, mfaRequired } = useAuth();
-  const userId = user?.id ?? "";
 
   return useQuery({
-    queryKey: ["direct-contacts", userId],
-    enabled: Boolean(userId && !mfaRequired),
-    queryFn: async (): Promise<DirectContact[]> => {
-      const mine = await supabase
+    queryKey: ["direct-contacts", user?.id ?? ""],
+    enabled: Boolean(user && !mfaRequired),
+    staleTime: 15_000,
+    queryFn: async (): Promise<DirectContactItem[]> => {
+      const currentUserId = user?.id ?? "";
+      if (!currentUserId) return [];
+
+      const membershipsRes = await supabase
         .from("chat_members")
-        .select("chat_id, chats!inner(id, type, status, direct_pair_key)")
-        .eq("user_id", userId)
-        .eq("chats.type", "direct")
-        .eq("chats.status", "active");
+        .select(
+          "chat_id, chat:chats!chat_members_chat_id_fkey!inner(id, type, status, direct_pair_key, last_message_at)",
+        )
+        .eq("user_id", currentUserId)
+        .eq("chat.type", "direct")
+        .eq("chat.status", "active")
+        .order("chat(last_message_at)", { ascending: false, nullsFirst: false })
+        .limit(200);
 
-      if (mine.error) throw mine.error;
-      if (!mine.data?.length) return [];
+      if (membershipsRes.error) throw membershipsRes.error;
 
-      const chatByOtherUser = new Map<string, string>();
-      const missingChatIds: string[] = [];
+      const memberships = membershipsRes.data ?? [];
+      if (!memberships.length) return [];
 
-      for (const row of mine.data) {
-        const pairKey = row.chats?.direct_pair_key;
-        const otherFromPair = pairKey?.split("::").find((id) => id && id !== userId);
-        if (otherFromPair) {
-          chatByOtherUser.set(otherFromPair, row.chat_id);
-        } else {
-          missingChatIds.push(row.chat_id);
-        }
-      }
+      const chatIds = memberships.map((m) => m.chat_id);
 
-      if (missingChatIds.length > 0) {
-        const members = await supabase
+      const [membersRes, blocksRes] = await Promise.all([
+        supabase
           .from("chat_members")
           .select("chat_id, user_id")
-          .in("chat_id", missingChatIds)
-          .neq("user_id", userId);
-        if (members.error) throw members.error;
-        for (const m of members.data ?? []) {
-          if (m.user_id && !chatByOtherUser.has(m.user_id)) {
-            chatByOtherUser.set(m.user_id, m.chat_id);
-          }
+          .in("chat_id", chatIds)
+          .neq("user_id", currentUserId),
+        supabase.from("user_blocks").select("blocked_id").eq("blocker_id", currentUserId),
+      ]);
+
+      if (membersRes.error) throw membersRes.error;
+      if (blocksRes.error) throw blocksRes.error;
+
+      const blockedIds = new Set((blocksRes.data ?? []).map((b) => b.blocked_id));
+      const chatToUser = new Map<string, string>();
+
+      for (const m of memberships) {
+        const pairOther = m.chat.direct_pair_key
+          ?.split("::")
+          .find((id) => id && id !== currentUserId);
+        const memberOther = (membersRes.data ?? []).find(
+          (row) => row.chat_id === m.chat_id && row.user_id !== currentUserId,
+        )?.user_id;
+        const otherId = pairOther ?? memberOther;
+        if (otherId && !blockedIds.has(otherId)) {
+          chatToUser.set(m.chat_id, otherId);
         }
       }
 
-      const targetIds = [...chatByOtherUser.keys()];
-      if (!targetIds.length) return [];
+      const otherUserIds = [...new Set(chatToUser.values())];
+      if (!otherUserIds.length) return [];
 
-      const [profilesRes, blocksRes] = await Promise.all([
-        supabase
-          .from("profiles_visible")
-          .select("id, username, display_name, avatar_url, bio")
-          .in("id", targetIds)
-          .order("display_name", { ascending: true }),
-        supabase
-          .from("user_blocks")
-          .select("blocker_id, blocked_id")
-          .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
-      ]);
+      const profilesRes = await supabase
+        .from("profiles_visible")
+        .select("id, username, display_name, avatar_url, bio")
+        .in("id", otherUserIds);
 
       if (profilesRes.error) throw profilesRes.error;
 
-      const blockedIds = new Set<string>();
-      for (const b of blocksRes.data ?? []) {
-        if (b.blocker_id && b.blocker_id !== userId) blockedIds.add(b.blocker_id);
-        if (b.blocked_id && b.blocked_id !== userId) blockedIds.add(b.blocked_id);
-      }
-
-      const contacts: DirectContact[] = [];
+      const profileById = new Map<string, UserSearchResult>();
       for (const row of profilesRes.data ?? []) {
-        const normalized = normalizeProfileRow(row);
-        if (!normalized || blockedIds.has(normalized.id)) continue;
-        const chatId = chatByOtherUser.get(normalized.id);
-        if (!chatId) continue;
-        contacts.push({ chatId, user: normalized });
+        if (!row.id || row.id === currentUserId || blockedIds.has(row.id)) continue;
+        profileById.set(row.id, {
+          id: row.id,
+          username: row.username ?? "",
+          display_name: row.display_name ?? row.username ?? "",
+          avatar_url: row.avatar_url ?? null,
+          bio: row.bio ?? null,
+        });
       }
 
-      return contacts.sort((a, b) =>
-        a.user.display_name.localeCompare(b.user.display_name, undefined, {
-          sensitivity: "base",
-        }),
-      );
+      const seenUsers = new Set<string>();
+      const contacts: DirectContactItem[] = [];
+
+      for (const m of memberships) {
+        const otherId = chatToUser.get(m.chat_id);
+        if (!otherId || seenUsers.has(otherId)) continue;
+        const profile = profileById.get(otherId);
+        if (!profile) continue;
+        seenUsers.add(otherId);
+        contacts.push({
+          chatId: m.chat_id,
+          user: profile,
+        });
+      }
+
+      contacts.sort((a, b) => a.user.display_name.localeCompare(b.user.display_name));
+      return contacts;
     },
   });
 }
-

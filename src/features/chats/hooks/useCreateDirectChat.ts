@@ -3,6 +3,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { useI18n } from "@/app/providers/i18n-provider";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
+import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 
 export type CreateDirectChatInput =
@@ -25,6 +26,20 @@ export function formatDirectChatError(
         : String(error ?? "");
 
   const isEs = language === "es";
+
+  const untilMatch = raw.match(/cooldown active until\s+([^\s,;]+)/i);
+  if (untilMatch?.[1]) {
+    const parsed = Date.parse(untilMatch[1]);
+    const retryDate = Number.isFinite(parsed) ? new Date(parsed) : new Date(nowMs + 7 * 86_400_000);
+    const formattedDate = new Intl.DateTimeFormat(isEs ? "es" : "en", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(retryDate);
+    return isEs
+      ? `Aún no puedes enviar mensajes a este usuario. Inténtalo de nuevo el ${formattedDate}`
+      : `You can't message this user yet. Try again on ${formattedDate}`;
+  }
 
   const cooldownMatch = raw.match(/cooldown active(?:\s*:\s*try again in\s*(\d+)\s*days?)?/i);
   if (cooldownMatch) {
@@ -56,6 +71,7 @@ export function formatDirectChatError(
 export function useCreateDirectChat() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { user } = useAuth();
   const { language } = useI18n();
   const notify = useChatUIStore((s) => s.notify);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -63,7 +79,49 @@ export function useCreateDirectChat() {
   const mutation = useMutation({
     mutationFn: async (input: CreateDirectChatInput): Promise<string> => {
       const targetUserId = typeof input === "string" ? input : input.targetUserId;
-      const initialContent = typeof input === "string" ? "" : (input.initialContent ?? "");
+      const rawContent = typeof input === "string" ? "" : (input.initialContent ?? "");
+      const initialContent = rawContent.trim() ? rawContent : "👋";
+
+      if (user?.id && targetUserId === user.id) {
+        throw new Error("Choose another user; use create_self_chat for yourself");
+      }
+
+      if (user?.id) {
+        const pairKey =
+          user.id < targetUserId ? `${user.id}::${targetUserId}` : `${targetUserId}::${user.id}`;
+
+        const [existingChat, recentRequests] = await Promise.all([
+          supabase
+            .from("chats")
+            .select("id, status")
+            .eq("direct_pair_key", pairKey)
+            .in("status", ["active", "pending_request"])
+            .maybeSingle(),
+          supabase
+            .from("chat_requests")
+            .select("status, responded_at")
+            .or(
+              `and(sender_id.eq.${user.id},recipient_id.eq.${targetUserId}),and(sender_id.eq.${targetUserId},recipient_id.eq.${user.id})`,
+            )
+            .order("created_at", { ascending: false })
+            .limit(5),
+        ]);
+
+        if (existingChat.data?.id) {
+          return existingChat.data.id;
+        }
+
+        const latestRequest = (recentRequests.data ?? [])[0];
+        if (latestRequest?.status === "rejected" && latestRequest.responded_at) {
+          const rejectedMs = Date.parse(latestRequest.responded_at);
+          const cooldownUntilMs = rejectedMs + 7 * 86_400_000;
+          if (Number.isFinite(rejectedMs) && cooldownUntilMs > Date.now()) {
+            throw new Error(
+              `Message request cooldown active until ${new Date(cooldownUntilMs).toISOString()}`,
+            );
+          }
+        }
+      }
 
       const { data, error } = await supabase.rpc("create_direct_chat_request", {
         p_target_user_id: targetUserId,
@@ -97,4 +155,3 @@ export function useCreateDirectChat() {
     clearError: () => setErrorMessage(null),
   };
 }
-

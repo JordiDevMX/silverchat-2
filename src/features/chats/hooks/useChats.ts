@@ -136,15 +136,14 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
       ),
     )
   ).flat();
-  const blockedProfiles = blocks.length
-    ? await allRows((from, to) =>
-        supabase
-          .from("profiles_blocked")
-          .select("id,display_name,username")
-          .order("id")
-          .range(from, to),
-      )
-    : [];
+  const blockedProfiles = blocks.map((b) => {
+    const shortId = b.blocked_id.replace(/-/g, "").slice(0, 8);
+    return {
+      id: b.blocked_id,
+      display_name: `User ${shortId}`,
+      username: `user_${shortId}`,
+    };
+  });
   return orderChats(
     memberships.map((m) => {
       const c = m.chat;
