@@ -1,0 +1,54 @@
+0000000000000000000000000000000000000000 346e44b58b9c58261e63af35ff7284c39e7c38bd Mystic <jordidev@proton.me> 1792634429 -0600	commit (initial): feat: initialize project structure with React, TypeScript, and Tailwind CSS
+346e44b58b9c58261e63af35ff7284c39e7c38bd be0a1d40ec9ad039325a3eb70c9004de971af9bb Mystic <jordidev@proton.me> 1792638221 -0600	commit: Add Zod schema validation references for improved type safety and security
+be0a1d40ec9ad039325a3eb70c9004de971af9bb bf12b71ae194c28786e227e9843b9ed0fb0e6845 Mystic <jordidev@proton.me> 1792638389 -0600	commit: Add manifest.json for roadmap documentation with metadata and hashes by Graphify
+bf12b71ae194c28786e227e9843b9ed0fb0e6845 9df7c08b0cddcad92a2eb9f53f50646a713da185 Mystic <jordidev@proton.me> 1792642778 -0600	pull: Fast-forward
+9df7c08b0cddcad92a2eb9f53f50646a713da185 52b745f871e966e93262ea770917922c39a61fbe Mystic <jordidev@proton.me> 1792684449 -0600	pull: Fast-forward
+52b745f871e966e93262ea770917922c39a61fbe baea3c24f626e9693e6f42cce3171f5dde4101ab Mystic <jordidev@proton.me> 1792686073 -0600	pull: Fast-forward
+baea3c24f626e9693e6f42cce3171f5dde4101ab 73b587670b59d6aaa9c5177fd323e2fbdb28f468 Mystic <jordidev@proton.me> 1792690324 -0600	pull: Fast-forward
+73b587670b59d6aaa9c5177fd323e2fbdb28f468 d84f20345b62667a385df96874085534bbe77c48 Mystic <jordidev@proton.me> 1792700197 -0600	commit: Refactor code structure for improved readability and maintainability
+d84f20345b62667a385df96874085534bbe77c48 d84f20345b62667a385df96874085534bbe77c48 Mystic <jordidev@proton.me> 1792700234 -0600	checkout: moving from main to fix/turnstile-dummy-token
+d84f20345b62667a385df96874085534bbe77c48 059edffe02fdf8d9b7737a600c24749f428f0299 Mystic <jordidev@proton.me> 1792700438 -0600	commit: fix turnstile verification failing with official Cloudflare testing keys
+059edffe02fdf8d9b7737a600c24749f428f0299 d84f20345b62667a385df96874085534bbe77c48 Mystic <jordidev@proton.me> 1792704985 -0600	checkout: moving from fix/turnstile-dummy-token to main
+d84f20345b62667a385df96874085534bbe77c48 fc5a06e8d99a41034e3b0aea3ea046bdf3fad9fa Mystic <jordidev@proton.me> 1792704991 -0600	pull: Fast-forward
+fc5a06e8d99a41034e3b0aea3ea046bdf3fad9fa 546d9a1105e5770b41c249ff7ec15cc239c8e43f Mystic <jordidev@proton.me> 1792770672 -0600	pull: Fast-forward
+546d9a1105e5770b41c249ff7ec15cc239c8e43f 546d9a1105e5770b41c249ff7ec15cc239c8e43f Mystic <jordidev@proton.me> 1792773625 -0600	checkout: moving from main to chore/supabase-cli-setup
+546d9a1105e5770b41c249ff7ec15cc239c8e43f a2ab3d1b49b16ee03c1987bb962b0b19cef4d56d Mystic <jordidev@proton.me> 1792773629 -0600	commit: chore: configure Supabase CLI for local agent workflows
+a2ab3d1b49b16ee03c1987bb962b0b19cef4d56d f169b656216a30bb3bca114d93384a33e825c9cc Mystic <jordidev@proton.me> 1792774047 -0600	commit: chore: add documentation for deferred migration items and repair instructions
+f169b656216a30bb3bca114d93384a33e825c9cc 546d9a1105e5770b41c249ff7ec15cc239c8e43f Mystic <jordidev@proton.me> 1792774492 -0600	checkout: moving from chore/supabase-cli-setup to main
+546d9a1105e5770b41c249ff7ec15cc239c8e43f c81dfe5daf82214cb67154c6b7b3775ab91cc0b6 Mystic <jordidev@proton.me> 1792774502 -0600	pull: Fast-forward
+c81dfe5daf82214cb67154c6b7b3775ab91cc0b6 c81dfe5daf82214cb67154c6b7b3775ab91cc0b6 Mystic <jordidev@proton.me> 1792777090 -0600	checkout: moving from main to staging-migrations-apply
+c81dfe5daf82214cb67154c6b7b3775ab91cc0b6 2c95b1bb995181cb52d0502406190a529c57a1cc Mystic <jordidev@proton.me> 1792777614 -0600	commit: docs: staging migration run report (applied 0001-0004, 0005 blocked on CRLF mismatch)
+2c95b1bb995181cb52d0502406190a529c57a1cc 2c95b1bb995181cb52d0502406190a529c57a1cc Mystic <jordidev@proton.me> 1792779060 -0600	checkout: moving from staging-migrations-apply to staging-migrations-recovery
+2c95b1bb995181cb52d0502406190a529c57a1cc bdfa7b6aa66cc3e908bb37c5b48fd64657c4e73e Mystic <jordidev@proton.me> 1792779060 -0600	commit: chore(staging): recover 0005-0007 via LF-normalized committed bytes
+bdfa7b6aa66cc3e908bb37c5b48fd64657c4e73e e6ea3eda6e02c50ad17ce89271be799840fbbe05 Mystic <jordidev@proton.me> 1792781757 -0600	commit: chore: update .env.example with Turnstile keys and staging environment variables
+e6ea3eda6e02c50ad17ce89271be799840fbbe05 c81dfe5daf82214cb67154c6b7b3775ab91cc0b6 Mystic <jordidev@proton.me> 1792781987 -0600	checkout: moving from staging-migrations-recovery to main
+c81dfe5daf82214cb67154c6b7b3775ab91cc0b6 cbf28243acc5fbaeffda80a27c023211b6797d1f Mystic <jordidev@proton.me> 1792781990 -0600	pull: Fast-forward
+cbf28243acc5fbaeffda80a27c023211b6797d1f 3d85480325b6fabf6d84545b7cd44c451b98c1cb Mystic <jordidev@proton.me> 1792784328 -0600	checkout: moving from main to feat/chat-messages
+3d85480325b6fabf6d84545b7cd44c451b98c1cb 1b7b5fe7de1e7cff1e967bbfba7227237bdcfb22 Mystic <jordidev@proton.me> 1792785611 -0600	commit: fix: update linkify-react and linkifyjs versions in package.json and pnpm-lock.yaml
+1b7b5fe7de1e7cff1e967bbfba7227237bdcfb22 cbf28243acc5fbaeffda80a27c023211b6797d1f Mystic <jordidev@proton.me> 1792785674 -0600	checkout: moving from feat/chat-messages to main
+cbf28243acc5fbaeffda80a27c023211b6797d1f cbf28243acc5fbaeffda80a27c023211b6797d1f Mystic <jordidev@proton.me> 1792786092 -0600	checkout: moving from main to fix/biome-config
+cbf28243acc5fbaeffda80a27c023211b6797d1f af60bebff8ea038987446ac69e5cce41edd3efc0 Mystic <jordidev@proton.me> 1792786098 -0600	commit: fix(biome): exclude agent skills and markdown from lint
+af60bebff8ea038987446ac69e5cce41edd3efc0 af60bebff8ea038987446ac69e5cce41edd3efc0 Mystic <jordidev@proton.me> 1792786198 -0600	checkout: moving from fix/biome-config to fix/biome-config
+af60bebff8ea038987446ac69e5cce41edd3efc0 cbf28243acc5fbaeffda80a27c023211b6797d1f Mystic <jordidev@proton.me> 1792786567 -0600	checkout: moving from fix/biome-config to main
+cbf28243acc5fbaeffda80a27c023211b6797d1f 682f65750e2286914d8edbfe782939ff8cb30163 Mystic <jordidev@proton.me> 1792786569 -0600	pull: Fast-forward
+682f65750e2286914d8edbfe782939ff8cb30163 682f65750e2286914d8edbfe782939ff8cb30163 Mystic <jordidev@proton.me> 1792788234 -0600	checkout: moving from main to fix/message-reactions-order
+682f65750e2286914d8edbfe782939ff8cb30163 1642d9a5acfc0822fc2a87c3b39cbcc278527606 Mystic <jordidev@proton.me> 1792788245 -0600	commit: fix(messages): order message_reactions by composite PK, not id
+1642d9a5acfc0822fc2a87c3b39cbcc278527606 1642d9a5acfc0822fc2a87c3b39cbcc278527606 Mystic <jordidev@proton.me> 1792788427 -0600	checkout: moving from fix/message-reactions-order to fix/message-reactions-order
+1642d9a5acfc0822fc2a87c3b39cbcc278527606 1642d9a5acfc0822fc2a87c3b39cbcc278527606 Mystic <jordidev@proton.me> 1792789466 -0600	checkout: moving from fix/message-reactions-order to fix/avatar-initials-device-fingerprint
+1642d9a5acfc0822fc2a87c3b39cbcc278527606 dba9878f1aaba278277278991b14e541a88df6f9 Mystic <jordidev@proton.me> 1792789472 -0600	commit: fix(messages): remove phantom avatar_initials query + add device_fingerprint migration
+dba9878f1aaba278277278991b14e541a88df6f9 682f65750e2286914d8edbfe782939ff8cb30163 Mystic <jordidev@proton.me> 1792790284 -0600	checkout: moving from fix/avatar-initials-device-fingerprint to main
+682f65750e2286914d8edbfe782939ff8cb30163 67788bfd33f81302a962f3437be9ef22a02e7c26 Mystic <jordidev@proton.me> 1792790287 -0600	pull: Fast-forward
+67788bfd33f81302a962f3437be9ef22a02e7c26 a8a095873b811adca8bff45388f6e6baad63db3b Mystic <jordidev@proton.me> 1792793285 -0600	pull: Fast-forward
+a8a095873b811adca8bff45388f6e6baad63db3b c3695b8899923db4c8d2a757db70f65dabbd4cba Mystic <jordidev@proton.me> 1792795280 -0600	pull: Fast-forward
+c3695b8899923db4c8d2a757db70f65dabbd4cba 520b13071f6c735e98f0e48ca6d34c1c8721bfa5 Mystic <jordidev@proton.me> 1792796559 -0600	pull: Fast-forward
+520b13071f6c735e98f0e48ca6d34c1c8721bfa5 22fa5b67e3d580020c69f0978dbc2c2e45bbcd2d Mystic <jordidev@proton.me> 1792799006 -0600	pull: Fast-forward
+22fa5b67e3d580020c69f0978dbc2c2e45bbcd2d 724ae8ef20948658e931d7a05f49bf0c15bead40 Mystic <jordidev@proton.me> 1792800126 -0600	commit: updated graphify
+724ae8ef20948658e931d7a05f49bf0c15bead40 724ae8ef20948658e931d7a05f49bf0c15bead40 Mystic <jordidev@proton.me> 1792942810 -0600	checkout: moving from main to verify/8b-message-actions
+724ae8ef20948658e931d7a05f49bf0c15bead40 81b22f78a2a7841bf1ef4008e0fb2ef2c47dd687 Mystic <jordidev@proton.me> 1792942868 -0600	commit: verify(8b): audit + fixes for message actions
+81b22f78a2a7841bf1ef4008e0fb2ef2c47dd687 724ae8ef20948658e931d7a05f49bf0c15bead40 Mystic <jordidev@proton.me> 1792967682 -0600	checkout: moving from verify/8b-message-actions to main
+724ae8ef20948658e931d7a05f49bf0c15bead40 81b22f78a2a7841bf1ef4008e0fb2ef2c47dd687 Mystic <jordidev@proton.me> 1792972182 -0600	checkout: moving from main to verify/8b-message-actions
+81b22f78a2a7841bf1ef4008e0fb2ef2c47dd687 e717365aa63446c2b2313bad426a952cef07f807 Mystic <jordidev@proton.me> 1792972212 -0600	commit: docs(8b): record developer UI checklist results (23/24 PASS)
+e717365aa63446c2b2313bad426a952cef07f807 c06f37f67aca8817755ec358ac303a285cd12c7b Mystic <jordidev@proton.me> 1792975547 -0600	commit: feat: add test users documentation
+c06f37f67aca8817755ec358ac303a285cd12c7b 724ae8ef20948658e931d7a05f49bf0c15bead40 Mystic <jordidev@proton.me> 1792975649 -0600	checkout: moving from verify/8b-message-actions to main
+724ae8ef20948658e931d7a05f49bf0c15bead40 0c2508ae59477950cb72e0edced88779c21be62d Mystic <jordidev@proton.me> 1792975653 -0600	pull: Fast-forward
+0000000000000000000000000000000000000000 c06f37f67aca8817755ec358ac303a285cd12c7b Mystic <jordidev@proton.me> 1792976107 -0600	checkout: moving from (invalid) to verify/8b-message-actions

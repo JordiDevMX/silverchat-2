@@ -1,0 +1,2 @@
+0000000000000000000000000000000000000000 1642d9a5acfc0822fc2a87c3b39cbcc278527606 Mystic <jordidev@proton.me> 1792789466 -0600	branch: Created from HEAD
+1642d9a5acfc0822fc2a87c3b39cbcc278527606 dba9878f1aaba278277278991b14e541a88df6f9 Mystic <jordidev@proton.me> 1792789472 -0600	commit: fix(messages): remove phantom avatar_initials query + add device_fingerprint migration

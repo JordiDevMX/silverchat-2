@@ -1,0 +1,2 @@
+0000000000000000000000000000000000000000 cbf28243acc5fbaeffda80a27c023211b6797d1f Mystic <jordidev@proton.me> 1792786092 -0600	branch: Created from HEAD
+cbf28243acc5fbaeffda80a27c023211b6797d1f af60bebff8ea038987446ac69e5cce41edd3efc0 Mystic <jordidev@proton.me> 1792786098 -0600	commit: fix(biome): exclude agent skills and markdown from lint

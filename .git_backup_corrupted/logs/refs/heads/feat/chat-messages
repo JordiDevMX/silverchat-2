@@ -1,0 +1,2 @@
+0000000000000000000000000000000000000000 3d85480325b6fabf6d84545b7cd44c451b98c1cb Mystic <jordidev@proton.me> 1792784328 -0600	branch: Created from refs/remotes/origin/feat/chat-messages
+3d85480325b6fabf6d84545b7cd44c451b98c1cb 1b7b5fe7de1e7cff1e967bbfba7227237bdcfb22 Mystic <jordidev@proton.me> 1792785611 -0600	commit: fix: update linkify-react and linkifyjs versions in package.json and pnpm-lock.yaml

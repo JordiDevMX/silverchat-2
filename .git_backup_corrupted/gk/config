@@ -1,0 +1,30 @@
+[branch "main"]
+	gk-last-accessed = 2026-10-25T23:07:03.163Z
+	gk-last-modified = 2026-10-25T23:07:03.163Z
+[branch "fix/turnstile-dummy-token"]
+	gk-last-accessed = 2026-10-22T20:32:09.389Z
+	gk-last-modified = 2026-10-22T20:32:09.389Z
+[branch "chore/supabase-cli-setup"]
+	gk-last-accessed = 2026-10-23T16:45:21.578Z
+	gk-last-modified = 2026-10-23T16:45:21.578Z
+[branch "staging-migrations-apply"]
+	gk-last-accessed = 2026-10-23T18:01:42.862Z
+	gk-last-modified = 2026-10-23T18:01:42.862Z
+[branch "staging-migrations-recovery"]
+	gk-last-accessed = 2026-10-23T18:58:28.182Z
+	gk-last-modified = 2026-10-23T18:58:28.182Z
+[branch "feat/chat-messages"]
+	gk-last-accessed = 2026-10-23T20:02:41.805Z
+	gk-last-modified = 2026-10-23T20:02:41.805Z
+[branch "fix/biome-config"]
+	gk-last-accessed = 2026-10-23T20:12:28.659Z
+	gk-last-modified = 2026-10-23T20:12:28.659Z
+[branch "fix/message-reactions-order"]
+	gk-last-accessed = 2026-10-23T20:49:37.835Z
+	gk-last-modified = 2026-10-23T20:49:37.835Z
+[branch "fix/avatar-initials-device-fingerprint"]
+	gk-last-accessed = 2026-10-23T21:08:18.029Z
+	gk-last-modified = 2026-10-23T21:08:18.029Z
+[branch "verify/8b-message-actions"]
+	gk-last-accessed = 2026-10-26T00:57:38.207Z
+	gk-last-modified = 2026-10-26T00:58:12.720Z

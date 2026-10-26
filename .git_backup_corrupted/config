@@ -1,0 +1,50 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	url = https://github.com/JordiDevMX/silverchat-2.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+	vscode-merge-base = origin/main
+[branch "fix/turnstile-dummy-token"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/fix/turnstile-dummy-token
+[branch "chore/supabase-cli-setup"]
+	remote = origin
+	merge = refs/heads/chore/supabase-cli-setup
+	vscode-merge-base = origin/main
+[branch "staging-migrations-apply"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/staging-migrations-apply
+[branch "staging-migrations-recovery"]
+	remote = origin
+	merge = refs/heads/staging-migrations-recovery
+	vscode-merge-base = origin/staging-migrations-apply
+[branch "feat/chat-messages"]
+	remote = origin
+	merge = refs/heads/feat/chat-messages
+	vscode-merge-base = origin/feat/chat-messages
+[branch "fix/biome-config"]
+	remote = origin
+	merge = refs/heads/fix/biome-config
+	vscode-merge-base = origin/main
+[branch "fix/message-reactions-order"]
+	remote = origin
+	merge = refs/heads/fix/message-reactions-order
+	vscode-merge-base = origin/main
+[branch "fix/avatar-initials-device-fingerprint"]
+	remote = origin
+	merge = refs/heads/fix/avatar-initials-device-fingerprint
+	vscode-merge-base = origin/fix/message-reactions-order
+[branch "verify/8b-message-actions"]
+	remote = origin
+	merge = refs/heads/verify/8b-message-actions
+	vscode-merge-base = origin/main
