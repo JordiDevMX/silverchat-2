@@ -241,23 +241,45 @@ export function useChatsRealtime() {
   useEffect(() => {
     if (!user) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const refresh = () => {
+    let refreshProfiles = false;
+    const refresh = (includeProfiles = false) => {
+      if (includeProfiles) refreshProfiles = true;
       if (timer) return;
       timer = setTimeout(() => {
+        const shouldRefreshProfiles = refreshProfiles;
         timer = undefined;
+        refreshProfiles = false;
         void cache.invalidateQueries({ queryKey: chatKey(user.id) });
         void cache.invalidateQueries({ queryKey: ["message-requests", user.id] });
+        if (shouldRefreshProfiles) {
+          for (const key of [
+            "direct-contacts",
+            "contacts",
+            "user-search",
+            "contact-profile",
+            "chat-members",
+            "chat-messages",
+            "chat-detail",
+            "avatar-url",
+          ]) {
+            void cache.invalidateQueries({ queryKey: [key] });
+          }
+        }
       }, 100);
     };
     const channel = supabase
       .channel(`chats-list:${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () =>
+        refresh(false),
+      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_members", filter: `user_id=eq.${user.id}` },
-        refresh,
+        () => refresh(true),
       )
-      .on("postgres_changes", { event: "*", schema: "public", table: "message_receipts" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_receipts" }, () =>
+        refresh(false),
+      )
       .on(
         "postgres_changes",
         {
@@ -266,15 +288,15 @@ export function useChatsRealtime() {
           table: "chat_requests",
           filter: `recipient_id=eq.${user.id}`,
         },
-        refresh,
+        () => refresh(true),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_requests", filter: `sender_id=eq.${user.id}` },
-        refresh,
+        () => refresh(true),
       )
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") refresh();
+        if (status === "SUBSCRIBED") refresh(false);
       });
     return () => {
       clearTimeout(timer);
