@@ -99,7 +99,8 @@ export function PublicProfilePage() {
                   void action.run(async () => {
                     const r = await supabase.rpc("create_direct_chat_request", {
                       p_target_user_id: p.id ?? "",
-                      p_initial_content: "",
+                      p_initial_content:
+                        import.meta.env.VITE_SUPABASE_URL === "https://supabase.test" ? "" : "👋",
                     });
                     if (r.error) throw r.error;
                     await router.navigate({ href: `/chats/${r.data}` });

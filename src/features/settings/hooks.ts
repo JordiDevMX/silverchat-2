@@ -65,10 +65,23 @@ export function useBlockedUsers() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["blocked", user?.id],
+    enabled: !!user,
     queryFn: async () => {
-      const r = await supabase.from("profiles_blocked").select("*").order("display_name");
+      const r = await supabase
+        .from("user_blocks")
+        .select("blocked_id")
+        .eq("blocker_id", user?.id ?? "")
+        .order("blocked_id");
       if (r.error) throw r.error;
-      return r.data;
+      return (r.data ?? []).map((row) => {
+        const shortId = row.blocked_id.replace(/-/g, "").slice(0, 8);
+        return {
+          id: row.blocked_id,
+          display_name: `User ${shortId}`,
+          username: `user_${shortId}`,
+          avatar_initials: "U",
+        };
+      });
     },
   });
 }

@@ -219,6 +219,19 @@ const protectedRoutes = [
   }),
   createRoute({
     getParentRoute: () => authenticated,
+    path: "/chats/new",
+    component: lazyRouteComponent(() => import("@/routes/_authenticated.chats.new"), "NewChatPage"),
+  }),
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/chats/new-group",
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.chats.new-group"),
+      "NewGroupPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => authenticated,
     path: "/chats/$chatId",
     validateSearch: (search: Record<string, unknown>): { scrollTo?: string } => ({
       scrollTo:
@@ -315,16 +328,6 @@ const protectedRoutes = [
       throw redirect({ to: "/novedades", search: { create: undefined } });
     },
   }),
-  ...["/chats/new", "/chats/new-group"].map((path) =>
-    createRoute({
-      getParentRoute: () => authenticated,
-      path,
-      component: lazyRouteComponent(
-        () => import("@/routes/_authenticated.chats"),
-        "FutureChatPage",
-      ),
-    }),
-  ),
   ...["communities", "calls", "profile"].map((path) =>
     createRoute({
       getParentRoute: () => authenticated,

@@ -1,5 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { Modal } from "@/features/auth/components";
+import { formatDirectChatError } from "@/features/chats/hooks/useCreateDirectChat";
 import { useMessageText } from "@/features/messages/i18n";
 import type { ChatDetails } from "@/features/messages/types";
 import {
@@ -15,6 +17,7 @@ import { useContactProfile } from "../hooks/useContactProfile";
 import { useChatUIStore } from "../stores/uiStore";
 export function ContactProfileModal({ userId, chat }: { userId: string; chat: ChatDetails }) {
   const query = useContactProfile(userId);
+  const queryClient = useQueryClient();
   const p = query.data?.profile;
   const { say, language } = useMessageText();
   const ui = useChatUIStore();
@@ -96,20 +99,33 @@ export function ContactProfileModal({ userId, chat }: { userId: string; chat: Ch
               disabled={action.busy}
               onClick={() =>
                 void action.run(async () => {
-                  let id =
+                  const existingChat =
                     chat.type === "direct" && chat.otherUserId === userId
-                      ? chat.id
-                      : query.data?.chat?.id;
+                      ? { id: chat.id, status: chat.status }
+                      : query.data?.chat;
+                  let id =
+                    existingChat?.status === "active" || existingChat?.status === "pending_request"
+                      ? existingChat.id
+                      : undefined;
                   if (!id) {
                     const result =
                       userId === user?.id
                         ? await supabase.rpc("create_self_chat")
                         : await supabase.rpc("create_direct_chat_request", {
                             p_target_user_id: userId,
-                            p_initial_content: "",
+                            p_initial_content: "👋",
                           });
-                    if (result.error) throw result.error;
+                    if (result.error) {
+                      throw new Error(formatDirectChatError(result.error, language));
+                    }
                     id = result.data;
+                    await Promise.all([
+                      queryClient.invalidateQueries({ queryKey: ["chats"] }),
+                      queryClient.invalidateQueries({ queryKey: ["direct-contacts"] }),
+                      queryClient.invalidateQueries({ queryKey: ["contacts"] }),
+                      queryClient.invalidateQueries({ queryKey: ["message-requests"] }),
+                      queryClient.invalidateQueries({ queryKey: ["contact-profile"] }),
+                    ]);
                   }
                   ui.close();
                   await router.navigate({ href: `/chats/${id}` });

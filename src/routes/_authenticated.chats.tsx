@@ -292,17 +292,3 @@ export function ChatsPage() {
     </main>
   );
 }
-export function FutureChatPage() {
-  const t = useChatText();
-  return (
-    <main id="main" className="chats-page">
-      <div className="chats-surface chats-empty">
-        <h1>{t("Coming next")}</h1>
-        <p>{t("Chat creation and messaging are coming in the next update.")}</p>
-        <a className="button primary" href="/chats">
-          {t("Back to chats")}
-        </a>
-      </div>
-    </main>
-  );
-}

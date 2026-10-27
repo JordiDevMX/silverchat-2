@@ -106,11 +106,21 @@ export function useRequestMutation() {
       throw error;
     } finally {
       setBusy(false);
-      await Promise.all(
-        ["message-requests", "chats"].map((k) =>
+      await Promise.all([
+        ...["message-requests", "chats"].map((k) =>
           cache.invalidateQueries({ queryKey: [k, user.id] }),
         ),
-      );
+        ...[
+          "direct-contacts",
+          "contacts",
+          "user-search",
+          "contact-profile",
+          "chat-members",
+          "chat-messages",
+          "chat-detail",
+          "avatar-url",
+        ].map((k) => cache.invalidateQueries({ queryKey: [k] })),
+      ]);
     }
   };
   return { run, busy };
