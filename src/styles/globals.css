@@ -266,6 +266,17 @@
   }
 }
 @layer components {
+  .connection-banner {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 60;
+    padding: 0.5rem 1rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--destructive);
+    background: var(--card);
+    border-bottom: 1px solid var(--destructive);
+  }
   .brand {
     display: inline-flex;
     align-items: center;
