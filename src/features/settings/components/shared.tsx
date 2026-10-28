@@ -172,10 +172,11 @@ export function useAvatarGradient(id: string) {
 export function useAvatarUrl(path: string | null | undefined) {
   const { user } = useAuth();
   return useQuery({
+    // Keyed by path so identical avatars dedupe into one signed-URL request.
     queryKey: ["avatar-url", user?.id, path],
     enabled: !!path && !!user,
-    staleTime: 40_000,
-    refetchInterval: 45_000,
+    staleTime: 240_000,
+    gcTime: 300_000,
     queryFn: async () => {
       const r = await supabase.storage.from("avatars").createSignedUrl(path ?? "", 60);
       if (r.error) throw r.error;
