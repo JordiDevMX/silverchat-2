@@ -58,7 +58,10 @@ function Segment({
   const remove = useDeleteStory();
   const gesture = useRef<{ x: number; y: number; at: number } | undefined>(undefined);
   useEffect(() => {
-    if (!mine) mark.mutate(story.id);
+    if (mine) return;
+    // Delay the view mark so fast swipes past a story cancel it before firing.
+    const timer = setTimeout(() => mark.mutate(story.id), 500);
+    return () => clearTimeout(timer);
   }, [story.id, mine, mark.mutate]);
   useEffect(() => {
     const fn = () => setHidden(document.hidden);
