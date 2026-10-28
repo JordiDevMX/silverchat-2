@@ -178,7 +178,7 @@ export function useAvatarUrl(path: string | null | undefined) {
     staleTime: 240_000,
     gcTime: 300_000,
     queryFn: async () => {
-      const r = await supabase.storage.from("avatars").createSignedUrl(path ?? "", 60);
+      const r = await supabase.storage.from("avatars").createSignedUrl(path ?? "", 300);
       if (r.error) throw r.error;
       return r.data.signedUrl;
     },
