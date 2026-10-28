@@ -7,7 +7,9 @@ export function useDiscoverChannels() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["discover-channels", user?.id],
-    refetchOnWindowFocus: "always",
+    // Focus refetches stay staleTime-gated instead of firing on every tab switch.
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
     queryFn: async () => {
       const follows = await allRows((from, to) =>
         supabase

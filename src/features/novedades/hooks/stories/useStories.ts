@@ -7,7 +7,9 @@ export function useStories() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["stories", user?.id],
-    refetchOnWindowFocus: "always",
+    // Focus refetches stay staleTime-gated instead of firing on every tab switch.
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
     queryFn: async () => {
       const rows = await allRows((from, to) =>
         supabase
