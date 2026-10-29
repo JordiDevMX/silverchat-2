@@ -1,13 +1,18 @@
+import { useRef } from "react";
+import { useInView } from "@/hooks/useInView";
 import { useMessageText } from "../../i18n";
 import { useMediaUrl } from "../../lib/media";
 import type { Message } from "../../types";
 import { VoicePlayer } from "../VoicePlayer";
 import { DownloadButton } from "./FileMessage";
+
 export function AudioMessage({ message }: { message: Message }) {
-  const url = useMediaUrl(message.upload);
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { rootMargin: "100px" });
+  const url = useMediaUrl(message.upload, { enabled: isInView });
   const { say } = useMessageText();
   return (
-    <>
+    <div ref={ref}>
       <VoicePlayer
         id={message.id}
         url={url.data}
@@ -20,6 +25,6 @@ export function AudioMessage({ message }: { message: Message }) {
       <DownloadButton upload={message.upload} />
       {url.isError && <p role="alert">{say("Audio unavailable", "Audio no disponible")}</p>}
       {message.content && <p className="message-text">{message.content}</p>}
-    </>
+    </div>
   );
 }

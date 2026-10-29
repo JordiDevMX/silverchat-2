@@ -544,3 +544,11 @@
     border-radius: 20px 20px 0 0;
   }
 }
+
+.story-card-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: color-mix(in oklab, var(--muted) 80%, #64748b);
+  filter: blur(8px);
+}
