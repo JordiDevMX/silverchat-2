@@ -41,8 +41,11 @@ After capping initial-load requests in `fix/novedades-query-storm`, two severe s
 ## 3. Explanation of fixes (A, B, C, D, E)
 
 ### Fix A — Jitter the media URL refresh timer (`src/features/messages/lib/media.ts`)
-- Replaced the fixed 4-minute `refetchInterval` with a per-hook jittered interval in the 4–6 minute window (`REFRESH_BASE_MS + Math.random() * JITTER_MAX_MS`, where `REFRESH_BASE_MS = 4 * 60 * 1000` and `JITTER_MAX_MS = 2 * 60 * 1000`).
-- Mounted media items now spread any background refresh across a 2-minute window (~1 request every 6 seconds for 20 items) instead of firing simultaneously.
+- Replaced the fixed 4-minute `refetchInterval` with a per-hook jittered interval:
+  - 5-minute TTL buckets (`chat-media`): 4–6 minute window (`4 * 60 * 1000 + Math.random() * 2 * 60 * 1000`).
+  - 1-hour TTL buckets (`story-media`, `channel-media`): 50–55 minute window (`50 * 60 * 1000 + Math.random() * 5 * 60 * 1000`), so story and channel media refresh once per hour instead of 15×/hour.
+- Added in-memory `HTMLImageElement` retention (`retainImageInMemory` in `src/lib/storage-health.ts`) for signed image media and avatars so Blink's memory cache retains decoded images across route switches without extra `fetch()` / `blob:` requests.
+- Eliminated background polling/focus bursts while on `/novedades` by removing redundant 60-second polling and initial `SUBSCRIBED` double-fetch on `useChats` (which is already kept live by `useChatsRealtime`) and disabling `refetchOnWindowFocus` with a 5-minute `staleTime` on `useStories`, `useChannels`, `useDiscoverChannels`, and `useProfile`.
 
 ### Fix B — Lazy signing via `IntersectionObserver` (`src/hooks/useInView.ts`)
 - Added `useInView(ref, { rootMargin: "100px" })` using `IntersectionObserver`.
@@ -91,3 +94,4 @@ Developer manual verification checklist (12 items): pending manual application o
 ## 6. Manual migration application required
 
 > **Important:** Apply `supabase/migrations/0013_optimize_story_viewers.sql` manually via the **Supabase Dashboard → SQL Editor** before verifying `StoryViewer` in the UI and after merging to `main`.
+

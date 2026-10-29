@@ -7,7 +7,12 @@ import { InlineError } from "@/features/auth/components";
 import { useInView } from "@/hooks/useInView";
 import { useAuth } from "@/lib/auth-provider";
 import { getCSSGradient, getGradientForUser, getInitials } from "@/lib/avatar";
-import { getStorageErrorStatus, isStorageOutage, markStorageOutage } from "@/lib/storage-health";
+import {
+  getStorageErrorStatus,
+  isStorageOutage,
+  markStorageOutage,
+  retainImageInMemory,
+} from "@/lib/storage-health";
 import { supabase } from "@/lib/supabase";
 
 export function NavLink({
@@ -188,11 +193,13 @@ export function useAvatarUrl(path: string | null | undefined, options?: { enable
     enabled,
     staleTime: 600_000,
     gcTime: 600_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       if (isStorageOutage()) throw new Error("storage_outage");
       try {
         const r = await supabase.storage.from("avatars").createSignedUrl(path ?? "", 300);
         if (r.error) throw r.error;
+        retainImageInMemory(r.data.signedUrl);
         return r.data.signedUrl;
       } catch (err: unknown) {
         const status = getStorageErrorStatus(err);
