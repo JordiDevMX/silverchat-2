@@ -93,6 +93,12 @@ export function ChatSettingsLayer({
         });
       return;
     }
+    if (action === "view_community_info") {
+      await router.navigate({
+        href: `/communities/${chat.communityId ?? chat.id}/info`,
+      });
+      return;
+    }
     if (action === "view_group_info" || action === "view_members") {
       await router.navigate({
         href: `/chats/${chat.id}/${action === "view_members" ? "members" : "info"}`,

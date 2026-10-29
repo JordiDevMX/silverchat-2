@@ -36,11 +36,19 @@ const chat = (
     manually_unread: false,
   },
 });
-test("chat menus distinguish direct, self, groups, admins and pending recipients", () => {
+test("chat menus distinguish direct, self, groups, communities, admins and pending recipients", () => {
   assert.equal(getAvailableChatActions(chat()).length, 8);
   assert.deepEqual(getAvailableChatActions(chat("self")), ["search_in_chat", "pin", "clear_chat"]);
   assert.ok(!getAvailableChatActions(chat("group")).includes("add_members"));
-  assert.ok(getAvailableChatActions(chat("community_chat", "admin")).includes("add_members"));
+  assert.ok(getAvailableChatActions(chat("group", "admin")).includes("add_members"));
+  assert.deepEqual(getAvailableChatActions(chat("community_chat", "admin")), [
+    "view_community_info",
+    "search_in_chat",
+    "mute",
+    "mark_unread",
+    "pin",
+    "clear_chat",
+  ]);
   const direct = chat();
   if (direct.own) {
     direct.own.pinned_at = "2026-01-01";
