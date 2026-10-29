@@ -1238,3 +1238,8 @@
     animation: none;
   }
 }
+
+.media-outage-placeholder {
+  background: color-mix(in oklab, var(--muted) 80%, #64748b);
+  backdrop-filter: blur(8px);
+}

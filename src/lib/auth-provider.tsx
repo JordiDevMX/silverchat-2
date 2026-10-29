@@ -130,7 +130,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     void update();
     const timer = window.setInterval(() => {
       void update();
-    }, 60_000);
+    }, 90_000);
     return () => clearInterval(timer);
   }, [id, mfaRequired]);
   const signOut = async (all = false) => {

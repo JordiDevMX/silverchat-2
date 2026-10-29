@@ -1,12 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
-import { type PropsWithChildren, type ReactNode, useState } from "react";
+import { type PropsWithChildren, type ReactNode, useRef, useState } from "react";
 import { useI18n } from "@/app/providers/i18n-provider";
 import { InlineError } from "@/features/auth/components";
+import { useInView } from "@/hooks/useInView";
 import { useAuth } from "@/lib/auth-provider";
 import { getCSSGradient, getGradientForUser, getInitials } from "@/lib/avatar";
+import {
+  getStorageErrorStatus,
+  isStorageOutage,
+  markStorageOutage,
+  retainImageInMemory,
+} from "@/lib/storage-health";
 import { supabase } from "@/lib/supabase";
+
 export function NavLink({
   href,
   children,
@@ -34,6 +42,7 @@ export function NavLink({
     </a>
   );
 }
+
 export function SettingsPage({
   title,
   description,
@@ -50,6 +59,7 @@ export function SettingsPage({
     </section>
   );
 }
+
 export function SettingRow({
   href,
   label,
@@ -73,6 +83,7 @@ export function SettingRow({
     </NavLink>
   );
 }
+
 export function Toggle({
   label,
   description,
@@ -104,6 +115,7 @@ export function Toggle({
     </label>
   );
 }
+
 export function useAction() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -139,6 +151,7 @@ export function useAction() {
     ),
   };
 }
+
 export function QueryState({
   loading,
   error,
@@ -162,6 +175,7 @@ export function QueryState({
     </div>
   ) : null;
 }
+
 export function useAvatarGradient(id: string) {
   return useQuery({
     queryKey: ["avatar-gradient", id],
@@ -169,25 +183,38 @@ export function useAvatarGradient(id: string) {
     staleTime: Infinity,
   });
 }
-export function useAvatarUrl(path: string | null | undefined) {
+
+export function useAvatarUrl(path: string | null | undefined, options?: { enabled?: boolean }) {
   const { user } = useAuth();
+  const enabled = (options?.enabled ?? true) && !!path && !!user;
   return useQuery({
     // Keyed by path so identical avatars dedupe into one signed-URL request.
     queryKey: ["avatar-url", user?.id, path],
-    enabled: !!path && !!user,
-    staleTime: 240_000,
-    gcTime: 300_000,
+    enabled,
+    staleTime: 600_000,
+    gcTime: 600_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
-      const r = await supabase.storage.from("avatars").createSignedUrl(path ?? "", 300);
-      if (r.error) throw r.error;
-      return r.data.signedUrl;
+      if (isStorageOutage()) throw new Error("storage_outage");
+      try {
+        const r = await supabase.storage.from("avatars").createSignedUrl(path ?? "", 300);
+        if (r.error) throw r.error;
+        retainImageInMemory(r.data.signedUrl);
+        return r.data.signedUrl;
+      } catch (err: unknown) {
+        const status = getStorageErrorStatus(err);
+        if (status === 504 || status === 503) markStorageOutage();
+        throw err;
+      }
     },
     retry: false,
   });
 }
+
 export function Avatar({
   profile,
   size = "medium",
+  enabled = true,
 }: {
   profile: {
     id?: string | null;
@@ -199,9 +226,12 @@ export function Avatar({
     initials?: string | null;
   };
   size?: "small" | "medium" | "large";
+  enabled?: boolean;
 }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { rootMargin: "100px" });
   const gradient = useAvatarGradient(profile.id ?? "");
-  const url = useAvatarUrl(profile.avatar_url);
+  const url = useAvatarUrl(profile.avatar_url, { enabled: enabled && isInView });
   const [broken, setBroken] = useState<string>();
   const initials = getInitials({
     ...profile,
@@ -209,7 +239,7 @@ export function Avatar({
     username: profile.username ?? "",
   });
   return (
-    <span className={`avatar avatar-${size}`} style={{ background: gradient.data }}>
+    <span ref={ref} className={`avatar avatar-${size}`} style={{ background: gradient.data }}>
       {url.data && broken !== url.data ? (
         <img loading="lazy" src={url.data} alt="" onError={() => setBroken(url.data)} />
       ) : (

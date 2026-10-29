@@ -1,17 +1,25 @@
 import { Play } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MediaLightbox } from "@/features/messages/components/MediaLightbox";
 import { useMessageText } from "@/features/messages/i18n";
 import { useMediaUrl } from "@/features/messages/lib/media";
 import type { Message } from "@/features/messages/types";
+import { useInView } from "@/hooks/useInView";
+import { isStorageOutage } from "@/lib/storage-health";
 
 function Tile({ message, onOpen }: { message: Message; onOpen: () => void }) {
   const { say } = useMessageText();
-  const url = useMediaUrl(message.type === "video" ? message.thumbnail : message.upload);
+  const ref = useRef<HTMLButtonElement>(null);
+  const isInView = useInView(ref, { rootMargin: "100px" });
+  const url = useMediaUrl(message.type === "video" ? message.thumbnail : message.upload, {
+    enabled: isInView,
+  });
+  const isOutage = !url.data && (url.isError || isStorageOutage());
   return (
     <button
+      ref={ref}
       type="button"
-      className="shared-media-tile"
+      className={`shared-media-tile ${isOutage ? "media-outage-placeholder" : ""}`}
       aria-label={
         message.type === "video"
           ? say("Open video", "Abrir video")

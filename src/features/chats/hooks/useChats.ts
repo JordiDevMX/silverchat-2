@@ -229,8 +229,8 @@ export function useChats() {
     queryKey: chatKey(user?.id ?? ""),
     queryFn: () => fetchChats(user?.id ?? ""),
     enabled: !!user && !mfaRequired,
-    staleTime: 15_000,
-    refetchInterval: 60_000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 // Mounted once in the authenticated shell. Unfiltered authorized events include
@@ -242,6 +242,7 @@ export function useChatsRealtime() {
     if (!user) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let refreshProfiles = false;
+    let subscribedOnce = false;
     const refresh = (includeProfiles = false) => {
       if (includeProfiles) refreshProfiles = true;
       if (timer) return;
@@ -296,7 +297,10 @@ export function useChatsRealtime() {
         () => refresh(true),
       )
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") refresh(false);
+        if (status === "SUBSCRIBED") {
+          if (subscribedOnce) refresh(false);
+          subscribedOnce = true;
+        }
       });
     return () => {
       clearTimeout(timer);
