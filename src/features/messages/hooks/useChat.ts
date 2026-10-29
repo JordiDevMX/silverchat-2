@@ -90,6 +90,7 @@ export function useChat(chatId: string) {
         members: members.map((m) => ({ ...m, profile: profiles.find((p) => p.id === m.user_id) })),
         own,
         other,
+        communityId: chat.data?.community_id ?? null,
         communityName,
         request,
         readOnly: pendingRecipient,

@@ -19,6 +19,7 @@ export function ChatOptionsMenu({
   const labels: Record<ChatAction, string> = {
     view_profile: say("View profile", "Ver perfil"),
     view_group_info: say("Group info", "Información del grupo"),
+    view_community_info: say("Community info", "Información de la comunidad"),
     search_in_chat: say("Search in chat", "Buscar en el chat"),
     mute: say("Mute", "Silenciar"),
     unmute: say("Unmute", "Activar sonido"),

@@ -32,6 +32,7 @@ export interface ChatDetails {
   members: Member[];
   own?: Member;
   other?: Profile;
+  communityId?: string | null;
   communityName?: string;
   request?: Tables["chat_requests"]["Row"];
   readOnly: boolean;

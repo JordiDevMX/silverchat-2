@@ -2,6 +2,7 @@ import type { ChatDetails } from "../../messages/types.ts";
 export type ChatAction =
   | "view_profile"
   | "view_group_info"
+  | "view_community_info"
   | "search_in_chat"
   | "mute"
   | "unmute"
@@ -17,7 +18,11 @@ export type ChatAction =
 export function getAvailableChatActions(chat: ChatDetails): ChatAction[] {
   const pin = chat.own?.pinned_at ? "unpin" : "pin";
   if (chat.type === "self") return ["search_in_chat", pin, "clear_chat"];
-  if (chat.readOnly) return ["view_profile", "search_in_chat", "block", "report"];
+  if (chat.readOnly) {
+    if (chat.type === "community_chat") return ["view_community_info", "search_in_chat"];
+    if (chat.type === "group") return ["view_group_info", "search_in_chat"];
+    return ["view_profile", "search_in_chat", "block", "report"];
+  }
   const muted = !!chat.own?.muted_until && Date.parse(chat.own.muted_until) > Date.now();
   const common: ChatAction[] = [
     "search_in_chat",
@@ -26,15 +31,15 @@ export function getAvailableChatActions(chat: ChatDetails): ChatAction[] {
     pin,
     "clear_chat",
   ];
-  return chat.type === "direct"
-    ? ["view_profile", ...common, "block", "report"]
-    : [
-        "view_group_info",
-        ...common,
-        "view_members",
-        ...(chat.own?.role === "admin" ? ["add_members" as const] : []),
-        "leave_group",
-      ];
+  if (chat.type === "direct") return ["view_profile", ...common, "block", "report"];
+  if (chat.type === "community_chat") return ["view_community_info", ...common];
+  return [
+    "view_group_info",
+    ...common,
+    "view_members",
+    ...(chat.own?.role === "admin" ? ["add_members" as const] : []),
+    "leave_group",
+  ];
 }
 export const directPairKey = (a: string, b: string) => [a, b].sort().join("::");
 export const muteUntil = (hours: number | null, now = Date.now()) =>
