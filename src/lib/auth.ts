@@ -53,6 +53,8 @@ export async function authApi<T>(operation: string, body: unknown = {}): Promise
     credentials: "include",
     headers,
     body: JSON.stringify(body),
+    // Bounded wait: refresh callers degrade to a retryable error instead of hanging.
+    signal: AbortSignal.timeout(20_000),
   });
   const data = await res.json();
   if (!res.ok) throw new AuthError(data.error ?? "request_failed", res.status);

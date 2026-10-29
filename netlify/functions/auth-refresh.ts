@@ -34,6 +34,23 @@ const schema = z
       .optional(),
   })
   .refine((data) => !data.totp_code || !!data.factor_id);
+// supabase-js auth calls accept no signal; race the refresh so a hung GoTrue
+// returns a fast 503 instead of holding the Lambda until the 30s limit.
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("auth_refresh_timeout")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 export default async function handler(req: Request): Promise<Response> {
   const denied = guard(req);
   if (denied) return denied;
@@ -52,7 +69,10 @@ export default async function handler(req: Request): Promise<Response> {
   const headers = new Headers();
   try {
     const client = anonClient();
-    const { data, error } = await client.auth.refreshSession({ refresh_token: cookie });
+    const { data, error } = await withTimeout(
+      client.auth.refreshSession({ refresh_token: cookie }),
+      10_000,
+    );
     if (error || !data.session) {
       if (error && (error.status === 0 || (error.status ?? 0) >= 500))
         return json({ error: "refresh_unavailable" }, 503);
