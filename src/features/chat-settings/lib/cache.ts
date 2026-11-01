@@ -9,6 +9,7 @@ export async function refreshChatSettings(cache: QueryClient, userId: string, ch
       ["reply-draft", userId, chatId],
       ["first-unread", userId, chatId],
       ["chats", userId],
+      ["community-chats", userId],
       ["contacts", userId],
       ["contact-profile", userId],
     ].map((queryKey) => cache.invalidateQueries({ queryKey })),

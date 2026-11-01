@@ -6,12 +6,12 @@ export async function saveGroupAvatar(
   file: File | null,
   previous: string | null,
   save: (patch: { avatar_url: string }) => Promise<void>,
-  kind: "group" | "channel" = "group",
+  kind: "group" | "channel" | "community" = "group",
 ) {
   let path: string | null = null;
   let id: string | null = null;
   if (file) {
-    path = `chat-${chatId}/${kind}-${Date.now()}-${crypto.randomUUID()}.webp`;
+    path = `${kind === "community" ? "community" : "chat"}-${chatId}/${kind}-${Date.now()}-${crypto.randomUUID()}.webp`;
     id = crypto.randomUUID();
     const meta = await supabase.from("file_uploads").insert({
       id,
@@ -42,7 +42,7 @@ export async function saveGroupAvatar(
     await save({ avatar_url: path ?? "" });
   } catch (error) {
     const current = await supabase
-      .from(kind === "channel" ? "channels" : "chats")
+      .from(kind === "community" ? "communities" : kind === "channel" ? "channels" : "chats")
       .select("avatar_url")
       .eq("id", chatId)
       .maybeSingle();
@@ -55,7 +55,11 @@ export async function saveGroupAvatar(
     throw error;
   }
   let cleanupPending = false;
-  if (previous && previous !== path && previous.startsWith(`chat-${chatId}/`)) {
+  if (
+    previous &&
+    previous !== path &&
+    previous.startsWith(`${kind === "community" ? "community" : "chat"}-${chatId}/`)
+  ) {
     const old = await supabase
       .from("file_uploads")
       .select("id,uploader_id")

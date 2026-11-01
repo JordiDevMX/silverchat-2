@@ -130,6 +130,7 @@ export function ChatsPage() {
       <div className="chats-surface">
         {filters.select ? (
           <MultiSelectToolbar
+            canDelete={!selected.some((chat) => chat.type === "community_chat")}
             count={selected.length}
             all={allSelected}
             busy={mutations.busy}

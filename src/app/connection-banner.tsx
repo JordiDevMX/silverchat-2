@@ -1,8 +1,9 @@
-import { useEffect } from "react";
 import { focusManager } from "@tanstack/react-query";
-import { useI18n } from "./providers/i18n-provider";
+import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { isServerError, useSupabaseHealth } from "@/lib/supabase-health";
+import { useI18n } from "./providers/i18n-provider";
+
 const PROBE_INTERVAL = 15_000;
 export function ConnectionBanner() {
   const down = useSupabaseHealth((s) => s.down);

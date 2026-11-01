@@ -78,7 +78,13 @@ export function ChatHeader({ chat, onSearch }: { chat: ChatDetails; onSearch: ()
           onClick={() => {
             if (chat.type === "direct") {
               if (chat.otherUserId) ui.open(chat.id, { kind: "contact", userId: chat.otherUserId });
-            } else void router.navigate({ href: `/chats/${chat.id}/info` });
+            } else
+              void router.navigate({
+                href:
+                  chat.type === "community_chat"
+                    ? `/communities/${chat.communityId}/info`
+                    : `/chats/${chat.id}/info`,
+              });
           }}
         >
           {identity}
@@ -93,21 +99,22 @@ export function ChatHeader({ chat, onSearch }: { chat: ChatDetails; onSearch: ()
         >
           <Search size={20} />
         </button>
-        {[
-          { Icon: Phone, label: say("Voice calls coming soon", "Llamadas próximamente") },
-          { Icon: Video, label: say("Video calls coming soon", "Videollamadas próximamente") },
-        ].map(({ Icon, label }) => (
-          <button
-            key={label}
-            className="message-icon"
-            type="button"
-            disabled
-            aria-label={label}
-            title={label}
-          >
-            <Icon size={20} />
-          </button>
-        ))}
+        {chat.type !== "community_chat" &&
+          [
+            { Icon: Phone, label: say("Voice calls coming soon", "Llamadas próximamente") },
+            { Icon: Video, label: say("Video calls coming soon", "Videollamadas próximamente") },
+          ].map(({ Icon, label }) => (
+            <button
+              key={label}
+              className="message-icon"
+              type="button"
+              disabled
+              aria-label={label}
+              title={label}
+            >
+              <Icon size={20} />
+            </button>
+          ))}
         <button
           type="button"
           className="message-icon"

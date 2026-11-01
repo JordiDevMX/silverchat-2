@@ -1,13 +1,21 @@
 import { useState } from "react";
 import { Modal } from "@/features/auth/components";
 import { useMessageText } from "@/features/messages/i18n";
-import { Avatar, NavLink } from "@/features/settings/components/shared";
+import { Avatar, NavLink, QueryState } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
 import { useGroupMembers } from "../hooks/useGroupMembers";
 import { useChatUIStore } from "../stores/uiStore";
 import { ChatSettingsLayer, ChatSettingsLoading } from "./ChatSettingsLayer";
-export function GroupMembersList({ chatId }: { chatId: string }) {
-  const hook = useGroupMembers(chatId);
+export function GroupMembersList({
+  chatId,
+  context = "group",
+  onBack,
+}: {
+  chatId: string;
+  context?: "group" | "community";
+  onBack?: () => void;
+}) {
+  const hook = useGroupMembers(chatId, context);
   const chat = hook.chat.data;
   const { user } = useAuth();
   const { say } = useMessageText();
@@ -23,11 +31,17 @@ export function GroupMembersList({ chatId }: { chatId: string }) {
   if (!["group", "community_chat"].includes(chat.type)) return <ChatSettingsLoading />;
   const admin = chat.own?.role === "admin";
   return (
-    <main id="main" className="chat-settings-screen">
+    <section id={context === "group" ? "main" : undefined} className="chat-settings-screen">
       <header>
-        <NavLink href={`/chats/${chatId}/info`}>
-          ← {say("Group info", "Información del grupo")}
-        </NavLink>
+        {onBack ? (
+          <button type="button" className="button secondary" onClick={onBack}>
+            {say("Back", "Volver")}
+          </button>
+        ) : (
+          <NavLink href={`/chats/${chatId}/info`}>
+            ← {say("Group info", "Información del grupo")}
+          </NavLink>
+        )}
         <h1>
           {hook.members.length} {say("members", "miembros")}
         </h1>
@@ -41,6 +55,11 @@ export function GroupMembersList({ chatId }: { chatId: string }) {
           </button>
         )}
       </header>
+      <QueryState
+        loading={hook.membersQuery.isPending}
+        error={hook.membersQuery.error}
+        retry={() => void hook.membersQuery.refetch()}
+      />
       {(["admin", "member"] as const).map((role) => (
         <section key={role}>
           <h2>
@@ -59,7 +78,8 @@ export function GroupMembersList({ chatId }: { chatId: string }) {
                   <span>
                     <strong>
                       {member.profile?.display_name ?? say("Member", "Miembro")}
-                      {member.user_id === chat.createdBy && ` · ${say("Creator", "Creador")}`}
+                      {member.user_id === chat.createdBy &&
+                        ` · ${context === "community" ? say("Owner", "Propietario") : say("Creator", "Creador")}`}
                     </strong>
                     <small>
                       @{member.profile?.username ?? "—"}{" "}
@@ -109,7 +129,9 @@ export function GroupMembersList({ chatId }: { chatId: string }) {
                                 ? say("Promote to admin", "Ascender a administrador")
                                 : action === "demote"
                                   ? say("Demote from admin", "Quitar administrador")
-                                  : say("Remove from group", "Eliminar del grupo")}
+                                  : context === "community"
+                                    ? say("Remove from community", "Eliminar de la comunidad")
+                                    : say("Remove from group", "Eliminar del grupo")}
                             </button>
                           ))}
                       </div>
@@ -160,7 +182,7 @@ export function GroupMembersList({ chatId }: { chatId: string }) {
           </div>
         </Modal>
       )}
-      <ChatSettingsLayer chat={chat} />
-    </main>
+      <ChatSettingsLayer chat={chat} context={context} />
+    </section>
   );
 }

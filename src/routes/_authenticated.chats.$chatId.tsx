@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter, useSearch } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ComponentType, useCallback, useEffect, useRef, useState } from "react";
 import { AppSkeleton, Modal } from "@/features/auth/components";
 import { ChatSettingsLayer } from "@/features/chat-settings/components/ChatSettingsLayer";
 import { readDrafts } from "@/features/chats/drafts";
@@ -16,16 +16,40 @@ import { useInChatSearch } from "@/features/messages/hooks/useInChatSearch";
 import { enrichMessages, useMessages } from "@/features/messages/hooks/useMessages";
 import { useSendMessage } from "@/features/messages/hooks/useSendMessage";
 import { useMessageText } from "@/features/messages/i18n";
-import { detailKey, type Message, type SendInput } from "@/features/messages/types";
+import {
+  type ChatDetails,
+  detailKey,
+  type Message,
+  type SendInput,
+} from "@/features/messages/types";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import "@/styles/messages.css";
 export function ChatPage() {
   const { chatId } = useParams({ from: "/_authenticated/chats/$chatId" });
-  return <Conversation key={chatId} chatId={chatId} />;
-}
-function Conversation({ chatId }: { chatId: string }) {
   const { scrollTo } = useSearch({ from: "/_authenticated/chats/$chatId" });
+  const chat = useChat(chatId);
+  const router = useRouter();
+  const communityId = chat.data?.type === "community_chat" ? chat.data.communityId : null;
+  useEffect(() => {
+    if (communityId)
+      void router.navigate({
+        href: `/communities/${communityId}/chats/${chatId}${scrollTo ? `?scrollTo=${scrollTo}` : ""}`,
+        replace: true,
+      });
+  }, [communityId, chatId, router, scrollTo]);
+  if (communityId) return null;
+  return <Conversation key={chatId} chatId={chatId} scrollTo={scrollTo} />;
+}
+export function Conversation({
+  chatId,
+  scrollTo,
+  Header = ChatHeader,
+}: {
+  chatId: string;
+  scrollTo?: string;
+  Header?: ComponentType<{ chat: ChatDetails; onSearch: () => void }>;
+}) {
   const chat = useChat(chatId);
   const send = useSendMessage(chatId);
   const router = useRouter();
@@ -141,7 +165,7 @@ function Conversation({ chatId }: { chatId: string }) {
             }}
           />
         ) : (
-          <ChatHeader chat={details} onSearch={() => setSearchOpen(true)} />
+          <Header chat={details} onSearch={() => setSearchOpen(true)} />
         )}
         <PinnedMessagesBar chatId={chatId} />
         <ChatSettingsLayer chat={details} onSearch={() => setSearchOpen(true)} />

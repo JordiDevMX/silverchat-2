@@ -15,7 +15,11 @@ type MenuProps = {
   onClose: () => void;
   busy?: boolean;
 } & (
-  | { contextType?: "chat"; chat: ChatDetails; onChoose: (action: ChatAction) => void }
+  | {
+      contextType?: "chat" | "community_chat";
+      chat: ChatDetails;
+      onChoose: (action: ChatAction) => void;
+    }
   | {
       contextType: "channel";
       channel: ChannelActionContext;

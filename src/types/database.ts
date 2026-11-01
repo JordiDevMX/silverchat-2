@@ -1504,6 +1504,14 @@ export type Database = {
       };
     };
     Functions: {
+      create_community_chat: { Args: { p_community_id: string; p_name: string; p_description?: string }; Returns: string; };
+      leave_community: { Args: { p_community_id: string }; Returns: undefined; };
+      mute_community: { Args: { p_community_id: string; p_muted_until: string | null }; Returns: undefined; };
+      update_community_info: { Args: { p_community_id: string; p_name?: string; p_description?: string; p_avatar_url?: string }; Returns: undefined; };
+      remove_community_member: { Args: { p_community_id: string; p_user_id: string }; Returns: undefined; };
+      promote_community_admin: { Args: { p_community_id: string; p_user_id: string }; Returns: undefined; };
+      demote_community_admin: { Args: { p_community_id: string; p_user_id: string }; Returns: undefined; };
+      delete_community: { Args: { p_community_id: string }; Returns: undefined; };
       update_channel_info: {
         Args: {
           p_channel_id: string;
@@ -1634,7 +1642,7 @@ export type Database = {
         Args: { p_message_id: string; p_user_id: string };
         Returns: boolean;
       };
-      join_community: { Args: { p_community_id: string }; Returns: undefined };
+      join_community: { Args: { p_community_id: string ; p_user_id?: string }; Returns: undefined };
       mark_chat_as_read: { Args: { p_chat_id: string }; Returns: undefined };
       mark_chat_as_unread: { Args: { p_chat_id: string }; Returns: undefined };
       own_upload_is_referenced: { Args: { p_upload_id: string }; Returns: boolean };

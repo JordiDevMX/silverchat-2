@@ -1,5 +1,7 @@
 // Real browser with mocked BFF, PostgREST, Storage and Phoenix boundaries.
 import assert from "node:assert/strict";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
 const browser = await chromium.launch({
@@ -554,7 +556,7 @@ try {
       buffer: Buffer.from(png, "base64"),
     });
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await settle();
+  await page.getByRole("dialog", { name: "Change photo" }).waitFor({ state: "hidden" });
   assert.match(groupAvatar, new RegExp(`^chat-${groupId}/group-.*\\.webp$`));
   assert.equal(uploadBytes.at(-1).type, "image/webp");
   await page.getByRole("link", { name: "View members →" }).click();
@@ -619,7 +621,7 @@ try {
   await page.keyboard.press("Escape");
   memberMode = false;
   await goto(groupId, "/info");
-  await page.screenshot({ path: "/workspace/chat-settings-desktop.png", fullPage: true });
+  await page.screenshot({ path: join(tmpdir(), "chat-settings-desktop.png"), fullPage: true });
   await page.getByRole("button", { name: "Leave group", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Leave group", exact: true }).click();
   await page.waitForURL("**/chats");
@@ -636,14 +638,14 @@ try {
   await mp.locator("button.conversation-identity").click();
   await mp.getByRole("dialog", { name: "Contact profile" }).waitFor();
   assert.equal(await mp.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await mp.screenshot({ path: "/workspace/chat-settings-mobile.png", fullPage: true });
+  await mp.screenshot({ path: join(tmpdir(), "chat-settings-mobile.png"), fullPage: true });
   await mobile.close();
   assert.deepEqual(errors, []);
   console.log(
     "PASS: contact modal, reports, direct menu/mute/pin, clear history, group fields/avatar crop+upload, member promote/demote/remove/add, creator protection UI, shared media lazy tabs/paging/lightbox/download, member-only views, leave, mobile layout.",
   );
 } catch (error) {
-  await page.screenshot({ path: "/workspace/chat-settings-failure.png", fullPage: true });
+  await page.screenshot({ path: join(tmpdir(), "chat-settings-failure.png"), fullPage: true });
   throw error;
 } finally {
   await browser.close();

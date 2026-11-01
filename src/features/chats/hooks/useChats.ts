@@ -251,6 +251,7 @@ export function useChatsRealtime() {
         timer = undefined;
         refreshProfiles = false;
         void cache.invalidateQueries({ queryKey: chatKey(user.id) });
+        void cache.invalidateQueries({ queryKey: ["community-chats", user.id] });
         void cache.invalidateQueries({ queryKey: ["message-requests", user.id] });
         if (shouldRefreshProfiles) {
           for (const key of [

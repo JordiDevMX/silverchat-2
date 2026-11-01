@@ -7,7 +7,15 @@ import { useAuth } from "@/lib/auth-provider";
 import { useAddMembers } from "../hooks/useAddMembers";
 import { toggleMember } from "../lib/chatActions";
 import { useChatUIStore } from "../stores/uiStore";
-export function AddMembersModal({ chat }: { chat: ChatDetails }) {
+export function AddMembersModal({
+  chat,
+  context = "group",
+  onClose,
+}: {
+  chat: ChatDetails;
+  context?: "group" | "community";
+  onClose?: () => void;
+}) {
   const { say } = useMessageText();
   const { user } = useAuth();
   const ui = useChatUIStore();
@@ -15,7 +23,8 @@ export function AddMembersModal({ chat }: { chat: ChatDetails }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const names = useRef(new Map<string, string>());
-  const hook = useAddMembers(chat.id, text);
+  const hook = useAddMembers(chat.id, text, context);
+  const close = onClose ?? ui.close;
   const excluded = new Set([user?.id, ...chat.members.map((m) => m.user_id)]);
   const contacts = (hook.contacts.data ?? []).filter((p) => p.id && !excluded.has(p.id));
   const other = (hook.search.data ?? []).filter(
@@ -55,7 +64,7 @@ export function AddMembersModal({ chat }: { chat: ChatDetails }) {
     <Modal
       title={say("Add members", "Añadir miembros")}
       className="chat-settings-modal"
-      onClose={hook.busy ? undefined : ui.close}
+      onClose={hook.busy ? undefined : close}
     >
       <input
         type="search"
@@ -111,7 +120,7 @@ export function AddMembersModal({ chat }: { chat: ChatDetails }) {
       </div>
       {error && <p role="alert">{error}</p>}
       <div className="modal-actions">
-        <button type="button" className="button secondary" disabled={hook.busy} onClick={ui.close}>
+        <button type="button" className="button secondary" disabled={hook.busy} onClick={close}>
           {say("Cancel", "Cancelar")}
         </button>
         <button
@@ -123,7 +132,7 @@ export function AddMembersModal({ chat }: { chat: ChatDetails }) {
             try {
               const count = await hook.add(selected);
               ui.notify(say(`Added ${count} members`, `Se añadieron ${count} miembros`));
-              ui.close();
+              close();
             } catch {
               setError(
                 say(

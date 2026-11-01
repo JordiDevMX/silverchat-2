@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import type { useChat } from "@/features/messages/hooks/useChat";
 import { useRealtimeMessages } from "@/features/messages/hooks/useRealtimeMessages";
 import { useMessageText } from "@/features/messages/i18n";
 import type { ChatDetails } from "@/features/messages/types";
@@ -20,7 +19,11 @@ import { LeaveGroupModal } from "./LeaveGroupModal";
 import { MuteSubmenu } from "./MuteSubmenu";
 import { ReportModal } from "./ReportModal";
 import "@/styles/chat-settings.css";
-export function ChatSettingsLoading({ query }: { query?: ReturnType<typeof useChat> }) {
+export function ChatSettingsLoading({
+  query,
+}: {
+  query?: { isPending: boolean; error: unknown; refetch: () => Promise<unknown> };
+}) {
   const { say } = useMessageText();
   return (
     <main id="main" className="chat-settings-screen">
@@ -39,9 +42,11 @@ export function ChatSettingsLoading({ query }: { query?: ReturnType<typeof useCh
 export function ChatSettingsLayer({
   chat,
   onSearch,
+  context = "group",
 }: {
   chat: ChatDetails;
   onSearch?: () => void;
+  context?: "group" | "community";
 }) {
   const ui = useChatUIStore();
   const { user } = useAuth();
@@ -49,7 +54,7 @@ export function ChatSettingsLayer({
   const cache = useQueryClient();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  useRealtimeMessages(chat.id);
+  useRealtimeMessages(chat.id, context !== "community");
   useEffect(
     () => () => {
       if (useChatUIStore.getState().chatId === chat.id) useChatUIStore.getState().close();
@@ -125,7 +130,9 @@ export function ChatSettingsLayer({
       try {
         const result = await supabase.rpc("mark_chat_as_unread", { p_chat_id: chat.id });
         if (result.error) throw result.error;
-        await router.navigate({ href: "/chats" });
+        await router.navigate({
+          href: chat.type === "community_chat" ? `/communities/${chat.communityId}` : "/chats",
+        });
         await refreshChatSettings(cache, user?.id ?? "", chat.id);
       } catch {
         ui.notify(say("Unable to mark as unread.", "No se pudo marcar como no leído."));
@@ -141,9 +148,10 @@ export function ChatSettingsLayer({
     case "menu":
       return (
         <ChatOptionsMenu
+          contextType={chat.type === "community_chat" ? "community_chat" : "chat"}
           chat={chat}
           point={modal}
-          onChoose={(action) => void choose(action)}
+          onChoose={(action: ChatAction) => void choose(action)}
           onClose={ui.close}
         />
       );
@@ -171,7 +179,7 @@ export function ChatSettingsLayer({
         />
       );
     case "add":
-      return chat.own?.role === "admin" ? <AddMembersModal chat={chat} /> : null;
+      return chat.own?.role === "admin" ? <AddMembersModal chat={chat} context={context} /> : null;
     case "clear":
       return <ClearChatModal chatId={chat.id} />;
     case "leave":

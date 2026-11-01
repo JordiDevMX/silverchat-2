@@ -3,10 +3,11 @@ import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { detailKey, messageKey } from "../types";
-export function useRealtimeMessages(chatId: string) {
+export function useRealtimeMessages(chatId: string, enabled = true) {
   const { user } = useAuth();
   const cache = useQueryClient();
   useEffect(() => {
+    if (!enabled) return;
     const userId = user?.id ?? "";
     let timer: ReturnType<typeof setTimeout> | undefined;
     const refresh = () => {
@@ -82,5 +83,5 @@ export function useRealtimeMessages(chatId: string) {
       clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
-  }, [cache, chatId, user]);
+  }, [cache, chatId, user, enabled]);
 }

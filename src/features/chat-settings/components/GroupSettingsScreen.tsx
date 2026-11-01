@@ -1,5 +1,6 @@
 import { Users } from "lucide-react";
 import { useState } from "react";
+import { CommunitySettingsActions } from "@/features/communities/components/CommunitySettingsActions";
 import { useMessageText } from "@/features/messages/i18n";
 import type { ChatDetails } from "@/features/messages/types";
 import { AvatarPickerModal } from "@/features/settings/components/AvatarPickerModal";
@@ -14,10 +15,12 @@ function GroupFields({
   chat,
   busy,
   onSave,
+  context = "group",
 }: {
   chat: ChatDetails;
   busy: boolean;
   onSave: (patch: { name?: string; description?: string }) => Promise<void>;
+  context?: "group" | "community";
 }) {
   const { say } = useMessageText();
   const [name, setName] = useState(chat.name);
@@ -28,7 +31,7 @@ function GroupFields({
     const original = field === "name" ? chat.name : (chat.description ?? "");
     if (value === original) return;
     if (field === "name" && !value.trim()) {
-      setError(say("Group name is required.", "El nombre del grupo es obligatorio."));
+      setError(say("Name is required.", "El nombre es obligatorio."));
       return;
     }
     setError("");
@@ -46,7 +49,9 @@ function GroupFields({
   return (
     <>
       <label className="field">
-        {say("Group name", "Nombre del grupo")}
+        {context === "community"
+          ? say("Community name", "Nombre de la comunidad")
+          : say("Group name", "Nombre del grupo")}
         <input
           value={name}
           maxLength={100}
@@ -71,8 +76,12 @@ function GroupFields({
     </>
   );
 }
-export function GroupSettingsScreen({ chatId }: { chatId: string }) {
-  const hook = useGroupSettings(chatId);
+export function GroupSettingsScreen(
+  props: { context?: "group"; chatId: string } | { context: "community"; communityId: string },
+) {
+  const context = props.context ?? "group";
+  const chatId = props.context === "community" ? props.communityId : props.chatId;
+  const hook = useGroupSettings(chatId, context);
   const chat = hook.chat.data;
   const { user } = useAuth();
   const { say, language } = useMessageText();
@@ -84,8 +93,14 @@ export function GroupSettingsScreen({ chatId }: { chatId: string }) {
   return (
     <main id="main" className="chat-settings-screen">
       <header>
-        <NavLink href={`/chats/${chatId}`}>← {say("Back to chat", "Volver al chat")}</NavLink>
-        <h1>{say("Group info", "Información del grupo")}</h1>
+        <NavLink href={context === "community" ? `/communities/${chatId}` : `/chats/${chatId}`}>
+          ← {say("Back", "Volver")}
+        </NavLink>
+        <h1>
+          {context === "community"
+            ? say("Community info", "Información de la comunidad")
+            : say("Group info", "Información del grupo")}
+        </h1>
       </header>
       <div className="group-photo">
         {chat.avatar ? (
@@ -110,6 +125,7 @@ export function GroupSettingsScreen({ chatId }: { chatId: string }) {
           chat={chat}
           busy={hook.busy}
           onSave={hook.save}
+          context={context}
         />
       ) : (
         <>
@@ -126,27 +142,35 @@ export function GroupSettingsScreen({ chatId }: { chatId: string }) {
           : "—"}
       </p>
       <p>
-        {chat.members.length} {say("members", "miembros")}
+        {hook.community?.member_count ?? chat.members.length} {say("members", "miembros")}
       </p>
-      <nav className="group-links">
-        <NavLink href={`/chats/${chatId}/members`}>
-          {say("View members →", "Ver miembros →")}
-        </NavLink>
-        <NavLink href={`/chats/${chatId}/media?tab=media`}>
-          {say("Shared media →", "Archivos compartidos →")}
-        </NavLink>
-      </nav>
-      <button
-        type="button"
-        className="button danger"
-        onClick={() => ui.open(chatId, { kind: "leave" })}
-      >
-        {say("Leave group", "Salir del grupo")}
-      </button>
+      {context === "community" && hook.community ? (
+        <CommunitySettingsActions community={hook.community} chat={chat} />
+      ) : (
+        <>
+          <nav className="group-links">
+            <NavLink href={`/chats/${chatId}/members`}>
+              {say("View members →", "Ver miembros →")}
+            </NavLink>
+            <NavLink href={`/chats/${chatId}/media?tab=media`}>
+              {say("Shared media →", "Archivos compartidos →")}
+            </NavLink>
+          </nav>
+          <button
+            type="button"
+            className="button danger"
+            onClick={() => ui.open(chatId, { kind: "leave" })}
+          >
+            {say("Leave group", "Salir del grupo")}
+          </button>
+        </>
+      )}
       {photo && admin && (
         <AvatarPickerModal
           profile={{ id: chat.id, avatar_url: chat.avatar }}
-          onSave={(file) => saveGroupAvatar(chat.id, user?.id ?? "", file, chat.avatar, hook.save)}
+          onSave={(file) =>
+            saveGroupAvatar(chat.id, user?.id ?? "", file, chat.avatar, hook.save, context)
+          }
           onSaved={(warning) =>
             ui.notify(
               warning
@@ -160,7 +184,7 @@ export function GroupSettingsScreen({ chatId }: { chatId: string }) {
           onClose={() => setPhoto(false)}
         />
       )}
-      <ChatSettingsLayer chat={chat} />
+      {context === "group" && <ChatSettingsLayer chat={chat} />}
     </main>
   );
 }
