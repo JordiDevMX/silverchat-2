@@ -2,7 +2,10 @@ import { Camera, Plus } from "lucide-react";
 import { useRef } from "react";
 import { useMessageText } from "@/features/messages/i18n";
 import { useMediaUrl } from "@/features/messages/lib/media";
-import { Avatar, useAvatarGradient } from "@/features/settings/components/shared";
+import {
+  Avatar,
+  useAvatarGradient,
+} from "@/features/settings/components/shared";
 import { useInView } from "@/hooks/useInView";
 import { isStorageOutage } from "@/lib/storage-health";
 import { safeStoryColor } from "../../lib/storyColors";
@@ -23,12 +26,18 @@ export function StoryCard({
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { rootMargin: "100px" });
   const story = group?.stories.at(-1);
-  const media = useMediaUrl(story?.media_type === "video" ? story.thumbnail : story?.upload, {
-    enabled: isInView,
-  });
+  const media = useMediaUrl(
+    story?.media_type === "video" ? story.thumbnail : story?.upload,
+    {
+      enabled: isInView,
+    },
+  );
   const gradient = useAvatarGradient(group?.user_id ?? "mine");
   const showOutagePlaceholder =
-    !!story && story.media_type !== "text" && !media.data && (media.isError || isStorageOutage());
+    !!story &&
+    story.media_type !== "text" &&
+    !media.data &&
+    (media.isError || isStorageOutage());
   return (
     <div ref={ref} className="story-card-wrap">
       <button
