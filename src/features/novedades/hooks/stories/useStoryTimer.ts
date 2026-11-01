@@ -5,11 +5,18 @@ export function useStoryTimer(duration: number, onComplete: () => void, isPaused
   const complete = useRef(onComplete);
   complete.current = onComplete;
   const fired = useRef(false);
+  const paused = useRef(isPaused);
+  paused.current = isPaused;
   useEffect(() => {
-    if (isPaused || fired.current) return;
+    if (fired.current) return;
     let frame = 0;
     let previous: number | undefined;
     const tick = (now: number) => {
+      if (paused.current) {
+        previous = undefined;
+        frame = requestAnimationFrame(tick);
+        return;
+      }
       if (previous !== undefined) elapsed.current += now - previous;
       previous = now;
       setProgress(Math.min(1, elapsed.current / duration));
@@ -20,6 +27,6 @@ export function useStoryTimer(duration: number, onComplete: () => void, isPaused
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [duration, isPaused]);
+  }, [duration]);
   return progress;
 }

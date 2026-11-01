@@ -5,8 +5,8 @@ import { Modal } from "@/features/auth/components";
 import { saveGroupAvatar } from "@/features/chat-settings/lib/groupAvatar";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
 import { useMessageText } from "@/features/messages/i18n";
+import { AvatarPickerModal } from "@/features/settings/components/AvatarPickerModal";
 import { useAuth } from "@/lib/auth-provider";
-import { optimizeAvatar } from "@/lib/avatar-upload";
 import { supabase } from "@/lib/supabase";
 import { useCreateChannel } from "../../hooks/channels/useCreateChannel";
 import { slugify, validSlug } from "../../lib/storyOrdering";
@@ -20,6 +20,17 @@ export function CreateChannelModal({ onClose }: { onClose: () => void }) {
   const [custom, setCustom] = useState(false);
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File>();
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const [preview, setPreview] = useState("");
+  useEffect(() => {
+    if (!file) {
+      setPreview("");
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
   const [term, setTerm] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -50,7 +61,7 @@ export function CreateChannelModal({ onClose }: { onClose: () => void }) {
           setBusy(true);
           setError("");
           try {
-            const photo = file ? await optimizeAvatar(file) : null;
+            const photo = file;
             const id = created ?? (await create.mutateAsync({ name, slug, description }));
             setCreated(id);
             if (photo)
@@ -135,15 +146,21 @@ export function CreateChannelModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => setDescription(e.target.value)}
           />
         </label>
-        <label className="field">
+        <button
+          type="button"
+          className="button secondary"
+          disabled={busy}
+          onClick={() => setPhotoOpen(true)}
+        >
           {say("Channel photo (optional)", "Foto del canal (opcional)")}
-          <input
-            type="file"
-            accept="image/*"
-            disabled={busy}
-            onChange={(e) => setFile(e.target.files?.[0])}
+        </button>
+        {preview && (
+          <img
+            className="avatar-preview"
+            src={preview}
+            alt={say("Channel photo preview", "Vista previa de foto del canal")}
           />
-        </label>
+        )}
         {file && (
           <button type="button" disabled={busy} onClick={() => setFile(undefined)}>
             {say("Remove selected photo", "Quitar foto seleccionada")}
@@ -176,6 +193,17 @@ export function CreateChannelModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </form>
+      {photoOpen && (
+        <AvatarPickerModal
+          profile={{ id: user?.id ?? "", avatar_url: null }}
+          onSave={async (photo) => {
+            setFile(photo ?? undefined);
+            return { cleanupPending: false };
+          }}
+          onSaved={() => {}}
+          onClose={() => setPhotoOpen(false)}
+        />
+      )}
     </Modal>
   );
 }
