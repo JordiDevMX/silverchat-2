@@ -3,6 +3,7 @@ import { useRouter } from "@tanstack/react-router";
 import { BadgeCheck } from "lucide-react";
 import { useState } from "react";
 import { Modal } from "@/features/auth/components";
+import { MuteSubmenu } from "@/features/chat-settings/components/MuteSubmenu";
 import { saveGroupAvatar } from "@/features/chat-settings/lib/groupAvatar";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
 import { useMessageText } from "@/features/messages/i18n";
@@ -11,6 +12,9 @@ import { Avatar, NavLink, QueryState } from "@/features/settings/components/shar
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { useChannelInfo } from "../../hooks/channels/useChannelInfo";
+import { useFollowChannel } from "../../hooks/channels/useFollowChannel";
+import { useMuteChannel } from "../../hooks/channels/useMuteChannel";
+import { useUnfollowChannel } from "../../hooks/channels/useUnfollowChannel";
 import { useUpdateChannelInfo } from "../../hooks/channels/useUpdateChannelInfo";
 import { refreshNovedades } from "../../lib/cache";
 import type { Channel } from "../../types";
@@ -71,16 +75,21 @@ function EditFields({ channel, onDone }: { channel: Channel; onDone: () => void 
 export function ChannelInfoScreen({ channelId }: { channelId: string }) {
   const q = useChannelInfo(channelId);
   const save = useUpdateChannelInfo(channelId);
+  const add = useFollowChannel();
+  const remove = useUnfollowChannel();
+  const mute = useMuteChannel(channelId);
   const { user } = useAuth();
   const { say, language } = useMessageText();
   const router = useRouter();
   const cache = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [photo, setPhoto] = useState(false);
+  const [muteOpen, setMuteOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const c = q.data?.channel;
+  const follow = q.data?.follow ?? null;
   return (
     <main id="main" className="novedades-page channel-info">
       <NavLink href={`/channels/${channelId}`}>
@@ -90,7 +99,7 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
       {!q.isPending && !c && <p>{say("Channel unavailable", "Canal no disponible")}</p>}
       {c && (
         <>
-          <ChannelHeader channel={c} follow={q.data?.follow ?? null} />
+          <ChannelHeader channel={c} follow={follow} />
           <div className="group-photo">
             <Avatar
               profile={{ id: c.id, display_name: c.name, avatar_url: c.avatar_url }}
@@ -103,7 +112,10 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
             )}
           </div>
           <h1>
-            {c.name} {c.is_verified && <BadgeCheck aria-label={say("Verified", "Verificado")} />}
+            {c.name}{" "}
+            {c.is_verified && (
+              <BadgeCheck className="text-primary" aria-label={say("Verified", "Verificado")} />
+            )}
           </h1>
           <p>
             @{c.slug} · {c.follower_count} {say("followers", "seguidores")}
@@ -115,6 +127,30 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
               new Date(c.created_at),
             )}
           </p>
+          <button
+            type="button"
+            className="button secondary"
+            disabled={add.isPending || remove.isPending}
+            onClick={() => {
+              if (follow) remove.mutate(c.id);
+              else add.mutate(c.id);
+            }}
+          >
+            {follow ? say("Unfollow", "Dejar de seguir") : say("Follow", "Seguir")}
+          </button>
+          {follow && (
+            <button type="button" className="button secondary" onClick={() => setMuteOpen(true)}>
+              {say("Mute notifications", "Silenciar notificaciones")}
+            </button>
+          )}
+          {muteOpen && (
+            <MuteSubmenu
+              muted={!!follow?.muted_until && Date.parse(follow.muted_until) > Date.now()}
+              busy={mute.isPending}
+              onClose={() => setMuteOpen(false)}
+              onChoose={(until) => mute.mutate(until, { onSuccess: () => setMuteOpen(false) })}
+            />
+          )}
           {c.owner_id === user?.id && (
             <>
               {editing ? (

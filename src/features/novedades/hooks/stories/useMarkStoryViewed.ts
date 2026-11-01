@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import type { StoryGroup } from "../../types";
+
 // Session-wide guard: the same story must reach mark_story_viewed at most once,
 // even across StrictMode double effects or remounts of the viewer.
 const viewedThisSession = new Set<string>();

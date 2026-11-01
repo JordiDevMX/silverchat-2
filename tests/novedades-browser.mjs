@@ -1,6 +1,12 @@
 // Chromium integration tests with mocked HTTP boundaries; SQL authorization is tested separately.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { mkdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+const artifacts = process.env.TEST_ARTIFACTS_DIR ?? join(tmpdir(), "silverchat-novedades");
+await mkdir(artifacts, { recursive: true });
 
 const clip = (seconds) =>
   execFileSync("ffmpeg", [
@@ -352,7 +358,19 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
 await setup(ctx);
 const page = await ctx.newPage();
 page.setDefaultTimeout(10000);
-const goto = (path) => page.goto(`http://127.0.0.1:5173${path}`);
+const baseUrl = process.env.TEST_BASE_URL ?? "http://127.0.0.1:5173";
+const goto = (path) => page.goto(`${baseUrl}${path}`);
+const cycleFocus = async (dialog, targetPage = page) => {
+  for (const key of ["Tab", "Shift+Tab"]) {
+    for (let i = 0; i < 20; i++) {
+      await targetPage.keyboard.press(key);
+      assert.ok(
+        await dialog.evaluate((el) => document.activeElement?.closest("dialog") === el),
+        `${key} escaped the dialog`,
+      );
+    }
+  }
+};
 try {
   await goto("/novedades");
   await page.getByRole("button", { name: "My story", exact: true }).waitFor();
@@ -363,7 +381,10 @@ try {
   const stage = await page.locator(".story-stage").boundingBox();
   await page.mouse.move(stage.x + 50, stage.y + 50);
   await page.mouse.down();
+  await page.waitForTimeout(100);
+  const heldProgress = await page.locator(".story-progress").innerHTML();
   await page.waitForTimeout(5300);
+  assert.equal(await page.locator(".story-progress").innerHTML(), heldProgress);
   assert.equal(await page.locator(".story-stage").textContent(), "Story 301");
   await page.mouse.up();
   await page
@@ -382,7 +403,16 @@ try {
   assert.equal(views.filter((v) => v.story_id === uid(301)).length, 1);
   await page.getByRole("button", { name: "Close story", exact: true }).click();
   await page.getByRole("button", { name: "My story", exact: true }).click();
+  await cycleFocus(page.getByRole("dialog", { name: "Create story", exact: true }));
+  await page.keyboard.press("Escape");
+  assert.ok(
+    await page
+      .getByRole("button", { name: "My story", exact: true })
+      .evaluate((el) => el === document.activeElement),
+  );
+  await page.getByRole("button", { name: "My story", exact: true }).click();
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await cycleFocus(page.getByRole("dialog", { name: "Create story", exact: true }));
   assert.equal(await page.locator(".story-colors button").count(), 8);
   await page.getByRole("textbox", { name: "Story text" }).fill("My first text story");
   failStoryOnce = true;
@@ -397,10 +427,13 @@ try {
   await page.getByRole("button", { name: "My story", exact: true }).click();
   await page.getByRole("button", { name: /1 views/ }).click();
   await page.getByRole("dialog", { name: "Viewed by 1" }).waitFor();
-  await page
-    .getByRole("dialog", { name: "Viewed by 1" })
-    .getByRole("button", { name: "Close", exact: true })
-    .click();
+  await cycleFocus(page.getByRole("dialog", { name: "Viewed by 1" }));
+  await page.keyboard.press("Escape");
+  assert.ok(
+    await page
+      .getByRole("button", { name: /1 views/ })
+      .evaluate((el) => el === document.activeElement),
+  );
   await page.getByRole("button", { name: "Story options" }).click();
   await page.getByRole("button", { name: "Delete story", exact: true }).click();
   await page
@@ -514,10 +547,59 @@ try {
   assert.equal(await page.getByRole("button", { name: "More emoji" }).count(), 0);
   await page.getByRole("button", { name: "👍", exact: true }).click();
   await page.getByRole("button", { name: "Channel options" }).click();
-  await page.getByRole("button", { name: "Mute notifications", exact: true }).click();
+  assert.equal(await page.locator(".chat-options-menu [role=menuitem]").count(), 6);
+  await page.getByRole("menuitem", { name: "Search in chat", exact: true }).click();
+  await page.getByRole("searchbox", { name: "Search in conversation" }).fill("Broadcast 64");
+  await page.locator(".in-chat-search [role=status]").getByText("1/1", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Close search", exact: true }).click();
+  await page.getByRole("button", { name: "Channel options" }).click();
+  await page.getByRole("menuitem", { name: /^Mute/ }).click();
+  const muteStart = Date.now();
+  await page.getByRole("button", { name: "8 hours", exact: true }).click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  assert.ok(
+    Math.abs(
+      Date.parse(follows.find((x) => x.channel_id === followed).muted_until) -
+        muteStart -
+        8 * 3600000,
+    ) < 5000,
+  );
+  await page.getByRole("button", { name: "Channel options" }).click();
+  await page.getByRole("menuitem", { name: /^Mute/ }).click();
+  assert.ok(await page.getByRole("button", { name: "Unmute", exact: true }).isVisible());
   await page.getByRole("button", { name: "Always", exact: true }).click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
   assert.ok(follows.find((x) => x.channel_id === followed).muted_until.startsWith("9999"));
+  await page.getByRole("button", { name: "Channel options" }).click();
+  await page.getByRole("menuitem", { name: /^Mute/ }).click();
+  await page.getByRole("button", { name: "Unmute", exact: true }).click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  assert.equal(follows.find((x) => x.channel_id === followed).muted_until, null);
+  await ctx.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Channel options" }).click();
+  await page.getByRole("menuitem", { name: "Copy channel link", exact: true }).click();
+  await page.waitForFunction(
+    async (expected) => (await navigator.clipboard.readText()) === expected,
+    `${baseUrl}/channels/${followed}`,
+  );
+  await page.getByRole("button", { name: "Channel options" }).click();
+  await page.getByRole("menuitem", { name: "Mark as unread", exact: true }).click();
+  await page.waitForURL("**/novedades");
+  assert.equal(
+    Date.parse(follows.find((x) => x.channel_id === followed).last_read_at),
+    Date.parse(channels.find((x) => x.id === followed).last_message_at) - 1,
+  );
+  await goto(`/channels/${followed}/info`);
+  await page.getByRole("button", { name: "Channel options" }).click();
+  await page.getByRole("menuitem", { name: "Search in chat", exact: true }).click();
+  await page.getByRole("searchbox", { name: "Search in conversation" }).waitFor();
+  await page.getByRole("button", { name: "Close search", exact: true }).click();
+  await page.getByRole("button", { name: "Channel options" }).click();
+  await page.getByRole("menuitem", { name: "Unfollow", exact: true }).click();
+  await page.getByText("Follow this channel to see its posts.", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Channel options" }).click();
+  await page.getByRole("menuitem", { name: "Follow", exact: true }).click();
+  await page.getByText("Broadcast 64", { exact: true }).waitFor();
   await goto(`/channels/${owned}`);
   await page.getByRole("textbox", { name: "Message", exact: true }).fill("Owner broadcast");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
@@ -530,25 +612,71 @@ try {
   await page.getByRole("heading", { name: "Updated broadcast", exact: true }).waitFor();
   await goto("/novedades");
   await page.getByRole("button", { name: "Create channel", exact: true }).click();
+  const createDialog = page.getByRole("dialog", { name: "Create channel", exact: true });
+  await cycleFocus(createDialog);
+  await page.keyboard.press("Escape");
+  assert.ok(
+    await page
+      .getByRole("button", { name: "Create channel", exact: true })
+      .evaluate((el) => el === document.activeElement),
+  );
+  await page.getByRole("button", { name: "Create channel", exact: true }).click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Café Announcements");
   assert.equal(
     await page.getByRole("textbox", { name: "Slug", exact: true }).inputValue(),
     "cafe-announcements",
   );
+  await page.getByRole("button", { name: "Channel photo (optional)", exact: true }).click();
+  const cropDialog = page.getByRole("dialog", { name: "Change photo", exact: true });
+  await cropDialog
+    .locator("input[type=file]")
+    .first()
+    .setInputFiles({
+      name: "avatar.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(png, "base64"),
+    });
+  await cropDialog.locator(".avatar-crop img").waitFor();
+  await cropDialog.getByRole("slider").fill("2");
+  await page.screenshot({ path: join(artifacts, "channel-avatar-crop.png") });
+  await cycleFocus(cropDialog);
+  await cropDialog.getByRole("button", { name: "Save", exact: true }).click();
+  await cropDialog.waitFor({ state: "detached" });
+  assert.ok(
+    await page
+      .getByRole("button", { name: "Channel photo (optional)", exact: true })
+      .evaluate((el) => el === document.activeElement),
+  );
+  await createDialog.locator(".avatar-preview").waitFor();
+  await cycleFocus(createDialog);
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Create channel", exact: true })
     .click();
   await page.waitForURL(`**/channels/${uid(999)}/info`);
+  const avatar = uploads.find(
+    (x) => x.bucket === "avatars" && x.path.startsWith(`chat-${uid(999)}/channel-`),
+  );
+  assert.ok(avatar);
+  assert.equal(avatar.mime_type, "image/webp");
+  assert.equal(avatar.width, 512);
+  assert.equal(avatar.height, 512);
+  assert.ok(avatar.size_bytes < 100000);
+  assert.equal(channels.find((x) => x.id === uid(999)).avatar_url, avatar.path);
   await page.getByRole("button", { name: "Delete channel", exact: true }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Delete channel", exact: true })
     .click();
   await page.waitForURL("**/novedades");
-  await page.screenshot({ path: "/workspace/novedades-desktop.png", fullPage: true });
+  await page.screenshot({ path: join(artifacts, "novedades-desktop.png"), fullPage: true });
   await page.getByRole("link", { name: /Explore more/ }).click();
   await page.waitForURL("**/novedades/explore");
+  for (let i = 0; i < 8; i++) {
+    const id = uid(700 + i);
+    profiles.push({ id, username: `reader${i}`, display_name: `Reader ${i}`, avatar_url: null });
+    stories.push(story(800 + i, id));
+  }
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -556,13 +684,65 @@ try {
   });
   await setup(mobile);
   const mp = await mobile.newPage();
-  await mp.goto("http://127.0.0.1:5173/novedades");
+  await mp.goto(`${baseUrl}/novedades`);
   await mp.getByRole("button", { name: "My story", exact: true }).waitFor();
   await mp.locator(".channel-list-item").first().waitFor();
   assert.ok(await mp.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  await mp.screenshot({ path: "/workspace/novedades-mobile.png", fullPage: true });
+  await mp.screenshot({ path: join(artifacts, "novedades-mobile.png"), fullPage: true });
+  const row = mp.locator(".stories-row");
+  assert.ok(await row.evaluate((el) => el.scrollWidth > el.clientWidth));
+  const rowBox = await row.boundingBox();
+  const touch = await mobile.newCDPSession(mp);
+  const touchAt = (type, x, y) =>
+    touch.send("Input.dispatchTouchEvent", {
+      type,
+      touchPoints: type === "touchEnd" ? [] : [{ x, y }],
+    });
+  await touchAt("touchStart", rowBox.x + rowBox.width - 20, rowBox.y + 100);
+  for (let dx = 0; dx <= 240; dx += 20)
+    await touchAt("touchMove", rowBox.x + rowBox.width - 20 - dx, rowBox.y + 100);
+  await touchAt("touchEnd");
+  await mp.waitForFunction(() => document.querySelector(".stories-row").scrollLeft > 100);
+  assert.ok(
+    await mp.locator(".story-card").evaluateAll((cards) =>
+      cards.every((el) => {
+        el.scrollTop = 10;
+        return el.scrollTop === 0 && ["clip", "hidden"].includes(getComputedStyle(el).overflowY);
+      }),
+    ),
+  );
+  await row.evaluate((el) => {
+    el.scrollLeft = 0;
+  });
+  const badge = mp.locator('.channel-list-item [aria-label="Verified"]');
+  assert.ok(
+    await badge.evaluate(
+      (el) => getComputedStyle(el).color !== getComputedStyle(el.parentElement).color,
+    ),
+  );
   await mp.getByRole("button", { name: "Sofia", exact: true }).click();
   const swipe = await mp.locator(".story-stage").boundingBox();
+  await touchAt("touchStart", swipe.x + swipe.width / 2, swipe.y + 60);
+  await mp.waitForTimeout(150);
+  const frozen = await mp.locator(".story-progress").innerHTML();
+  await mp.waitForTimeout(3200);
+  assert.equal(await mp.locator(".story-progress").innerHTML(), frozen);
+  await touchAt("touchEnd");
+  await mp.waitForTimeout(250);
+  assert.notEqual(await mp.locator(".story-progress").innerHTML(), frozen);
+  await mp.locator(".story-stage").tap({ position: { x: swipe.width - 30, y: 60 } });
+  await mp.locator(".story-stage").getByText("Story 300", { exact: true }).waitFor();
+  await mp.locator(".story-stage").tap({ position: { x: 30, y: 60 } });
+  await mp.locator(".story-stage").getByText("Story 301", { exact: true }).waitFor();
+  // A held pointer leaving the stage must release the pause without navigating.
+  await mp.mouse.move(swipe.x + swipe.width / 2, swipe.y + 60);
+  await mp.mouse.down();
+  await mp.waitForTimeout(100);
+  const beforeLeave = await mp.locator(".story-progress").innerHTML();
+  await mp.mouse.move(swipe.x - 5, swipe.y + 60);
+  await mp.waitForTimeout(250);
+  assert.notEqual(await mp.locator(".story-progress").innerHTML(), beforeLeave);
+  await mp.mouse.up();
   await mp.mouse.move(swipe.x + swipe.width / 2, swipe.y + 30);
   await mp.mouse.down();
   await mp.mouse.move(swipe.x + swipe.width / 2, swipe.y + 160, { steps: 8 });
@@ -574,7 +754,7 @@ try {
     "PASS: stories text/image/video uploads, duration rejection/playback, ordering/timer/hold/navigation/reply/idempotent creation/viewers/delete; discover top20/follow; channel Realtime/paging/read-only/react8/mute/owner composer/edit/create/delete; explore; mobile layout.",
   );
 } catch (e) {
-  await page.screenshot({ path: "/workspace/novedades-failure.png", fullPage: true });
+  await page.screenshot({ path: join(artifacts, "novedades-failure.png"), fullPage: true });
   console.error(await page.locator("body").textContent());
   throw e;
 } finally {

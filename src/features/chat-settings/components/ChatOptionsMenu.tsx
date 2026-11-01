@@ -2,21 +2,45 @@ import { type CSSProperties, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useMessageText } from "@/features/messages/i18n";
 import type { ChatDetails } from "@/features/messages/types";
-import { type ChatAction, getAvailableChatActions } from "../lib/chatActions";
-export function ChatOptionsMenu({
-  chat,
-  point,
-  onChoose,
-  onClose,
-}: {
-  chat: ChatDetails;
+import {
+  type ChannelAction,
+  type ChannelActionContext,
+  type ChatAction,
+  getAvailableChannelActions,
+  getAvailableChatActions,
+} from "../lib/chatActions";
+
+type MenuProps = {
   point: { x: number; y: number };
-  onChoose: (action: ChatAction) => void;
   onClose: () => void;
-}) {
+  busy?: boolean;
+} & (
+  | { contextType?: "chat"; chat: ChatDetails; onChoose: (action: ChatAction) => void }
+  | {
+      contextType: "channel";
+      channel: ChannelActionContext;
+      onChoose: (action: ChannelAction) => void;
+    }
+);
+export function ChatOptionsMenu(props: MenuProps) {
+  const { point, onClose, busy } = props;
+  const actions =
+    props.contextType === "channel"
+      ? getAvailableChannelActions(props.channel).map((action) => ({
+          action,
+          choose: () => props.onChoose(action),
+        }))
+      : getAvailableChatActions(props.chat).map((action) => ({
+          action,
+          choose: () => props.onChoose(action),
+        }));
   const { say } = useMessageText();
   const ref = useRef<HTMLDivElement>(null);
-  const labels: Record<ChatAction, string> = {
+  const labels: Record<ChatAction | ChannelAction, string> = {
+    view_channel_info: say("Channel info", "Información del canal"),
+    follow: say("Follow", "Seguir"),
+    unfollow: say("Unfollow", "Dejar de seguir"),
+    copy_channel_link: say("Copy channel link", "Copiar enlace del canal"),
     view_profile: say("View profile", "Ver perfil"),
     view_group_info: say("Group info", "Información del grupo"),
     view_community_info: say("Community info", "Información de la comunidad"),
@@ -66,7 +90,11 @@ export function ChatOptionsMenu({
     <div
       ref={ref}
       role="menu"
-      aria-label={say("Chat options", "Opciones del chat")}
+      aria-label={
+        props.contextType === "channel"
+          ? say("Channel options", "Opciones del canal")
+          : say("Chat options", "Opciones del chat")
+      }
       className="chat-options-menu"
       style={
         {
@@ -75,17 +103,20 @@ export function ChatOptionsMenu({
         } as CSSProperties
       }
     >
-      {getAvailableChatActions(chat).map((action) => (
+      {actions.map(({ action, choose }) => (
         <div key={action}>
           {["block", "view_members", "leave_group"].includes(action) ||
-          (chat.type === "self" && action === "clear_chat") ? (
+          (props.contextType !== "channel" &&
+            props.chat.type === "self" &&
+            action === "clear_chat") ? (
             <hr />
           ) : null}
           <button
             role="menuitem"
             type="button"
+            disabled={busy}
             className={["block", "leave_group", "clear_chat"].includes(action) ? "danger" : ""}
-            onClick={() => onChoose(action)}
+            onClick={choose}
           >
             {labels[action]}
             {action === "mute" ? <span aria-hidden="true"> ›</span> : null}

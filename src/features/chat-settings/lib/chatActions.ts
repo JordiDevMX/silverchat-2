@@ -41,6 +41,28 @@ export function getAvailableChatActions(chat: ChatDetails): ChatAction[] {
     "leave_group",
   ];
 }
+export type ChannelAction =
+  | "view_channel_info"
+  | "search_in_chat"
+  | "mute"
+  | "mark_unread"
+  | "follow"
+  | "unfollow"
+  | "copy_channel_link";
+export type ChannelActionContext = {
+  following: boolean;
+  canSearch: boolean;
+  hasLink: boolean;
+};
+export function getAvailableChannelActions(context: ChannelActionContext): ChannelAction[] {
+  return [
+    "view_channel_info",
+    ...(context.canSearch ? ["search_in_chat" as const] : []),
+    ...(context.following ? ["mute" as const, "mark_unread" as const] : []),
+    context.following ? "unfollow" : "follow",
+    ...(context.hasLink ? ["copy_channel_link" as const] : []),
+  ];
+}
 export const directPairKey = (a: string, b: string) => [a, b].sort().join("::");
 export const muteUntil = (hours: number | null, now = Date.now()) =>
   hours === null

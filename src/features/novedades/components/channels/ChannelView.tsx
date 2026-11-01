@@ -1,7 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { InChatSearch } from "@/features/messages/components/InChatSearch";
 import { MessageActionsProvider } from "@/features/messages/components/MessageActionsProvider";
 import { MessageList } from "@/features/messages/components/MessageList";
+import { useInChatSearch } from "@/features/messages/hooks/useInChatSearch";
 import { useSendMessage } from "@/features/messages/hooks/useSendMessage";
 import { useMessageText } from "@/features/messages/i18n";
 import { NavLink, QueryState } from "@/features/settings/components/shared";
@@ -23,6 +25,17 @@ export function ChannelView({ channelId }: { channelId: string }) {
   const following = !!info.data?.follow;
   const messages = useChannelMessages(channelId, following || owner);
   const send = useSendMessage(channelId, true);
+  const [searchOpen, setSearchOpen] = useState(
+    () => new URLSearchParams(window.location.search).get("search") === "true",
+  );
+  const search = useInChatSearch(messages.messages);
+  const [navigation, setNavigation] = useState<{ id: string; serial: number } | null>(null);
+  const serial = useRef(0);
+  const navigate = useCallback((id: string) => setNavigation({ id, serial: ++serial.current }), []);
+  useEffect(() => {
+    if (searchOpen && search.current) navigate(search.current);
+    else if (searchOpen) setNavigation(null);
+  }, [searchOpen, search.current, navigate]);
   const [readError, setReadError] = useState(false);
   const [readAttempt, setReadAttempt] = useState(0);
   useEffect(() => {
@@ -55,7 +68,22 @@ export function ChannelView({ channelId }: { channelId: string }) {
   const chat = channelChat(channel, following || owner);
   return (
     <main id="main" className="conversation-page channel-view">
-      <ChannelHeader channel={channel} follow={info.data?.follow ?? null} />
+      {searchOpen ? (
+        <InChatSearch
+          search={search}
+          onClose={() => {
+            setSearchOpen(false);
+            search.setText("");
+            setNavigation(null);
+          }}
+        />
+      ) : (
+        <ChannelHeader
+          channel={channel}
+          follow={info.data?.follow ?? null}
+          onSearch={() => setSearchOpen(true)}
+        />
+      )}
       {readError && (
         <button type="button" onClick={() => setReadAttempt((n) => n + 1)}>
           {say("Retry marking channel read", "Reintentar marcar como leído")}
@@ -66,14 +94,14 @@ export function ChannelView({ channelId }: { channelId: string }) {
           chat={chat}
           messages={messages.messages}
           onReply={() => {}}
-          onNavigate={() => {}}
+          onNavigate={navigate}
         >
           <MessageList
             key={channelId}
             channelMode
             chat={chat}
             query={messages}
-            navigation={null}
+            navigation={navigation}
             onRetry={send.retry}
           />
           {owner && <ChannelComposer channel={channel} onSend={send.send} />}

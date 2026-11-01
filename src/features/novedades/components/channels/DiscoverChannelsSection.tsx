@@ -28,7 +28,11 @@ export function DiscoverChannelsSection({ search = "" }: { search?: string }) {
               <strong>
                 {c.name}
                 {c.is_verified && (
-                  <BadgeCheck size={16} aria-label={say("Verified", "Verificado")} />
+                  <BadgeCheck
+                    className="text-primary"
+                    size={16}
+                    aria-label={say("Verified", "Verificado")}
+                  />
                 )}
               </strong>
               <small>

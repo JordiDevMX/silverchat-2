@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   directPairKey,
+  getAvailableChannelActions,
   getAvailableChatActions,
   muteUntil,
   toggleMember,
@@ -59,6 +60,20 @@ test("chat menus distinguish direct, self, groups, communities, admins and pendi
   assert.deepEqual(
     getAvailableChatActions({ ...chat(), readOnly: true, status: "pending_request" }),
     ["view_profile", "search_in_chat", "block", "report"],
+  );
+});
+test("channel menus expose follower actions without user/group-only actions", () => {
+  assert.deepEqual(
+    getAvailableChannelActions({ following: true, canSearch: true, hasLink: true }),
+    ["view_channel_info", "search_in_chat", "mute", "mark_unread", "unfollow", "copy_channel_link"],
+  );
+  assert.deepEqual(
+    getAvailableChannelActions({ following: false, canSearch: false, hasLink: true }),
+    ["view_channel_info", "follow", "copy_channel_link"],
+  );
+  assert.deepEqual(
+    getAvailableChannelActions({ following: false, canSearch: true, hasLink: false }),
+    ["view_channel_info", "search_in_chat", "follow"],
   );
 });
 test("member selection deduplicates, permits removal at capacity, and rejects a 51st", () => {

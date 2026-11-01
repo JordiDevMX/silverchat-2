@@ -115,13 +115,16 @@ function Segment({
           {say("Delete story", "Eliminar historia")}
         </button>
       )}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Pointer gestures supplement the keyboard-accessible Previous/Next controls; suppress native media callouts during a hold. */}
       <div
         className="story-stage"
+        onContextMenu={(e) => e.preventDefault()}
         style={{
           background:
             story.media_type === "text" ? safeStoryColor(story.background_color) : undefined,
         }}
         onPointerDown={(e) => {
+          if (!e.isPrimary || e.button !== 0) return;
           if ((e.target as HTMLElement).closest("button")) return;
           gesture.current = { x: e.clientX, y: e.clientY, at: performance.now() };
           setHeld(true);
@@ -131,6 +134,8 @@ function Segment({
           const g = gesture.current;
           gesture.current = undefined;
           setHeld(false);
+          if (e.currentTarget.hasPointerCapture(e.pointerId))
+            e.currentTarget.releasePointerCapture(e.pointerId);
           if (!g) return;
           const dy = e.clientY - g.y;
           if (dy > 80 && Math.abs(e.clientX - g.x) < 100) {
@@ -147,12 +152,36 @@ function Segment({
           setHeld(false);
           gesture.current = undefined;
         }}
+        onPointerLeave={() => {
+          setHeld(false);
+          gesture.current = undefined;
+        }}
+        onLostPointerCapture={() => {
+          setHeld(false);
+          gesture.current = undefined;
+        }}
+        onPointerMove={(e) => {
+          if (!gesture.current) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          if (
+            e.clientX < rect.left ||
+            e.clientX > rect.right ||
+            e.clientY < rect.top ||
+            e.clientY > rect.bottom
+          ) {
+            setHeld(false);
+            gesture.current = undefined;
+            if (e.currentTarget.hasPointerCapture(e.pointerId))
+              e.currentTarget.releasePointerCapture(e.pointerId);
+          }
+        }}
       >
         {story.media_type === "text" ? (
           <p className="story-text">{story.text_content}</p>
         ) : url.data ? (
           story.media_type === "image" ? (
             <img
+              draggable={false}
               src={url.data}
               alt={story.caption ?? say("Story", "Historia")}
               onLoad={() => setBuffering(false)}

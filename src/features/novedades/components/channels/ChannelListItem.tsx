@@ -1,5 +1,6 @@
 import { BadgeCheck, BellOff } from "lucide-react";
 import { useRef } from "react";
+import { formatChatTimestamp } from "@/features/chats/utils/formatChatTimestamp";
 import { useMessageText } from "@/features/messages/i18n";
 import { Avatar, NavLink } from "@/features/settings/components/shared";
 import { useInView } from "@/hooks/useInView";
@@ -21,16 +22,20 @@ export function ChannelListItem({ channel: c }: { channel: FollowedChannel }) {
         <span className="channel-row-copy">
           <strong>
             {c.name}
-            {c.is_verified && <BadgeCheck size={16} aria-label={say("Verified", "Verificado")} />}
+            {c.is_verified && (
+              <BadgeCheck
+                className="text-primary"
+                size={16}
+                aria-label={say("Verified", "Verificado")}
+              />
+            )}
           </strong>
           <small>{c.last_message_preview ?? say("No posts yet", "Aún no hay publicaciones")}</small>
         </span>
         <span className="channel-row-meta">
           {c.last_message_at && (
-            <time>
-              {new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" }).format(
-                new Date(c.last_message_at),
-              )}
+            <time dateTime={c.last_message_at}>
+              {formatChatTimestamp(c.last_message_at, language)}
             </time>
           )}
           {muted ? (
