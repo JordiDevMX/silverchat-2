@@ -51,7 +51,10 @@ try {
       await page.evaluate(() => document.fonts.ready);
       assert.equal(new URL(page.url()).pathname, fixture);
       assert.equal(await page.locator('[data-slot="brand-lockup"]').count(), 2);
-      assert.equal(await page.locator('[data-slot="bubble-surface"]').count(), 2);
+      assert.equal(
+        await page.locator('[data-slot="bubble-surface"]:not(#conversation-gallery *)').count(),
+        2,
+      );
       assert.equal(await page.locator('[data-slot="floating-action-button"]').count(), 4);
       assert.equal(await page.locator(".request-toggle").getAttribute("aria-expanded"), "false");
       assert.equal(
@@ -66,12 +69,22 @@ try {
       );
       assert.match(
         await page
-          .locator('[data-slot="bubble-surface"][data-own="true"]')
+          .locator('[data-slot="bubble-surface"]:not(#conversation-gallery *)[data-own="true"]')
           .evaluate((el) => getComputedStyle(el).boxShadow),
         /24px/,
       );
       assert.equal(await page.locator('script[src="/src/app/main.tsx"]').count(), 0);
-      assert.equal(await page.locator('script[src="/tests/ui-foundation.tsx"]').count(), 1);
+      assert.equal(
+        await page
+          .locator("script[src]")
+          .evaluateAll(
+            (scripts) =>
+              scripts.filter(
+                (script) => new URL(script.src).pathname === "/tests/ui-foundation.tsx",
+              ).length,
+          ),
+        1,
+      );
     } else {
       await page.getByRole("heading", { name: "This is the UI review server" }).waitFor();
       assert.equal(

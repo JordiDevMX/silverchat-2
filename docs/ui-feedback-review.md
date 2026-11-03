@@ -12,11 +12,11 @@ pnpm review:ui
 3. Wait for Vite to print `http://127.0.0.1:5177/` and its UI review link. Keep that terminal open.
 4. Open **http://127.0.0.1:5177/** in your browser. It redirects to **http://127.0.0.1:5177/tests/ui-foundation.html**.
 
-You should see the SilverChat brand, Light/Dark buttons, an Accent selector, the neon action examples, two message-bubble samples, a Chats header with metallic search, a closed Message requests section, and four tab-action tiles. This uses the real migrated components. It does not mount the app/auth providers, load .env files, require Supabase credentials, or contact the auth backend.
+You should see the SilverChat brand, Light/Dark buttons, an Accent selector, the neon action examples, two message-bubble samples, a Chats header with metallic search, a closed Message requests section, four tab-action tiles, and the **Conversation timeline** gallery. This uses the real migrated components. It does not mount the app/auth providers, load .env files, require Supabase credentials, or contact the auth backend.
 
 **Do not double-click the HTML file or open a file:// URL.** Browsers cannot run this TypeScript/ESM fixture directly from disk. The HTML now displays the command and working HTTP link if its module cannot load.
 
-If startup says `Port 5177 is already in use`, the new server did not start. Stop the previous instance in its terminal, then run the command again. Do not assume an already-open tab is the new server, and do not guess another port. Both review and app dev commands now use strict ports.
+If startup says `Port 5177 is already in use`, the new server did not start. Stop your previous instance in its terminal, then run the command again. If another server needs to stay running, explicitly use `pnpm review:ui --port 5187` and open `http://127.0.0.1:5187/tests/ui-foundation.html#conversation-gallery`. This exact alternative was verified from a new server and fresh browser contexts for Module 2A. Use the URL printed by the command; both commands use strict ports.
 
 ## Exact URLs and expected content
 
@@ -43,6 +43,30 @@ If startup says `Port 5177 is already in use`, the new server did not start. Sto
 5. **Tab actions**: compare chat-plus, phone-plus, group and broadcast glyphs. Confirm accent-filled squircle tiles, dark glyphs and static halo, without a surrounding ring. Keyboard focus brightens the tile and thickens the glyph. Calls/Updates here are presentation previews, not live creation features.
 
 
+## Module 2A: conversation timeline acceptance
+
+Open **http://127.0.0.1:5177/tests/ui-foundation.html#conversation-gallery** after starting the default review command. For the explicit alternate-port command above, use **http://127.0.0.1:5187/tests/ui-foundation.html#conversation-gallery**.
+
+Use **375 × 844**, **768 × 1024**, and **1280 × 900**. At each width select both **Light** and **Dark**, and all six accents: **blue, purple, red, orange, yellow, green**. The gallery is a complete document section so every sample is easy to inspect; the authenticated app keeps a fixed header/composer with only the message history scrolling.
+
+1. Header: Sofia Reyes, Online accent dot, silver header, back/search/call/video/options controls and one pinned message. Preview header controls are disabled; pin content is static.
+2. Text: incoming neutral silver surface; own pale accent in light and luminous gradient in dark, smaller corner on the sender's side, compact timestamp/read glyph. Check the underlined example.com link, wrapping and selected/unselected reactions.
+3. Timeline: Today pill, Unread messages divider, comfortable spacing, subtle radial backdrop and accent navigation highlight near the bottom.
+4. Attachments: incoming and own brand-sketch images (existing local favicon), video preview, document tile, contact, location and borderless waving sticker. Rounded media must stay inside the bubbles at 375px.
+5. Audio: incoming and own **static 0:18 waveforms** inside new bubbles. These previews have no playback controls or audio requests. Real VoicePlayer remains unchanged for Module 2B.
+6. End states: neutral system event, both own/other deleted tombstones, highlighted message, and latest-message arrow with a glowing count of 3. The preview arrow scrolls to the highlighted sample.
+
+No account, .env, network service or data provider is needed. The favicon is a local existing asset. Final visual acceptance is manual; automated DOM/computed-style checks covered all 36 viewport/theme/accent combinations without image captures.
+
+For live behavior after normal backend login, use your app origin and these exact route shapes (substitute IDs belonging to your account):
+
+- `/chats/<chatId>`: direct/group/self thread with history; scroll up for pagination, receive a message while away from bottom, then use the latest arrow. Open the header identity/options and search triggers.
+- `/chats/<chatId>?scrollTo=<messageId>`: retained deep-link positioning; pinned Go to message and quoted-reply navigation should highlight the target.
+- `/chats/<pendingRequestChatId>`: accept/decline request and verify composer availability/navigation.
+- `/communities/<communityId>/chats/<chatId>`: injected community header and shared timeline, with the same messages, read state and settings behavior.
+
+Check reply selection focuses the composer, drafts restore after leaving/reopening, and pending/failed sends keep newer text/replies and upload retries. Audio should remain one-at-a-time and stop/reset on replacement or unmount. These are authenticated behavior checks; standalone review intentionally does not simulate them.
+
 ## Alternative: plain application development server
 
 ```text
@@ -61,6 +85,6 @@ Once that normal application setup is working, inspect /chats, /chats?filter=arc
 
 ## Verification evidence and scope
 
-See [review-path-evidence.md](review-path-evidence.md) for the reproduction and clean-start results. The new screenshot-free journey harness is tests/ui-review-path-browser.mjs; existing foundation and application harness assertions remain unchanged.
+See [review-path-evidence.md](review-path-evidence.md) for the original reproduction and clean-start results, and UI_MIGRATION_MAP.md §11 for Module 2A. The screenshot-free journey harness is tests/ui-review-path-browser.mjs. Module 2A adds tests/conversation-gallery-browser.mjs and preserves existing outcome assertions; focus/entry selectors account for asynchronous sheet closure and Vite module cache suffixes. Messaging harnesses also check reply restoration/reconciliation and failed upload ownership.
 
-Calls remains its existing placeholder. Existing message views/composer have not been migrated; the own-bubble treatment is available in the primitive and fixture. No Module 2 work or auth bypass is included.
+Module 2A migrates the read-only conversation frame/header/timeline/bubbles and extracts the five approved controllers. Module 2B presentation remains deferred: composer/tools, audio player/recorder, action menus/modals, search UI, lightbox and reaction picker. Calls remains its existing placeholder. No auth bypass is included.

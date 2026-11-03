@@ -1,2 +1,4 @@
 @import "../src/styles/globals.css";
 @source "./ui-foundation.tsx";
+
+@source "./conversation-gallery.tsx";

@@ -1,4 +1,4 @@
-/* Legacy presentation remains active; utilities win for transplanted primitives. */
+/* Module 2A timeline presentation; composer, actions and audio remain legacy until 2B. */
 @layer components {
   /* Prompt 08a: a fixed conversation frame with one scrolling message canvas. */
   .conversation-page {
@@ -7,15 +7,17 @@
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
-    --message-read-color: #88e4ff;
+    background: var(--background);
+    color: var(--foreground);
+    --message-read-color: currentColor;
   }
   .conversation-header {
     flex: none;
     display: flex;
     align-items: center;
-    gap: 12px;
-    min-height: 82px;
-    padding: 14px 28px;
+    gap: 8px;
+    min-height: 68px;
+    padding: 12px 20px;
     border-bottom: 1px solid var(--border);
     z-index: 3;
   }
@@ -54,7 +56,8 @@
     width: 6px;
     height: 6px;
     border-radius: 100%;
-    background: #21a579;
+    background: var(--neon);
+    box-shadow: var(--shadow-glow);
   }
   .conversation-actions {
     margin-left: auto;
@@ -82,7 +85,7 @@
     cursor: default;
   }
   .conversation-back {
-    display: none;
+    display: inline-flex;
   }
   .message-list-shell {
     flex: 1;
@@ -95,7 +98,12 @@
     overflow-x: hidden;
     overscroll-behavior: contain;
     overflow-anchor: none;
-    padding: 12px clamp(14px, 4vw, 64px) 26px;
+    padding: 16px clamp(16px, 2vw, 32px) 28px;
+    background: radial-gradient(
+      ellipse at 50% 0%,
+      color-mix(in oklab, var(--neon) 4%, transparent),
+      transparent 48%
+    );
     scrollbar-width: thin;
     outline-offset: -3px;
   }
@@ -103,37 +111,22 @@
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    margin-top: 8px;
+    margin-top: 12px;
   }
   .message-row.grouped {
-    margin-top: 1px;
+    margin-top: 4px;
   }
   .message-row.own {
     flex-direction: row-reverse;
   }
   .message-stack {
     position: relative;
-    max-width: min(75%, 580px);
+    max-width: min(78%, 580px);
     min-width: 0;
   }
   .message-bubble {
     position: relative;
-    border-radius: 16px;
-    padding: 9px 12px 6px;
-    background: var(--card);
-    color: var(--card-foreground);
-    box-shadow: 0 1px 2px color-mix(in oklab, var(--foreground) 4%, transparent);
     overflow: hidden;
-  }
-  .own .message-bubble {
-    background: var(--primary);
-    color: var(--primary-foreground);
-    box-shadow: 0 3px 16px -8px var(--primary);
-  }
-  .message-bubble.sticker-bubble {
-    background: transparent;
-    box-shadow: none;
-    padding: 0;
   }
   .message-row .avatar,
   .message-avatar-space {
@@ -146,7 +139,7 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     font-size: 14px;
-    line-height: 1.55;
+    line-height: 1.5;
     margin: 0;
   }
   .message-text a {
@@ -211,10 +204,10 @@
   }
   .message-date span {
     display: inline-block;
-    padding: 5px 12px;
+    padding: 3px 12px;
     font-size: 11px;
     color: var(--muted-foreground);
-    background: var(--muted);
+    background: color-mix(in oklab, var(--card) 70%, transparent);
     border: 1px solid var(--border);
     border-radius: 999px;
   }
@@ -242,7 +235,11 @@
     margin: 12px auto;
   }
   .message-system {
-    font-style: italic;
+    width: fit-content;
+    max-width: 90%;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--card) 70%, transparent);
   }
   .message-loading {
     display: flex;
@@ -321,7 +318,7 @@
   }
   .message-image {
     display: block;
-    width: 280px;
+    width: 288px;
     max-width: 100%;
     max-height: 320px;
     border: 0;
@@ -367,6 +364,13 @@
     gap: 10px;
     min-width: 0;
     padding: 6px 0;
+  }
+  .message-file > svg {
+    flex-shrink: 0;
+    box-sizing: content-box;
+    padding: 10px;
+    border-radius: 12px;
+    background: color-mix(in oklab, currentColor 8%, transparent);
   }
   .message-file > div,
   .message-contact > div {
@@ -416,7 +420,9 @@
     flex-direction: column;
     align-items: center;
     gap: 12px;
-    padding: 24px 12px;
+    padding: 24px 20px;
+    border-radius: 12px;
+    background: color-mix(in oklab, currentColor 6%, transparent);
     color: inherit;
     font-size: 13px;
   }
@@ -806,7 +812,7 @@
       height: calc(100dvh - 68px - env(safe-area-inset-bottom));
     }
     .conversation-header {
-      min-height: 70px;
+      min-height: 68px;
       padding: 10px 12px;
       gap: 4px;
     }
@@ -838,7 +844,7 @@
       max-width: 78%;
     }
     .message-list {
-      padding: 8px 12px 18px;
+      padding: 12px 12px 20px;
     }
     .conversation-composer {
       padding: 10px 10px 12px;
@@ -994,8 +1000,8 @@
     cursor: pointer;
   }
   .message-reactions button[aria-pressed="true"] {
-    border-color: #6b64d8;
-    background: color-mix(in oklab, #8b7cf8 18%, var(--background));
+    border-color: color-mix(in oklab, var(--neon) 45%, var(--border));
+    background: color-mix(in oklab, var(--neon) 12%, var(--card));
   }
   .message-reply {
     display: flex;
@@ -1073,7 +1079,7 @@
     flex: none;
     padding: 8px 28px;
     border-bottom: 1px solid var(--border);
-    background: color-mix(in oklab, #8b7cf8 5%, var(--background));
+    background: color-mix(in oklab, var(--neon) 5%, var(--background));
   }
   .pinned-messages button {
     cursor: pointer;
@@ -1082,6 +1088,12 @@
     border: 0;
     font-size: 12px;
     padding: 6px;
+  }
+  .pinned-toggle > svg {
+    display: inline-block;
+    color: var(--primary);
+    margin-right: 4px;
+    vertical-align: -2px;
   }
   .pinned-toggle {
     width: 100%;
@@ -1105,7 +1117,8 @@
   }
   .message-highlight {
     border-radius: 12px;
-    background: color-mix(in oklab, #f7cb59 24%, transparent);
+    background: color-mix(in oklab, var(--neon) 16%, transparent);
+    outline: 1px solid color-mix(in oklab, var(--neon) 35%, transparent);
     transition: background 0.15s;
   }
   .message-action-notice {

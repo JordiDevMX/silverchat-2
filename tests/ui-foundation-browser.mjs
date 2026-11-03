@@ -166,7 +166,9 @@ try {
         colors.at(-1),
       );
       assert.equal(await brand.evaluate((el) => getComputedStyle(el).color), "rgb(255, 255, 255)");
-      const own = page.locator('[data-slot="bubble-surface"][data-own="true"]');
+      const own = page.locator(
+        '[data-slot="bubble-surface"]:not(#conversation-gallery *)[data-own="true"]',
+      );
       const fab = page.getByRole("button", { name: "Preview chats action" });
       assert.equal(await fab.evaluate((el) => getComputedStyle(el).backgroundColor), colors.at(-1));
       assert.equal(await fab.evaluate((el) => getComputedStyle(el).borderWidth), "0px");
@@ -182,7 +184,7 @@ try {
       );
       assert.equal(
         await page
-          .locator('[data-slot="bubble-surface"][data-own="false"]')
+          .locator('[data-slot="bubble-surface"]:not(#conversation-gallery *)[data-own="false"]')
           .evaluate((el) => getComputedStyle(el).boxShadow),
         "none",
       );
@@ -249,6 +251,8 @@ try {
     const sheetBox = await sheet.boundingBox();
     assert.ok(sheetBox.x >= 0 && sheetBox.x + sheetBox.width <= width);
     await page.getByRole("button", { name: "Dismiss preferences" }).click();
+    await sheet.waitFor({ state: "hidden" });
+    await page.waitForFunction(() => document.activeElement?.textContent === "Preferences sheet");
   }
   await page.setViewportSize({ width: 375, height: 900 });
   assert.deepEqual(errors, []);

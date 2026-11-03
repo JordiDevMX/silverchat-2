@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
-import { useUploadProgress } from "../hooks/useUploadProgress";
+import { useRef } from "react";
 import type { useVoiceRecorder } from "../hooks/useVoiceRecorder";
+import { useVoiceSend } from "../hooks/useVoiceSend";
 import { useMessageText } from "../i18n";
 import { formatVoiceTime } from "../lib/voicePeaks";
 import type { SendInput } from "../types";
@@ -19,43 +19,14 @@ export function VoiceRecorder({
   onClose: () => void;
 }) {
   const { say, language } = useMessageText();
-  const upload = useUploadProgress(chatId, channelMode);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
   const touch = useRef<number | null>(null);
-  const cancel = () => {
-    if (sending) return;
-    upload.cancel();
-    recorder.cancel();
-    onClose();
-  };
-  const send = async () => {
-    const value = recorder.recording;
-    if (!value || sending) return;
-    setSending(true);
-    setError("");
-    let enqueued = false;
-    try {
-      const result = await upload.upload(value.file, { durationSeconds: value.duration });
-      enqueued = true;
-      await onSend({
-        type: "audio",
-        content: null,
-        file_upload_id: result.upload.id,
-        media_peaks: value.peaks,
-        upload: result.upload,
-      });
-      recorder.cancel();
-      onClose();
-    } catch {
-      if (enqueued) {
-        recorder.cancel();
-        onClose();
-      } else setError(say("Upload failed. Try again.", "No se pudo subir. Inténtalo de nuevo."));
-    } finally {
-      setSending(false);
-    }
-  };
+  const { upload, sending, error, cancel, send } = useVoiceSend({
+    recorder,
+    chatId,
+    channelMode,
+    onSend,
+    onClose,
+  });
   return (
     <div
       className="voice-recorder"
@@ -146,9 +117,7 @@ export function VoiceRecorder({
       )}
       {error && <p role="alert">{error}</p>}
       {recorder.limitReached && (
-        <p role="status">
-          {say("Maximum 5 minutes reached", "Se alcanzó el máximo de 5 minutos")}
-        </p>
+        <p role="status">{say("Maximum 5 minutes reached", "Se alcanzó el máximo de 5 minutos")}</p>
       )}
     </div>
   );

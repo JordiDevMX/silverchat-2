@@ -1,3 +1,4 @@
+import { ReactionChip } from "@/components/ui/conversation-surface";
 import { useAuth } from "@/lib/auth-provider";
 import { useMessageText } from "../i18n";
 import type { Member, Message } from "../types";
@@ -24,7 +25,7 @@ export function ReactionsDisplay({ message, members }: { message: Message; membe
             )
             .join(", ") + (rows.length > 5 ? ` +${rows.length - 5}` : "");
         return (
-          <button
+          <ReactionChip
             type="button"
             key={emoji}
             aria-pressed={rows.some((r) => r.user_id === user?.id)}
@@ -34,18 +35,18 @@ export function ReactionsDisplay({ message, members }: { message: Message; membe
             onClick={() => ui.react(message, emoji)}
           >
             {emoji} {rows.length}
-          </button>
+          </ReactionChip>
         );
       })}
       {!ui.readOnly && (
-        <button
+        <ReactionChip
           type="button"
           aria-label={say("Add reaction", "Añadir reacción")}
           disabled={ui.busy}
           onClick={() => ui.openReactions(message)}
         >
           +
-        </button>
+        </ReactionChip>
       )}
     </div>
   );

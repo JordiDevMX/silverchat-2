@@ -1,7 +1,7 @@
 import { ArrowUp, FileText, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Modal } from "@/features/auth/components";
-import { useUploadProgress } from "../hooks/useUploadProgress";
+import { useMediaSend } from "../hooks/useMediaSend";
 import { useMessageText } from "../i18n";
 import type { SendInput } from "../types";
 import { formatBytes } from "../utils/formatMessageTime";
@@ -19,22 +19,20 @@ export function MediaPreviewModal({
   onClose: () => void;
 }) {
   const { say, language } = useMessageText();
-  const [url, setUrl] = useState("");
-  const [caption, setCaption] = useState("");
-  const [error, setError] = useState("");
-  const [sending, setSending] = useState(false);
-  const upload = useUploadProgress(chatId, channelMode);
+  const [url, setUrl] = useState<string>();
+  const { caption, setCaption, error, sending, upload, close, send } = useMediaSend({
+    file,
+    chatId,
+    channelMode,
+    onSend,
+    onClose,
+  });
   const media = file.type.startsWith("image/") || file.type.startsWith("video/");
   useEffect(() => {
     const next = URL.createObjectURL(file);
     setUrl(next);
     return () => URL.revokeObjectURL(next);
   }, [file]);
-  const close = () => {
-    if (sending && !upload.uploading) return;
-    upload.cancel();
-    onClose();
-  };
   return (
     <Modal
       title={say("Send attachment", "Enviar archivo")}
@@ -97,33 +95,7 @@ export function MediaPreviewModal({
           type="button"
           className="button primary"
           disabled={sending}
-          onClick={async () => {
-            setSending(true);
-            setError("");
-            try {
-              const result = await upload.upload(file);
-              try {
-                await onSend({
-                  type: result.type,
-                  content: caption.trim() || null,
-                  file_upload_id: result.upload.id,
-                  media_thumbnail_upload_id: result.thumbnail?.id,
-                  upload: result.upload,
-                  thumbnail: result.thumbnail,
-                });
-              } catch {
-                /* The failed optimistic message owns these uploads and its retry UUID. */
-              }
-              onClose();
-            } catch (e) {
-              if (!(e instanceof DOMException && e.name === "AbortError"))
-                setError(
-                  say("Upload failed. Please try again.", "La carga falló. Inténtalo de nuevo."),
-                );
-            } finally {
-              setSending(false);
-            }
-          }}
+          onClick={() => void send()}
         >
           <ArrowUp size={18} />
           {say("Send", "Enviar")}

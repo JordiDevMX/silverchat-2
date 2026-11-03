@@ -489,6 +489,29 @@ try {
   await page.keyboard.press("Escape");
   await page.getByRole("dialog", { name: "Media viewer" }).waitFor({ state: "hidden" });
 
+  // Upload ownership transfers to the outbox even when sending fails.
+  const removedBeforeFailure = removed.length;
+  failSend = true;
+  await page.getByRole("button", { name: "Attach", exact: true }).click();
+  await page.locator("input[type=file]").setInputFiles({
+    name: "retry.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Retained attachment"),
+  });
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await page.getByRole("dialog", { name: "Send attachment" }).waitFor({ state: "hidden" });
+  const failedFile = page.locator("[data-message-id]").filter({ hasText: "retry.txt" });
+  await failedFile.getByRole("button", { name: "Send failed. Retry" }).waitFor();
+  const retryId = (await failedFile.getAttribute("data-message-id")).slice(5);
+  const ownedUpload = uploads.at(-1);
+  assert.equal(ownedUpload.status, "completed");
+  assert.equal(removed.length, removedBeforeFailure);
+  failSend = false;
+  await failedFile.getByRole("button", { name: "Send failed. Retry" }).click();
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await page.locator(`[data-message-id="${retryId}"]`).waitFor();
+  assert.equal(rows.find((row) => row.id === retryId).file_upload_id, ownedUpload.id);
+
   // Offline emoji fallback still inserts at the saved caret rather than the end.
   const editor = page.getByRole("textbox", { name: "Message", exact: true });
   await editor.fill("Hello world");
@@ -569,7 +592,7 @@ try {
   emit("messages", extra.at(-1));
   await page.getByText("Sofia joined the conversation").waitFor();
   await page.locator(".voice-player").waitFor();
-  await page.locator(".message-file").waitFor();
+  await page.locator(`[data-message-id="${uid(1802)}"] .message-file`).waitFor();
   await page.locator(".message-sticker").waitFor();
   assert.match(
     await page.locator(".message-location").getAttribute("href"),

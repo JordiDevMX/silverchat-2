@@ -1,3 +1,4 @@
+import { Pin } from "lucide-react";
 import { useState } from "react";
 import { usePinnedMessages } from "../hooks/usePinnedMessages";
 import { useMessageText } from "../i18n";
@@ -24,8 +25,8 @@ export function PinnedMessagesBar({ chatId }: { chatId: string }) {
         aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
       >
-        {say("Pinned messages", "Mensajes fijados")} · {query.data.length}{" "}
-        <span>{expanded ? "⌃" : "⌄"}</span>
+        <Pin size={14} aria-hidden="true" /> {say("Pinned messages", "Mensajes fijados")} ·{" "}
+        {query.data.length} <span>{expanded ? "⌃" : "⌄"}</span>
       </button>
       {(expanded ? query.data : query.data.slice(0, 1)).map((message) => (
         <div key={message.id}>

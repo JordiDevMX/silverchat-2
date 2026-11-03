@@ -99,6 +99,7 @@ let receipts = rows
     delivered_at: m.created_at,
     read_at: m.created_at,
   }));
+const sendAttempts = [];
 let firstUnread = null,
   pageCalls = [],
   failSend = false,
@@ -256,6 +257,7 @@ async function setup(context) {
 
       if (method === "POST") {
         const body = req.postDataJSON();
+        sendAttempts.push(body);
         if (sendDelay) await new Promise((r) => setTimeout(r, sendDelay));
         if (failSend) return response(route, { message: "Offline" }, 503);
         const data = message(400, { ...body, created_at: new Date().toISOString() });
@@ -435,6 +437,46 @@ try {
   assert.ok(await bubble(incoming.id).isVisible());
   await page.waitForTimeout(2100);
   assert.equal(await page.locator(".message-highlight").count(), 0);
+  // Extracted controllers must retain a newer reply/draft across a delayed send.
+  await menu(incoming.id, "Reply");
+  await page.waitForFunction(() => document.activeElement?.matches(".composer-input textarea"));
+  const composer = page.getByRole("textbox", { name: "Message", exact: true });
+  await composer.fill("Restored reply draft");
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  await goto();
+  assert.equal(await composer.inputValue(), "Restored reply draft");
+  await page.locator(".reply-bar").getByText(incoming.content, { exact: true }).waitFor();
+  const stored = await page.evaluate(
+    (id) => JSON.parse(localStorage.getItem(`silverchat_draft_${id}`)),
+    chatId,
+  );
+  assert.equal(stored.ownerId, me);
+  assert.equal(stored.replyToId, incoming.id);
+  sendDelay = 1500;
+  await composer.press("Enter");
+  await menu(own.id, "Reply");
+  await composer.fill("New draft while sending");
+  await bubble(sendAttempts.at(-1).id).waitFor();
+  sendDelay = 0;
+  assert.equal(await composer.inputValue(), "New draft while sending");
+  await page.locator(".reply-bar").getByText(own.content, { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Cancel reply" }).click();
+  await composer.fill("");
+  // A failed send keeps its quoted target and retry UUID.
+  await menu(incoming.id, "Reply");
+  failSend = true;
+  await composer.fill("Failed quoted response");
+  await composer.press("Enter");
+  await page.getByRole("button", { name: "Send failed. Retry" }).waitFor();
+  await page.locator(".reply-bar").getByText(incoming.content, { exact: true }).waitFor();
+  const failedQuote = sendAttempts.at(-1);
+  failSend = false;
+  await page.getByRole("button", { name: "Send failed. Retry" }).click();
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await bubble(failedQuote.id).waitFor();
+  assert.equal(sendAttempts.at(-1).id, failedQuote.id);
+  assert.equal(sendAttempts.at(-1).reply_to_message_id, incoming.id);
+  await page.getByRole("button", { name: "Cancel reply" }).click();
   await menu(own.id, "Edit");
   await page.getByRole("dialog").getByRole("textbox").fill("Edited searchable text");
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -537,7 +579,23 @@ try {
   await page.getByRole("button", { name: "Send voice note" }).waitFor();
   await page.locator(".voice-recorder").getByRole("button", { name: "Play audio" }).click();
   await page.locator(".voice-recorder").getByRole("button", { name: "Pause audio" }).waitFor();
+  failSend = true;
+  const removedBeforeVoice = removed.length;
   await page.getByRole("button", { name: "Send voice note" }).click();
+  await page.getByRole("button", { name: "Send failed. Retry" }).waitFor();
+  assert.equal(await page.locator(".voice-recorder").count(), 0);
+  const failedVoice = sendAttempts.at(-1);
+  assert.equal(
+    uploads.find((upload) => upload.id === failedVoice.file_upload_id)?.status,
+    "completed",
+  );
+  assert.equal(removed.length, removedBeforeVoice);
+  failSend = false;
+  await page.getByRole("button", { name: "Send failed. Retry" }).click();
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await bubble(failedVoice.id).waitFor();
+  assert.equal(sendAttempts.at(-1).id, failedVoice.id);
+  assert.equal(sendAttempts.at(-1).file_upload_id, failedVoice.file_upload_id);
   await settle();
   const voice = rows.find((m) => m.type === "audio");
   assert.equal(voice.media_peaks.length, 40);
