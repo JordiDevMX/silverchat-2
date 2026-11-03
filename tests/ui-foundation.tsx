@@ -30,6 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../src/components/ui/dropdown-menu";
+import { FloatingActionButton } from "../src/components/ui/floating-action-button";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "../src/components/ui/hover-card";
 import { InlineError } from "../src/components/ui/inline-error";
 import { Input } from "../src/components/ui/input";
@@ -161,6 +162,18 @@ function FoundationReview() {
         <RequestDisclosure label="Message requests" count={2}>
           <p className="p-4 text-sm">Request previews appear only after you open this section.</p>
         </RequestDisclosure>
+      </section>
+      <section className="mb-8 flex flex-wrap gap-8 p-4" aria-label="Tab actions">
+        {(["chats", "calls", "communities", "updates"] as const).map((kind) => (
+          <div key={kind} className="grid justify-items-center gap-3">
+            <FloatingActionButton
+              kind={kind}
+              aria-label={`Preview ${kind} action`}
+              onClick={() => setNotice(`${kind} action preview`)}
+            />
+            <span className="text-sm text-muted-foreground">{kind}</span>
+          </div>
+        ))}
       </section>
       <div className="review-grid">
         <CardSurface>

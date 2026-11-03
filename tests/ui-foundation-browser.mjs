@@ -167,6 +167,13 @@ try {
       );
       assert.equal(await brand.evaluate((el) => getComputedStyle(el).color), "rgb(255, 255, 255)");
       const own = page.locator('[data-slot="bubble-surface"][data-own="true"]');
+      const fab = page.getByRole("button", { name: "Preview chats action" });
+      assert.equal(await fab.evaluate((el) => getComputedStyle(el).backgroundColor), colors.at(-1));
+      assert.equal(await fab.evaluate((el) => getComputedStyle(el).borderWidth), "0px");
+      assert.match(
+        await fab.evaluate((el) => getComputedStyle(el).boxShadow),
+        mode === "dark" ? /32px/ : /24px/,
+      );
       const bubbleShadow = await own.evaluate((el) => getComputedStyle(el).boxShadow);
       assert.match(bubbleShadow, mode === "dark" ? /32px/ : /24px/);
       assert.match(
@@ -213,6 +220,19 @@ try {
   );
   for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
+    const fab = page.getByRole("button", { name: "Preview chats action" });
+    await page.keyboard.press("Tab");
+    await fab.focus();
+    assert.equal(await fab.evaluate((el) => getComputedStyle(el).outlineStyle), "none");
+    await page.waitForFunction(() => {
+      const el = document.querySelector('[data-slot="floating-action-button"][data-kind="chats"]');
+      return el && getComputedStyle(el).filter === "brightness(1.25)";
+    });
+    assert.equal(await fab.evaluate((el) => getComputedStyle(el).filter), "brightness(1.25)");
+    assert.equal(
+      await fab.locator("svg").evaluate((el) => getComputedStyle(el).strokeWidth),
+      "3px",
+    );
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.getByRole("button", { name: "New dialog" }).click();
     await page

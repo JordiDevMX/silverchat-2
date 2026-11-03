@@ -100,9 +100,8 @@ The browser harnesses use the existing external Playwright setup: configure
 Start Vite on port 5173 with `VITE_SUPABASE_URL=https://supabase.test` and a dummy
 `VITE_SUPABASE_ANON_KEY` when running the mocked settings harness. All settings
 mutations are intercepted. The foundation harness also blocks remote requests.
-`UI_ARTIFACT_DIR` can direct screenshots to an existing writable directory;
-otherwise the harnesses use the OS temporary directory. The foundation harness
-accepts `UI_BASE_URL` for a different Vite port.
+Browser harnesses run functional assertions without saving screenshots (CON-008).
+Use `UI_BASE_URL` for a different Vite port.
 
 Browser coverage includes utility/legacy cascade, button submit semantics,
 switches, OTP entry, avatar recovery, native nested dialogs, keyboard menus,
@@ -119,8 +118,14 @@ theme persistence, notifications and mobile layout.
 - ShellBackdrop is a static, pointer-transparent decoration for a positioned container. The bg-ambient-glow utility can also be applied directly to a surface. Both follow the existing accent; neither animates.
 - AuthenticatedLayout owns the shell frame and banner placement. AppNavigation mounts once and transforms from bottom tabs to a 68px rail at lg. useAppNavigation owns the unchanged query/realtime/draft/unread work. Never mount separate live desktop/mobile navigation instances.
 - app-shell.css is imported by globals.css; it replaces only the legacy navigation styles in chats.css and bridges viewport/FAB/selection geometry. Keep feature-owned headers, search state, document scroll and content sidebars intact until those modules migrate.
-- Shell regression coverage lives in tests/chats-browser.mjs. All browser harnesses accept UI_BASE_URL (default http://127.0.0.1:5173) and UI_ARTIFACT_DIR for local review.
+- Shell regression coverage lives in tests/chats-browser.mjs. The foundation/chats/settings harnesses accept UI_BASE_URL (default http://127.0.0.1:5173); communities accepts TEST_ORIGIN. None saves screenshots.
 
 ## Own-bubble surfaces
 
 Use BubbleSurface with own for message-owned styling; feature code determines ownership and retains actions/receipts. The bubble-self utility is also available for other silhouettes. Rounded corners determine the static halo shape. Light surfaces are pale with foreground text; dark surfaces use the accent gradient with contrasting text and a bright rim. Other bubbles remain unlit. Visual review is manual in /tests/ui-foundation.html; browser harnesses no longer save image artifacts (CON-008).
+
+## Feedback primitives and review
+
+BrandLockup composes a white S on the active accent tile with the ilver/Chat wordmark. BrandMark is shared by the rail. SearchField is a borderless metallic surface with a focus indicator; debounce and URL ownership remain in ChatSearchBar. FloatingActionButton takes an explicit tab kind and native button props; it supplies icons and presentation, never navigation or creation workflows. Its keyboard indicator changes brightness/stroke without a surrounding ring. RequestDisclosure starts closed and mounts request contents only after opening.
+
+See ui-feedback-review.md for manual acceptance. CON-006/007/008 in the root AGENTS.md govern future units and commits.

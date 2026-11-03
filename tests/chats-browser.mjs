@@ -627,6 +627,15 @@ try {
   await page.evaluate(() => {
     document.documentElement.dataset.theme = "dark";
   });
+  assert.equal(await page.locator(".new-chat-fab").getAttribute("data-kind"), "chats");
+  assert.equal(
+    await page.locator(".new-chat-fab").evaluate((el) => getComputedStyle(el).borderWidth),
+    "0px",
+  );
+  assert.equal(
+    await page.locator(".new-chat-fab").evaluate((el) => getComputedStyle(el).outlineStyle),
+    "none",
+  );
   assert.deepEqual(errors, []);
   console.log("Chats browser checks passed; no uncaught page errors.");
 } catch (error) {

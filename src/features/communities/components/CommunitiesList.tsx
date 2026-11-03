@@ -1,5 +1,6 @@
-import { Plus, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { useState } from "react";
+import { FloatingActionButton } from "@/components/ui/floating-action-button";
 import { useMessageText } from "@/features/messages/i18n";
 import { QueryState } from "@/features/settings/components/shared";
 import { useCommunities } from "../hooks/useCommunities";
@@ -54,14 +55,13 @@ export function CommunitiesList() {
           <CommunityCard key={community.id} community={community} />
         ))}
       </div>
-      <button
+      <FloatingActionButton
+        kind="communities"
         className="new-chat-fab"
         type="button"
         aria-label={say("New community", "Nueva comunidad")}
         onClick={() => setCreate(true)}
-      >
-        <Plus size={26} />
-      </button>
+      />
       {create && <CreateCommunityModal onClose={() => setCreate(false)} />}
     </main>
   );

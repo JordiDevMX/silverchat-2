@@ -1,6 +1,6 @@
 # SilverChat UI Migration Map
 
-Phase 1 inspection — 2026-11-02 (America/Mexico_City). Current checkout: `d8863d1`. **Phase 2.1 and Phase 3 Module 1 completed; review required before Module 2.**
+Phase 1 inspection — 2026-11-02 (America/Mexico_City). Current checkout: `d8863d1`. **Phase 2.1, Module 1 and the targeted feedback turn completed; review required before Module 2.**
 
 Phase 1 made no source, dependency, configuration, database or reference changes. The Phase 1 inventory below is retained as the baseline; Phase 2 results and touched row statuses are recorded below. App shell/navigation are now verified; all other feature migrations remain pending. Existing `tsconfig.json` edits and the untracked `_ui_reference/` directory are user state and must be preserved.
 
@@ -154,9 +154,9 @@ Hook/store entries list direct non-React hook imports (including hooks used with
 | T030 | `src/features/chats/components/DeleteChatModal.tsx` | Partial: `_ui_reference/src/components/chat/DeleteChatDialog.tsx` | No direct client | `useChatText` | Pending |
 | T031 | `src/features/chats/components/MessageRequestsSection.tsx` | Homologate: `_ui_reference/src/components/chat/ChatListItem.tsx`<br>`_ui_reference/src/components/ui/dialog.tsx`<br>No equivalent request/bulk/swipe workflow. | No direct client | `useChatText`, `useRequestMutation`, `useRouter` | Step A Done |
 | T032 | `src/features/chats/components/MultiSelectToolbar.tsx` | Homologate: `_ui_reference/src/components/chat/ChatListItem.tsx`<br>`_ui_reference/src/components/ui/dialog.tsx`<br>No equivalent request/bulk/swipe workflow. | No direct client | `useChatText` | Pending |
-| T033 | `src/features/chats/components/NewChatFAB.tsx` | Partial: `_ui_reference/src/components/layout/FloatingActionButton.tsx`<br>`_ui_reference/src/components/chat/ChatListItem.tsx`<br>Preserve direct/group/self-chat actions. | No — extracted to hooks/useNewChatActions.tsx | `useAction`, `useChatText`, `useQueryClient`, `useRouter` | Step A Done |
+| T033 | `src/features/chats/components/NewChatFAB.tsx` | Partial: `_ui_reference/src/components/layout/FloatingActionButton.tsx`<br>`_ui_reference/src/components/chat/ChatListItem.tsx`<br>Feedback verified: shared squircle FAB, chat-plus icon and preserved direct/group/self-chat actions; dialog presentation otherwise retained. | No — extracted to hooks/useNewChatActions.tsx | `useAction`, `useChatText`, `useQueryClient`, `useRouter` | Step A Done |
 | T034 | `src/features/chats/components/SwipeActions.tsx` | Homologate: `_ui_reference/src/components/chat/ChatListItem.tsx`<br>`_ui_reference/src/components/ui/dialog.tsx`<br>No equivalent request/bulk/swipe workflow. | No direct client | `useChatText` | Pending |
-| T035 | `src/features/communities/components/CommunitiesList.tsx` | Direct surface: `_ui_reference/src/components/communities/Communities.tsx`<br>Reference community channel rows are visual references for real community chats. | No direct client | `useCommunities`, `useMessageText` | Pending |
+| T035 | `src/features/communities/components/CommunitiesList.tsx` | Direct surface: `_ui_reference/src/components/communities/Communities.tsx`<br>Reference community channel rows are visual references for real community chats. Feedback: only the existing creation FAB now uses the shared group glyph; list migration remains pending. | No direct client | `useCommunities`, `useMessageText` | Pending |
 | T036 | `src/features/communities/components/CommunityCard.tsx` | Direct surface: `_ui_reference/src/components/communities/Communities.tsx`<br>Reference community channel rows are visual references for real community chats. | No direct client | `useCommunityChats`, `useMessageText` | Pending |
 | T037 | `src/features/communities/components/CommunityChatHeader.tsx` | Partial: `_ui_reference/src/components/chat/ChatLayout.tsx`<br>`_ui_reference/src/components/chat/ChatHeaderMenu.tsx` | No direct client | `useChatUIStore`, `useMessageText` | Pending |
 | T038 | `src/features/communities/components/CommunityChatListItem.tsx` | Direct surface: `_ui_reference/src/components/communities/Communities.tsx`<br>Reference community channel rows are visual references for real community chats. | No direct client | `useMessageText` | Pending |
@@ -526,7 +526,7 @@ Per-feature end-to-end behavior and exact screen fidelity remain Phase 3 verific
 **Phase 2 was reviewed and approved before the work below.**
 
 
-## 8. Phase 2.1 + Phase 3 Module 1 handoff
+## 8. Phase 2.1 + Phase 3 Module 1 handoff (historical)
 
 **Completed: glow primitives and authenticated shell/navigation (T024, T124). Stop for review before Module 2.**
 
@@ -586,3 +586,11 @@ Added BrandMark/BrandLockup and shared SearchField. Header uses the dynamic-acce
 ### Feedback unit: requests closed by default (T031) — Verified within feedback scope
 
 RequestDisclosure starts fully closed, including lists with fewer than four requests and newly mounted incoming lists. It exposes aria-expanded/aria-controls and a keyboard-operable header; previews/actions mount only after opening. Counts, accept/decline, confirmation, busy/errors/notices and navigation remain unchanged. The shared disclosure is also in the fixture. App typecheck, scoped lint and full chats harness passed; foundation keyboard checks cover Enter opening and Space closing. T031 remains Step A Done for the wider presentation migration.
+
+### Feedback unit: tab-specific FAB (F04/T033/T035) — Verified within feedback scope
+
+FloatingActionButton provides chats (square message-plus), calls (phone-plus composition), communities (group), and updates (broadcast) glyphs. Existing Chats and Communities actions use it; Calls is still the existing placeholder, so calls/updates samples are demonstrated in the fixture without adding fake workflows. Tiles use active-accent fill, dark contrasting glyphs, squircle corners and static shadow-glow. There is no border/outline ring, including after mobile modal focus restoration. Keyboard focus increases brightness and glyph stroke instead. Existing props, labels, modal busy/dismissal behavior, self-chat RPC/cache/navigation, and community creation remain. CommunitiesList audit found only hook consumption and local UI state; no Step A workflow extraction required there.
+
+Final verification: app no-emit typecheck passed; pnpm typecheck passed; pnpm test 69/69; Vite production build passed; scoped Biome passed (28 source/style/harness files); screenshot-free foundation, chats, settings and communities browser suites passed. All nine browser harnesses are syntactically valid and contain no screenshot calls. Reduced-motion focus assertions wait for computed state rather than screenshot animation completion. No outstanding functional failures; manual visual acceptance remains with the user.
+
+Working rules are in AGENTS.md. Exact manual routes/states/themes/viewports are in docs/ui-feedback-review.md. No new dependencies, SSR artifacts, database changes or Module 2 migration. Pre-existing tsconfig.json and _ui_reference/ remain excluded from commits.

@@ -493,15 +493,7 @@
   .new-chat-fab {
     position: fixed;
     bottom: 28px;
-    right: max(32px, calc((100vw - 920px - 100px) / 2 + 50px));
-    display: grid;
-    place-items: center;
-    width: 56px;
-    height: 56px;
-    border-radius: 19px;
-    background: var(--primary);
-    color: var(--primary-foreground);
-    box-shadow: 0 6px 24px color-mix(in oklab, var(--primary) 30%, transparent);
+    right: max(32px, calc((100vw - 920px - var(--shell-rail-width, 0px)) / 2 + 50px));
   }
   .new-chat-menu {
     display: grid;

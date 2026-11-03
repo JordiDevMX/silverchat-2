@@ -1,4 +1,5 @@
-import { Bookmark, MessageSquarePlus, Plus, Radio, Users } from "lucide-react";
+import { Bookmark, MessageSquarePlus, Radio, Users } from "lucide-react";
+import { FloatingActionButton } from "@/components/ui/floating-action-button";
 import { Modal } from "@/features/auth/components";
 import { useNewChatActions } from "../hooks/useNewChatActions";
 import { useChatText } from "../i18n";
@@ -15,9 +16,12 @@ export function NewChatFAB({
   const { action, go, createSelf } = useNewChatActions(onClose);
   return (
     <>
-      <button type="button" className="new-chat-fab" aria-label={t("New chat")} onClick={onOpen}>
-        <Plus size={26} />
-      </button>
+      <FloatingActionButton
+        kind="chats"
+        className="new-chat-fab"
+        aria-label={t("New chat")}
+        onClick={onOpen}
+      />
       {open && (
         <Modal
           className="new-chat-dialog"
