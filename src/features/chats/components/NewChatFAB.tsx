@@ -1,9 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "@tanstack/react-router";
 import { Bookmark, MessageSquarePlus, Plus, Radio, Users } from "lucide-react";
 import { Modal } from "@/features/auth/components";
-import { useAction } from "@/features/settings/components/shared";
-import { supabase } from "@/lib/supabase";
+import { useNewChatActions } from "../hooks/useNewChatActions";
 import { useChatText } from "../i18n";
 export function NewChatFAB({
   open,
@@ -15,13 +12,7 @@ export function NewChatFAB({
   onClose: () => void;
 }) {
   const t = useChatText();
-  const router = useRouter();
-  const action = useAction();
-  const cache = useQueryClient();
-  const go = (href: string) => {
-    onClose();
-    void router.navigate({ href });
-  };
+  const { action, go, createSelf } = useNewChatActions(onClose);
   return (
     <>
       <button type="button" className="new-chat-fab" aria-label={t("New chat")} onClick={onOpen}>
@@ -56,14 +47,7 @@ export function NewChatFAB({
               type="button"
               className="button secondary"
               disabled={action.busy}
-              onClick={() =>
-                void action.run(async () => {
-                  const r = await supabase.rpc("create_self_chat");
-                  if (r.error) throw r.error;
-                  await cache.invalidateQueries({ queryKey: ["chats"] });
-                  go(`/chats/${r.data}`);
-                })
-              }
+              onClick={() => void createSelf()}
             >
               <Bookmark size={20} />
               {t("Message yourself")}

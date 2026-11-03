@@ -3,28 +3,14 @@ import { Check, ChevronDown, X } from "lucide-react";
 import { useState } from "react";
 import { Modal } from "@/features/auth/components";
 import { Avatar } from "@/features/settings/components/shared";
-import { useRequestMutation } from "../hooks/useMessageRequests";
+import { useMessageRequestActions } from "../hooks/useMessageRequestActions";
 import { useChatText } from "../i18n";
 import type { MessageRequest } from "../types";
 export function MessageRequestsSection({ requests }: { requests: MessageRequest[] }) {
   const t = useChatText();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
-  const [decline, setDecline] = useState<MessageRequest | null>(null);
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState(false);
-  const mutation = useRequestMutation();
-  const run = async (r: MessageRequest, accept: boolean) => {
-    setError(false);
-    setNotice("");
-    try {
-      await mutation.run(r, accept);
-      setDecline(null);
-      setNotice(t(accept ? "Chat request accepted" : "Chat request declined"));
-    } catch {
-      setError(true);
-    }
-  };
+  const { decline, setDecline, notice, error, mutation, run } = useMessageRequestActions();
   if (!requests.length && !decline && !notice && !error) return null;
   return (
     <section className="message-requests" aria-label={t("Message requests")}>
