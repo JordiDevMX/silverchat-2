@@ -1,4 +1,6 @@
 import { useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { VoiceWaveform } from "@/components/ui/messaging";
 import type { useVoiceRecorder } from "../hooks/useVoiceRecorder";
 import { useVoiceSend } from "../hooks/useVoiceSend";
 import { useMessageText } from "../i18n";
@@ -45,28 +47,23 @@ export function VoiceRecorder({
         touch.current = null;
       }}
     >
-      <button type="button" className="button secondary" disabled={sending} onClick={cancel}>
+      <Button
+        type="button"
+        variant="outline"
+        className="rounded-xl"
+        disabled={sending}
+        onClick={cancel}
+      >
         {say("Discard", "Descartar")}
-      </button>
+      </Button>
       {recorder.state === "recording" ? (
         <>
           <span className="recording-dot" />
           <time>{formatVoiceTime(recorder.elapsed, language)}</time>
-          <svg className="live-wave" viewBox="0 0 160 40" aria-hidden="true">
-            {recorder.livePeaks.map((peak, i) => (
-              <rect
-                // biome-ignore lint/suspicious/noArrayIndexKey: Fixed waveform slots have no identity or state.
-                key={`live-${i}-${peak}`}
-                x={i * 4}
-                y={20 - Math.max(2, peak * 0.4) / 2}
-                width="2"
-                height={Math.max(2, peak * 0.4)}
-              />
-            ))}
-          </svg>
-          <button type="button" className="button primary" onClick={recorder.stop}>
+          <VoiceWaveform live peaks={recorder.livePeaks} />
+          <Button type="button" className="rounded-xl" onClick={recorder.stop}>
             {say("Stop recording", "Detener grabación")}
-          </button>
+          </Button>
           <small>
             {say(
               "Slide left to cancel · 5 minute limit",
@@ -82,14 +79,14 @@ export function VoiceRecorder({
             peaks={recorder.recording.peaks}
             duration={recorder.recording.duration}
           />
-          <button
+          <Button
             type="button"
-            className="button primary"
+            className="rounded-xl"
             disabled={sending}
             onClick={() => void send()}
           >
             {sending ? `${upload.progress}%` : say("Send voice note", "Enviar nota de voz")}
-          </button>
+          </Button>
         </>
       ) : recorder.state === "error" ? (
         <p role="alert">

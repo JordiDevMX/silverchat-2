@@ -58,7 +58,9 @@ try {
       assert.equal(await page.locator('[data-slot="floating-action-button"]').count(), 4);
       assert.equal(await page.locator(".request-toggle").getAttribute("aria-expanded"), "false");
       assert.equal(
-        await page.getByRole("searchbox").evaluate((el) => getComputedStyle(el).borderWidth),
+        await page
+          .getByRole("searchbox", { name: "Search chats…", exact: true })
+          .evaluate((el) => getComputedStyle(el).borderWidth),
         "0px",
       );
       assert.match(

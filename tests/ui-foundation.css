@@ -2,3 +2,90 @@
 @source "./ui-foundation.tsx";
 
 @source "./conversation-gallery.tsx";
+
+@source "./interactive-gallery.tsx";
+
+@layer components {
+  .interactive-gallery {
+    margin-top: 48px;
+    min-width: 0;
+  }
+  .interactive-gallery > p {
+    color: var(--muted-foreground);
+    margin: 10px 0 24px;
+  }
+  .interactive-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .interactive-preview {
+    min-width: 0;
+    margin-bottom: 20px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    background: var(--card);
+  }
+  .interactive-preview h3 {
+    font-size: 14px;
+    margin-bottom: 18px;
+  }
+  .interactive-preview .conversation-composer {
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+  .interactive-preview .voice-recorder {
+    margin-top: 20px;
+  }
+  .interactive-preview .preview-popover {
+    position: static;
+    margin: 12px 0;
+    width: 100%;
+    min-width: 0;
+  }
+  .preview-popover [data-preview-selected="true"] {
+    background: var(--accent);
+  }
+  .interactive-preview .preview-menu {
+    position: static;
+    width: 100%;
+    margin-top: 16px;
+    max-height: none;
+  }
+  .preview-notice {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    margin-top: 12px;
+  }
+  .interactive-preview .preview-lightbox {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    border-radius: 20px;
+    margin-top: 18px;
+  }
+  .preview-lightbox .lightbox-content {
+    padding: 90px 20px 68px;
+  }
+  .preview-lightbox img {
+    width: 96px;
+    height: 96px;
+  }
+  .preview-lightbox .lightbox-caption {
+    font-size: 11px;
+    width: max-content;
+  }
+  .interactive-preview .in-chat-search {
+    border-radius: 16px;
+    padding: 10px;
+  }
+  @media (max-width: 767px) {
+    .interactive-columns {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .interactive-preview {
+      padding: 12px;
+    }
+  }
+}

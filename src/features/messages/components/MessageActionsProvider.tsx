@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { createContext, type ReactNode, useContext } from "react";
 import { type UI, useMessageActionsController } from "../hooks/useMessageActionsController";
 import { getAvailableActions } from "../lib/actionMatrix";
@@ -50,7 +51,7 @@ export function MessageActionsProvider({
         <div className="message-action-notice" role="status">
           {notice}
           <button type="button" aria-label={say("Dismiss", "Cerrar")} onClick={() => setNotice("")}>
-            ×
+            <X size={16} />
           </button>
         </div>
       )}

@@ -546,6 +546,10 @@ try {
   await page.getByRole("checkbox", { name: "Forward target 6", exact: true }).click();
   await page.getByRole("alert").filter({ hasText: "at most 5" }).waitFor();
   assert.equal(await page.getByRole("checkbox", { checked: true }).count(), 5);
+  await page.getByRole("checkbox", { name: "Forward target 1", exact: true }).uncheck();
+  assert.equal(await page.getByRole("checkbox", { checked: true }).count(), 4);
+  await page.getByRole("checkbox", { name: "Forward target 1", exact: true }).check();
+  assert.equal(await page.getByRole("checkbox", { checked: true }).count(), 5);
   failForwardResponse = true;
   await page.getByRole("dialog").getByRole("button", { name: "Forward", exact: true }).click();
   await page.getByRole("alert").filter({ hasText: "Forward failed" }).waitFor();

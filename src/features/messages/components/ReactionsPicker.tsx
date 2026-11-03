@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from "react";
+import { QuickReactions } from "@/components/ui/messaging";
 import { Modal } from "@/features/auth/components";
 import { useMessageText } from "../i18n";
 
@@ -19,31 +20,18 @@ export function ReactionsPicker({
   const { say } = useMessageText();
   const [all, setAll] = useState(false);
   return (
-    <Modal title={say("React to message", "Reaccionar al mensaje")} onClose={onClose}>
-      <div className="quick-reactions">
-        {["👍", "❤️", "😂", "😮", "😢", "🙏", "🎉", "🔥"].map((emoji) => (
-          <button
-            type="button"
-            key={emoji}
-            disabled={busy}
-            aria-label={emoji}
-            aria-pressed={emoji === mine}
-            onClick={() => onSelect(emoji)}
-          >
-            {emoji}
-          </button>
-        ))}
-        {!limited && (
-          <button
-            type="button"
-            disabled={busy}
-            aria-label={say("More emoji", "Más emojis")}
-            onClick={() => setAll(!all)}
-          >
-            +
-          </button>
-        )}
-      </div>
+    <Modal
+      className="messaging-dialog"
+      title={say("React to message", "Reaccionar al mensaje")}
+      onClose={onClose}
+    >
+      <QuickReactions
+        busy={busy}
+        mine={mine}
+        onSelect={onSelect}
+        onMore={limited ? undefined : () => setAll(!all)}
+        moreLabel={say("More emoji", "Más emojis")}
+      />
       {all && !limited && !busy && (
         <Suspense fallback={<p>{say("Loading…", "Cargando…")}</p>}>
           <EmojiPanel onSelect={onSelect} />

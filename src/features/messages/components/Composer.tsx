@@ -1,5 +1,6 @@
 import { ArrowUp, Mic, Plus, Smile, X } from "lucide-react";
 import { lazy, Suspense } from "react";
+import { ComposerDock } from "@/components/ui/messaging";
 import { useComposerController } from "../hooks/useComposerController";
 import type { ChatDetails, Message, SendInput } from "../types";
 import { AttachmentMenu } from "./AttachmentMenu";
@@ -49,7 +50,7 @@ export function Composer({
     send,
   } = useComposerController({ chat, onSend, replyToId });
   return (
-    <div className="conversation-composer">
+    <ComposerDock>
       {replyToId && <ReplyPreview mode="bar" message={replyTo} onClear={onClearReply} />}
       {recordMode ? (
         <VoiceRecorder
@@ -63,7 +64,7 @@ export function Composer({
         <div className="composer-row">
           <button
             type="button"
-            className="message-icon"
+            className="message-icon composer-attach"
             aria-label={say("Attach", "Adjuntar")}
             onClick={() => setAttach(true)}
           >
@@ -216,6 +217,6 @@ export function Composer({
         />
       )}{" "}
       {contacts && <ContactPicker onSend={onSend} onClose={() => setContacts(false)} />}
-    </div>
+    </ComposerDock>
   );
 }

@@ -1,5 +1,6 @@
 import { ArrowUp, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { FileIconTile } from "@/components/ui/file-icon-tile";
 import { Modal } from "@/features/auth/components";
 import { resolveFileType } from "@/lib/file-type";
@@ -39,7 +40,7 @@ export function MediaPreviewModal({
   return (
     <Modal
       title={say("Send attachment", "Enviar archivo")}
-      className="media-preview"
+      className="media-preview messaging-dialog"
       onClose={close}
     >
       <button
@@ -88,23 +89,19 @@ export function MediaPreviewModal({
       )}
       {error && <p role="alert">{error}</p>}
       <div className="modal-actions">
-        <button
+        <Button
           type="button"
-          className="button secondary"
+          variant="outline"
+          className="rounded-xl"
           disabled={sending && !upload.uploading}
           onClick={close}
         >
           {say("Cancel", "Cancelar")}
-        </button>
-        <button
-          type="button"
-          className="button primary"
-          disabled={sending}
-          onClick={() => void send()}
-        >
+        </Button>
+        <Button type="button" className="rounded-xl" disabled={sending} onClick={() => void send()}>
           <ArrowUp size={18} />
           {say("Send", "Enviar")}
-        </button>
+        </Button>
       </div>
     </Modal>
   );

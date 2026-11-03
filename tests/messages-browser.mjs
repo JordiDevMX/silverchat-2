@@ -45,6 +45,7 @@ const chat = (id = chatId, type = "direct") => ({
   id,
   type,
   name: type === "group" ? "Weekend people" : null,
+  direct_pair_key: type === "direct" ? `${me}::${other}` : null,
   status: "active",
   avatar_url: null,
   community_id: null,
@@ -486,6 +487,14 @@ try {
   assert.equal(rows.at(-1).file_upload_id, uploads.at(-1).id);
   await page.getByRole("button", { name: "Open image" }).last().click();
   await page.getByRole("dialog", { name: "Media viewer" }).waitFor();
+  assert.match(await page.locator(".lightbox-filename").textContent(), /summer/i);
+  assert.equal(await page.locator(".lightbox-caption").textContent(), "Summer image");
+  const imageBounds = await page.locator(".lightbox-content img").boundingBox();
+  const captionBounds = await page.locator(".lightbox-caption").boundingBox();
+  assert.ok(
+    imageBounds.y + imageBounds.height <= captionBounds.y,
+    "Caption leaves media controls unobscured",
+  );
   await page.keyboard.press("Escape");
   await page.getByRole("dialog", { name: "Media viewer" }).waitFor({ state: "hidden" });
 
@@ -578,6 +587,21 @@ try {
   await page.getByRole("button", { name: "Play video", exact: true }).last().click();
   await page.locator(".media-lightbox video[autoplay]").waitFor();
   await page.keyboard.press("Escape");
+  // The extracted contact workflow still sends the same public profile payload.
+  await page.getByRole("button", { name: "Attach", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Attach", exact: true })
+    .getByRole("button", { name: "Contact", exact: true })
+    .click();
+  const contactPicker = page.getByRole("dialog", { name: "Share a contact", exact: true });
+  await contactPicker.getByRole("textbox", { name: "Search contacts" }).fill("sofia");
+  await contactPicker.locator(".contact-picker-list button").first().click();
+  await contactPicker.waitFor({ state: "hidden" });
+  await page.waitForTimeout(300);
+  assert.equal(rows.at(-1).type, "contact");
+  assert.equal(rows.at(-1).contact_data.user_id, other);
+  assert.equal(rows.at(-1).contact_data.username, "sofia");
+
   // Render every remaining type, deleted content, reply previews and safe links.
   const sample = uploads[0];
   const extra = [

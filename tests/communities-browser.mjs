@@ -292,11 +292,16 @@ try {
   await page.getByText("Select a chat", { exact: true }).waitFor();
   assert.equal(uploads.length, 1);
   assert.match(uploads[0].path, new RegExp(`^community-${cid}/community-`));
+  const markedRead = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.endsWith("/rpc/mark_chat_as_read") && response.ok(),
+  );
   await page
     .getByRole("link", { name: /General/ })
     .first()
     .click();
   await page.locator(".composer-input textarea").waitFor();
+  await markedRead;
   assert.ok(calls.some((c) => c.rpc === "mark_chat_as_read"));
   assert.equal(await page.getByRole("button", { name: /calls coming soon/ }).count(), 0);
   const bounds = await page.locator(".community-layout > div").evaluateAll((els) =>
@@ -325,6 +330,9 @@ try {
     .fill("carol");
   await page.getByRole("checkbox").last().check();
   await page.getByRole("button", { name: "Add 1 members", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Add 1 members", exact: true })
+    .waitFor({ state: "hidden" });
   assert.ok(calls.some((c) => c.rpc === "join_community" && c.body.p_user_id === third));
   await page.getByRole("button", { name: "View members", exact: true }).click();
   const membersDialog = page.getByRole("dialog", { name: "Community members", exact: true });
@@ -334,6 +342,7 @@ try {
     .getByRole("dialog", { name: "Promote Carol?" })
     .getByRole("button", { name: "Confirm", exact: true })
     .click();
+  await page.getByRole("dialog", { name: "Promote Carol?" }).waitFor({ state: "hidden" });
   assert.ok(calls.some((c) => c.rpc === "promote_community_admin"));
   await membersDialog.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByRole("button", { name: "Mute community", exact: true }).click();

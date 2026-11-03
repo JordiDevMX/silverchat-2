@@ -30,6 +30,9 @@ export function MediaLightbox({ message, onClose }: { message: Message; onClose:
         onClick={onClose}
       />
       <div className="lightbox-toolbar">
+        <strong className="lightbox-filename">
+          {message.upload?.original_filename ?? say("Media viewer", "Visor multimedia")}
+        </strong>
         <DownloadButton upload={message.upload} />
         <button
           className="message-icon"
@@ -57,6 +60,7 @@ export function MediaLightbox({ message, onClose }: { message: Message; onClose:
           </p>
         )}
       </div>
+      {message.content && <p className="lightbox-caption">{message.content}</p>}
     </dialog>
   );
 }

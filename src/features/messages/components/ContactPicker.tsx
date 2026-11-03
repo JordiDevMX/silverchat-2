@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Modal } from "@/features/auth/components";
-import { useChats } from "@/features/chats/hooks/useChats";
 import { Avatar } from "@/features/settings/components/shared";
+import { useContactPicker } from "../hooks/useContactPicker";
 import { useMessageText } from "../i18n";
 import type { SendInput } from "../types";
 export function ContactPicker({
@@ -11,28 +12,20 @@ export function ContactPicker({
   onSend: (input: SendInput) => Promise<void>;
   onClose: () => void;
 }) {
-  const contacts = useChats();
   const { say } = useMessageText();
-  const [query, setQuery] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
-  const rows = [
-    ...new Map(
-      (contacts.data ?? [])
-        .filter((c) => c.type === "direct" && !c.isBlocked && c.otherUsername)
-        .map((c) => [c.otherUserId, c]),
-    ).values(),
-  ].filter((c) =>
-    `${c.displayName} ${c.otherUsername}`.toLowerCase().includes(query.toLowerCase()),
+  const { contacts, query, setQuery, busy, error, rows, sendContact } = useContactPicker(
+    onSend,
+    onClose,
   );
   return (
     <Modal
+      className="messaging-dialog"
       title={say("Share a contact", "Compartir un contacto")}
       onClose={() => {
         if (!busy) onClose();
       }}
     >
-      <input
+      <Input
         aria-label={say("Search contacts", "Buscar contactos")}
         placeholder={say("Search contacts…", "Buscar contactos…")}
         value={query}
@@ -40,31 +33,7 @@ export function ContactPicker({
       />
       <div className="contact-picker-list">
         {rows.map((c) => (
-          <button
-            type="button"
-            disabled={busy}
-            key={c.id}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await onSend({
-                  type: "contact",
-                  content: null,
-                  contact_data: {
-                    user_id: c.otherUserId,
-                    username: c.otherUsername,
-                    display_name: c.displayName,
-                  },
-                });
-                onClose();
-              } catch {
-                setError(true);
-                onClose();
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
+          <button type="button" disabled={busy} key={c.id} onClick={() => void sendContact(c)}>
             <Avatar
               profile={{ id: c.otherUserId, display_name: c.displayName, avatar_url: c.avatarUrl }}
               size="small"
@@ -91,9 +60,15 @@ export function ContactPicker({
           {say("Unable to load or send contact", "No se pudo cargar o enviar el contacto")}
         </p>
       )}
-      <button type="button" className="button secondary" disabled={busy} onClick={onClose}>
+      <Button
+        type="button"
+        variant="outline"
+        className="rounded-xl"
+        disabled={busy}
+        onClick={onClose}
+      >
         {say("Cancel", "Cancelar")}
-      </button>
+      </Button>
     </Modal>
   );
 }

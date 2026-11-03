@@ -1,9 +1,22 @@
-import { type CSSProperties, Fragment, useEffect, useRef, useState } from "react";
+import { Copy, Forward, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
+import { type CSSProperties, Fragment } from "react";
 import { createPortal } from "react-dom";
-import { useAuth } from "@/lib/auth-provider";
-import { useMessageText } from "../i18n";
-import { getAvailableActions, type MessageAction } from "../lib/actionMatrix";
+import { useMessageMenu } from "../hooks/useMessageMenu";
+import type { MessageAction } from "../lib/actionMatrix";
 import type { Message } from "../types";
+
+const actionIcons = {
+  reply: Reply,
+  react: SmilePlus,
+  copy: Copy,
+  forward: Forward,
+  pin: Pin,
+  unpin: PinOff,
+  edit: Pencil,
+  delete_for_me: Trash2,
+  delete_for_everyone: Trash2,
+};
+
 export function MessageContextMenu({
   message,
   point,
@@ -17,49 +30,7 @@ export function MessageContextMenu({
   onChoose: (action: MessageAction) => void;
   onClose: () => void;
 }) {
-  const { user } = useAuth();
-  const { say } = useMessageText();
-  const ref = useRef<HTMLDivElement>(null);
-  const [now, setNow] = useState(Date.now());
-  const actions = getAvailableActions(message, user?.id ?? "", readOnly, now);
-  const labels: Record<MessageAction, string> = {
-    reply: say("Reply", "Responder"),
-    react: say("React", "Reaccionar"),
-    copy: say("Copy text", "Copiar texto"),
-    forward: say("Forward", "Reenviar"),
-    pin: say("Pin", "Fijar"),
-    unpin: say("Unpin", "Desfijar"),
-    edit: say("Edit", "Editar"),
-    delete_for_me: say("Delete for me", "Eliminar para mí"),
-    delete_for_everyone: say("Delete for everyone", "Eliminar para todos"),
-  };
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector("button")?.focus();
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    const click = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Tab") onClose();
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const buttons = [...(ref.current?.querySelectorAll("button") ?? [])];
-        const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
-        buttons[
-          (index + (e.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length
-        ]?.focus();
-      }
-    };
-    document.addEventListener("pointerdown", click);
-    document.addEventListener("keydown", key);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("pointerdown", click);
-      document.removeEventListener("keydown", key);
-      if (previous?.isConnected) previous.focus();
-    };
-  }, [onClose]);
+  const { ref, actions, labels, say } = useMessageMenu(message, readOnly, onClose);
   return createPortal(
     <div
       ref={ref}
@@ -73,23 +44,27 @@ export function MessageContextMenu({
         } as CSSProperties
       }
     >
-      {actions.map((action, index) => (
-        <Fragment key={action}>
-          {index > 0 &&
-            action.startsWith("delete") &&
-            !actions[index - 1]?.startsWith("delete") && (
-              <hr className="message-context-menu-separator" />
-            )}
-          <button
-            type="button"
-            role="menuitem"
-            className={action.startsWith("delete") ? "danger" : ""}
-            onClick={() => onChoose(action)}
-          >
-            {labels[action]}
-          </button>
-        </Fragment>
-      ))}
+      {actions.map((action, index) => {
+        const Icon = actionIcons[action];
+        return (
+          <Fragment key={action}>
+            {index > 0 &&
+              action.startsWith("delete") &&
+              !actions[index - 1]?.startsWith("delete") && (
+                <hr className="message-context-menu-separator" />
+              )}
+            <button
+              type="button"
+              role="menuitem"
+              className={action.startsWith("delete") ? "danger" : ""}
+              onClick={() => onChoose(action)}
+            >
+              <Icon size={17} aria-hidden="true" />
+              {labels[action]}
+            </button>
+          </Fragment>
+        );
+      })}
     </div>,
     document.body,
   );

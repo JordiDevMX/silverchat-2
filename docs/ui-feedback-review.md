@@ -111,6 +111,26 @@ This starts strictly at **http://127.0.0.1:5173/** and prints the explicit no-lo
 
 With the normal authenticated backend running (separate from the standalone fixture), inspect **/chats/<chatId>** with file messages, the same chat's **/chats/<chatId>/media?tab=files** shared-files view, and **Attach → select a document → Send attachment** preview. These reuse the same resolver/tile. Verify English/Spanish labels through settings; shared files still show the original date, and preview captions/send/cancel and download behavior remain intact. The automated app suites use mocked data on 5173; they do not create a live account.
 
+## Module 2B — interactive messaging review
+
+Run **pnpm review:ui** and open **http://127.0.0.1:5177/tests/ui-foundation.html#interactive-gallery**. The new **Interactive messaging** section sits below Conversation timeline. Use a fresh browser tab; no login or backend is required. Review **375 × 844**, **768 × 1024**, **1280 × 900**, each in **Light/Dark** with **blue, orange, green, purple, red, yellow** accents.
+
+- **Composer & reply:** silver dock, rounded input, outlined attachment control and glowing send. The send fill must match Follow/Light for each accent; white glyph in Light, near-black in Dark. Type in Preview message, insert an emoji, cancel the reply, and use Reply in the sample menu to restore it. Preview attachments toggles four labeled tools. Preview send clears only the fixture draft and updates a local notice.
+- **Emoji & mentions:** inspect the themed search/list surfaces and highlighted mention row; click an emoji/member to append it to the local draft. These are static sample lists; actual searchable emoji and keyboard mentions are checked in the authenticated flow below.
+- **Voice:** Preview play/pause toggles its icon; drag or keyboard-seek the range to change waveform progress/time. Preview start recording/stop recording switches idle/live-wave samples. No audio, timer or microphone runs here. With reduced motion enabled, the recording dot must remain steady.
+- **Actions & reactions:** select/remove a reaction and check the accent ring/glow. The local menu shows icon alignment and destructive color. Edit opens a real focus-trapped modal; type, save/cancel, or press Escape. Other sample actions update local preview state/notice; they do not mutate server data.
+- **Search & media:** preview search switches between results/no-results; arrows cycle two local results. The inline dark lightbox shows a glass filename/download/close toolbar and caption over the existing local mark. Download/close are intentionally disabled in this inline frame. Inspect wrapping, touch targets and absence of horizontal clipping at each size.
+- Recheck **#conversation-gallery** for the approved timeline, all incoming/outgoing file families and unchanged primary gradients.
+
+For real behavior, use the normal authenticated backend on **your app origin**, then open **/chats/<chatId>** (direct and group conversations). The isolated 5177 review server does not host these sessions. The browser harness uses mocked boundaries on **http://127.0.0.1:5173**; bare pnpm dev is not a replacement for the auth backend.
+
+1. Type a draft, navigate away/back, reply to a message, insert emoji at the caret, and choose a group @mention with arrows/Enter/Escape. Verify Shift+Enter, reply cancellation, send/retry and later text/reply surviving a delayed send.
+2. Use Attach → Photo/Video, Camera, File and Contact. Inspect the document family tile, caption, upload progress/error, cancel and retry. Verify the shared contact's name/username and the failed-upload ownership behavior.
+3. Record, stop, preview/play, seek, send, discard and slide left to cancel on mobile. Check microphone denial, the five-minute limit and progress/error presentation. Start a second audio message: the first must pause/reset. Leave the chat while playing: audio must stop.
+4. Open message actions with right-click/overflow or mobile long-press. Test permitted reply/react/copy/forward/pin/edit/delete actions, edit errors, the five-chat forward cap and a retry, selected reaction removal, and keyboard dismissal/focus return.
+5. Search from the header at widths ≥768px; at 375px use Chat options → Search in chat. Verify result navigation, highlights, Enter/Shift+Enter/Escape and the loaded-messages explanation.
+6. Open image/video messages; check filename/caption, signed download, native video playback, close/backdrop/Escape and focus return. Use English and Spanish to check translated controls and text wrapping.
+
 ## Live application review is a separate setup
 
 For actual accounts, use the existing Netlify/auth setup in [authentication.md](authentication.md#dependencies-and-local-workflow), including its HTTPS/cookie and callback requirements. Plain pnpm dev and pnpm review:ui are not substitutes for that backend. This turn verified protected routes with mocked auth/data boundaries; it did not certify a live-account login deployment.
@@ -121,4 +141,4 @@ Once that normal application setup is working, inspect /chats, /chats?filter=arc
 
 See [review-path-evidence.md](review-path-evidence.md) for the original reproduction and clean-start results, and UI_MIGRATION_MAP.md §11 for Module 2A. The screenshot-free journey harness is tests/ui-review-path-browser.mjs. Module 2A adds tests/conversation-gallery-browser.mjs and preserves existing outcome assertions; focus/entry selectors account for asynchronous sheet closure and Vite module cache suffixes. Messaging harnesses also check reply restoration/reconciliation and failed upload ownership.
 
-Module 2A migrates the read-only conversation frame/header/timeline/bubbles and extracts the five approved controllers. Module 2B presentation remains deferred: composer/tools, audio player/recorder, action menus/modals, search UI, lightbox and reaction picker. Calls remains its existing placeholder. No auth bypass is included.
+Module 2A migrates the read-only conversation frame/header/timeline/bubbles and extracts the five approved controllers. Module 2B now migrates composer/tools, audio player/recorder, action menus/modals, search UI, lightbox and reaction picker (UI_MIGRATION_MAP.md §15). Later feature modules remain deferred. Calls remains its existing placeholder. No auth bypass is included.

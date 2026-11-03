@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { ReplySurface } from "@/components/ui/messaging";
 import { useMessageText } from "../i18n";
 import type { Message } from "../types";
 import { useMessageActionUI } from "./MessageActionsProvider";
@@ -32,31 +32,21 @@ export function ReplyPreview({
           system: say("Message", "Mensaje"),
         }[reply.type];
   return (
-    <div className={`message-reply ${mode === "bar" ? "reply-bar" : ""}`}>
-      <button
-        type="button"
-        disabled={!reply}
-        onClick={() => {
-          if (reply) ui.navigate(reply.id);
-        }}
-      >
-        <strong>
-          {mode === "bar"
-            ? `${say("Replying to", "Respondiendo a")} ${name ?? say("Message", "Mensaje")}`
-            : (name ?? say("Message", "Mensaje"))}
-        </strong>
-        <span>{content}</span>
-      </button>
-      {mode === "bar" && (
-        <button
-          type="button"
-          className="message-icon"
-          aria-label={say("Cancel reply", "Cancelar respuesta")}
-          onClick={onClear}
-        >
-          <X size={18} />
-        </button>
-      )}
-    </div>
+    <ReplySurface
+      bar={mode === "bar"}
+      unavailable={!reply}
+      label={
+        mode === "bar"
+          ? `${say("Replying to", "Respondiendo a")} ${name ?? say("Message", "Mensaje")}`
+          : (name ?? say("Message", "Mensaje"))
+      }
+      onNavigate={() => {
+        if (reply) ui.navigate(reply.id);
+      }}
+      onClear={onClear}
+      clearLabel={say("Cancel reply", "Cancelar respuesta")}
+    >
+      {content}
+    </ReplySurface>
   );
 }

@@ -1,4 +1,5 @@
 import { ConversationGallery } from "./conversation-gallery";
+import { InteractiveGallery } from "./interactive-gallery";
 // Development-only review fixture. No app routes, auth, or remote services.
 import "@fontsource-variable/inter";
 import "./ui-foundation.css";
@@ -340,6 +341,7 @@ function FoundationReview() {
         </CardSurface>
       </div>
       <ConversationGallery />
+      <InteractiveGallery />
       {native && (
         <Modal title="Existing modal" onClose={busy ? undefined : () => setNative(false)}>
           <label>
