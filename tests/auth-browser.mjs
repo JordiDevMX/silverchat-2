@@ -217,12 +217,14 @@ try {
   await page.getByText("Backup code used. Please re-enable 2FA in settings.").waitFor();
   console.log("PASS backup recovery and re-enrollment reminder");
   signedIn = false;
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-  // Expire the current access token by making the next authenticated data request fail.
-  await page.route("https://supabase.test/rest/v1/profiles**", (route) =>
-    fulfill(route, { message: "JWT expired" }, 401),
+  // The mock token lasts an hour; AuthProvider schedules renewal at 50 minutes.
+  // Advancing one minute never reaches that refresh or the 90-second presence tick.
+  const expiredRefresh = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/auth/refresh" && response.status() === 401,
   );
-  await page.clock.fastForward(60_000);
+  await page.clock.fastForward(50 * 60_000);
+  await expiredRefresh;
   await page.getByRole("dialog", { name: "Your session has expired" }).waitFor();
   await page.getByRole("button", { name: "Log in", exact: true }).click();
   await page.getByRole("heading", { name: "Welcome back" }).waitFor();

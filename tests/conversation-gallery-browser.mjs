@@ -30,14 +30,83 @@ try {
   const link = gallery.getByRole("link", { name: "example.com" });
   assert.equal(await link.getAttribute("href"), "https://example.com");
   assert.equal(await link.getAttribute("rel"), "noopener noreferrer nofollow");
-  for (const width of [375, 768, 1280]) {
-    await page.setViewportSize({ width, height: 900 });
+  const tilePalettes = new Map();
+  assert.equal(await gallery.locator('[data-slot="file-icon-tile"]').count(), 14);
+  assert.equal(await gallery.locator(".message-file .lucide-download").count(), 14);
+  assert.equal(
+    await gallery
+      .locator('[data-file-sample="Renamed spreadsheet.pdf"] [data-file-family="spreadsheet"]')
+      .count(),
+    2,
+  );
+  for (const [width, height] of [
+    [375, 844],
+    [768, 1024],
+    [1280, 900],
+  ]) {
+    await page.setViewportSize({ width, height });
     for (const mode of ["light", "dark"]) {
       await page
         .getByRole("button", { name: mode === "light" ? "Light" : "Dark", exact: true })
         .click();
       for (const accent of ["blue", "purple", "red", "orange", "yellow", "green"]) {
         await page.getByRole("combobox", { name: "Accent" }).selectOption(accent);
+        await page.evaluate(() =>
+          Promise.all(
+            document
+              .getAnimations()
+              .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+              .map((animation) => animation.finished.catch(() => {})),
+          ),
+        );
+        const tiles = await gallery
+          .locator('[data-slot="file-icon-tile"]')
+          .evaluateAll((elements) =>
+            elements.map((el) => {
+              const style = getComputedStyle(el);
+              const glyph = getComputedStyle(el.querySelector("svg"));
+              const bounds = el.getBoundingClientRect();
+              return {
+                family: el.dataset.fileFamily,
+                color: style.color,
+                glyph: glyph.color,
+                fill: style.backgroundColor,
+                border: style.borderTopColor,
+                borderWidth: style.borderTopWidth,
+                radius: style.borderRadius,
+                width: bounds.width,
+                height: bounds.height,
+                label: el.parentElement.querySelector("small").textContent,
+                hidden: el.getAttribute("aria-hidden"),
+              };
+            }),
+          );
+        assert.equal(new Set(tiles.map((tile) => tile.color)).size, 6);
+        for (const tile of tiles) {
+          assert.equal(tile.hidden, "true");
+          assert.equal(tile.width, 48);
+          assert.equal(tile.height, 48);
+          assert.equal(tile.borderWidth, "1px");
+          assert.equal(tile.radius, "50%");
+          assert.equal(tile.glyph, tile.color);
+          assert.notEqual(tile.fill, tile.color);
+          assert.notEqual(tile.border, tile.fill);
+          assert.match(
+            tile.label,
+            /^248 KB · (PDF Document|Spreadsheet|Word Document|Presentation|Text \/ Notes|File)$/,
+          );
+          if (tile.family === "unknown")
+            assert.equal(tile.color, mode === "light" ? "rgb(255, 255, 255)" : "rgb(17, 24, 39)");
+          const key = mode + tile.family;
+          const palette = [tile.color, tile.fill, tile.border];
+          if (tilePalettes.has(key))
+            assert.deepEqual(
+              palette,
+              tilePalettes.get(key),
+              "File hues must not depend on accent, bubble direction or viewport",
+            );
+          else tilePalettes.set(key, palette);
+        }
         const surfaces = await gallery
           .locator('[data-slot="bubble-surface"]')
           .evaluateAll((elements) =>
@@ -88,7 +157,7 @@ try {
   assert.deepEqual(errors, []);
   assert.deepEqual(remote, []);
   console.log(
-    "PASS: offline conversation gallery; 36 viewport/theme/accent combinations; own glow, neutral incoming, borderless sticker, content containment, static audio, dates/unread/reactions/deleted/system, safe links, local media; no auth or remote requests.",
+    "PASS: offline conversation gallery; 36 viewport/theme/accent combinations; MIME-first file labels, six fixed family hues, circular tiles and tray downloads; own glow, neutral incoming, borderless sticker, content containment, static audio, dates/unread/reactions/deleted/system, safe links, local media; no auth or remote requests.",
   );
 } finally {
   await browser.close();

@@ -2,7 +2,7 @@ import {
   ArrowDown,
   CheckCheck,
   ChevronLeft,
-  FileText,
+  Download,
   MapPin,
   MoreVertical,
   Phone,
@@ -21,7 +21,9 @@ import {
   TimelineDate,
   TimelineUnread,
 } from "../src/components/ui/conversation-surface";
+import { FileIconTile } from "../src/components/ui/file-icon-tile";
 import { LinkifiedText } from "../src/features/messages/utils/linkifyText";
+import { resolveFileType } from "../src/lib/file-type";
 
 function Sample({
   own = false,
@@ -60,6 +62,26 @@ function Sample({
     </div>
   );
 }
+
+const fileSamples = [
+  { filename: "Q3_Financial_Report.pdf", mimeType: "application/pdf" },
+  {
+    filename: "Project budget.xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  },
+  {
+    filename: "Project brief.docx",
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  },
+  {
+    filename: "Team update.pptx",
+    mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  },
+  { filename: "Meeting notes.txt", mimeType: "text/plain" },
+  { filename: "Backup.custom", mimeType: "application/x-custom" },
+  // Deliberate mismatch: stored MIME wins over the misleading PDF filename.
+  { filename: "Renamed spreadsheet.pdf", mimeType: "application/vnd.ms-excel" },
+];
 
 /** Static fixture only: no session, data providers, remote media, or audio playback. */
 export function ConversationGallery() {
@@ -187,18 +209,30 @@ export function ConversationGallery() {
                 </div>
               </Sample>
             ))}
-            <Sample own kind="file">
-              <div className="message-file">
-                <FileText size={30} />
-                <div>
-                  <strong>Studio notes.pdf</strong>
-                  <small>248 KB</small>
-                </div>
-                <span className="message-icon">
-                  <ArrowDown size={18} />
-                </span>
-              </div>
-            </Sample>
+            {fileSamples.flatMap((file) =>
+              [false, true].map((own) => {
+                const fileType = resolveFileType(file);
+                return (
+                  <Sample key={file.filename + own} own={own} kind="file">
+                    <div className="message-file" data-file-sample={file.filename}>
+                      <FileIconTile family={fileType.family} />
+                      <div>
+                        <strong title={file.filename}>{file.filename}</strong>
+                        <small>248 KB · {fileType.label[0]}</small>
+                      </div>
+                      <button
+                        type="button"
+                        className="message-icon"
+                        disabled
+                        aria-label="Download attachment (preview only)"
+                      >
+                        <Download size={18} />
+                      </button>
+                    </div>
+                  </Sample>
+                );
+              }),
+            )}
             <Sample kind="contact">
               <div className="message-contact">
                 <Avatar initials="AM" size="sm" />

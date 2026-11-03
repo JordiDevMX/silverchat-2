@@ -370,13 +370,6 @@
     min-width: 0;
     padding: 6px 0;
   }
-  .message-file > svg {
-    flex-shrink: 0;
-    box-sizing: content-box;
-    padding: 10px;
-    border-radius: 12px;
-    background: color-mix(in oklab, currentColor 8%, transparent);
-  }
   .message-file > div,
   .message-contact > div {
     flex: 1;
@@ -697,10 +690,6 @@
     padding: 24px;
     overflow-wrap: anywhere;
     max-width: 100%;
-  }
-  .media-preview-stage svg {
-    margin: auto;
-    color: var(--primary);
   }
   .media-preview label {
     display: block;

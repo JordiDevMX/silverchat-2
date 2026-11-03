@@ -600,6 +600,8 @@ try {
   await page.getByRole("tab", { name: "Files", exact: true }).click();
   await page.getByText("weekend-plans.pdf", { exact: true }).waitFor();
   assert.match(page.url(), /tab=files/);
+  assert.equal(await page.locator('.shared-file-row [data-file-family="pdf"]').count(), 1);
+  assert.match(await page.locator(".shared-file-row small").textContent(), /PDF Document/);
   const popupPromise = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Download file" }).click();
   const popup = await popupPromise;

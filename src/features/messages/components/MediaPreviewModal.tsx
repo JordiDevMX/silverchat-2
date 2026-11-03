@@ -1,6 +1,8 @@
-import { ArrowUp, FileText, X } from "lucide-react";
+import { ArrowUp, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { FileIconTile } from "@/components/ui/file-icon-tile";
 import { Modal } from "@/features/auth/components";
+import { resolveFileType } from "@/lib/file-type";
 import { useMediaSend } from "../hooks/useMediaSend";
 import { useMessageText } from "../i18n";
 import type { SendInput } from "../types";
@@ -27,6 +29,7 @@ export function MediaPreviewModal({
     onSend,
     onClose,
   });
+  const fileType = resolveFileType({ filename: file.name, mimeType: file.type });
   const media = file.type.startsWith("image/") || file.type.startsWith("video/");
   useEffect(() => {
     const next = URL.createObjectURL(file);
@@ -57,9 +60,11 @@ export function MediaPreviewModal({
           </video>
         ) : (
           <div>
-            <FileText size={64} />
+            <FileIconTile family={fileType.family} />
             <p>{file.name}</p>
-            <small>{formatBytes(file.size, language)}</small>
+            <small>
+              {formatBytes(file.size, language)} · {say(fileType.label[0], fileType.label[1])}
+            </small>
           </div>
         )}
       </div>

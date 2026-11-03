@@ -1,6 +1,7 @@
 @import "tailwindcss" source("../");
 @import "tw-animate-css";
 @import "./app-shell.css";
+@import "./file-icon-tile.css";
 
 /* Theme state is owned by the existing data-theme provider, not OS-only dark variants. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));

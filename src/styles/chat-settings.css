@@ -303,7 +303,7 @@
     border-bottom: 1px solid var(--border);
     flex-wrap: wrap;
   }
-  .shared-file-row > span {
+  .shared-file-row > span:not(.file-icon-tile) {
     flex: 1;
     min-width: 0;
   }

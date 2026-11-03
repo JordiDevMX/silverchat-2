@@ -100,6 +100,17 @@ This starts strictly at **http://127.0.0.1:5173/** and prints the explicit no-lo
 
 **The 5173 root is not the UI review page.** It still serves the existing application entry. Plain Vite does not run the Netlify auth functions: without that backend, POST /api/auth/refresh returns 404 and the app shows its existing “Let's reconnect” auth frame, including when opening /chats or /communities. This is not evidence that the migration disappeared. With a working backend, logged-out requests to those protected routes go to /auth/login; authenticated sessions show the migrated surfaces.
 
+## File-type tiles — manual review
+
+1. Start a fresh `pnpm review:ui` server, then open **http://127.0.0.1:5177/tests/ui-foundation.html#conversation-gallery** in a fresh browser tab. No account/backend is needed. The **Conversation timeline** contains fourteen file rows: seven examples, each incoming and outgoing.
+2. In devtools, inspect **375 × 844**, **768 × 1024**, and **1280 × 900**. At each size, select **Light** and **Dark**, each with **blue, orange, green, purple, red and yellow** accents (36 combinations).
+3. Expect circular 48px tiles with a colored document glyph, matching tinted fill and thin ring. PDF is red; spreadsheet green; Word blue; presentation orange; text/notes purple. Unknown files use a white glyph on a deep neutral in Light and a near-black glyph on a pale neutral in Dark. Family colors remain independent of the accent and of incoming/outgoing bubble paint.
+4. Check **Q3_Financial_Report.pdf**, **Project budget.xlsx**, **Project brief.docx**, **Team update.pptx**, **Meeting notes.txt**, and **Backup.custom**. Each shows size plus a readable type label and an arrow-into-tray download icon. The fixture's download buttons are intentionally disabled; no fake transfer occurs.
+5. **Renamed spreadsheet.pdf** must have a **green spreadsheet tile** and **Spreadsheet** label in both directions: its stored MIME takes precedence over its name. Specific unsupported MIME types stay neutral; only missing/generic binary MIME falls back to the extension. Metadata is not file-content verification and is not presented as a safety guarantee.
+6. Check that the ring stays visible on outgoing neon bubbles, the full type label wraps without clipping, filenames do not displace the download affordance, and the approved primary gradients remain unchanged.
+
+With the normal authenticated backend running (separate from the standalone fixture), inspect **/chats/<chatId>** with file messages, the same chat's **/chats/<chatId>/media?tab=files** shared-files view, and **Attach → select a document → Send attachment** preview. These reuse the same resolver/tile. Verify English/Spanish labels through settings; shared files still show the original date, and preview captions/send/cancel and download behavior remain intact. The automated app suites use mocked data on 5173; they do not create a live account.
+
 ## Live application review is a separate setup
 
 For actual accounts, use the existing Netlify/auth setup in [authentication.md](authentication.md#dependencies-and-local-workflow), including its HTTPS/cookie and callback requirements. Plain pnpm dev and pnpm review:ui are not substitutes for that backend. This turn verified protected routes with mocked auth/data boundaries; it did not certify a live-account login deployment.

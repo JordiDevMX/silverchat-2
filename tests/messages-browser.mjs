@@ -498,10 +498,18 @@ try {
     mimeType: "text/plain",
     buffer: Buffer.from("Retained attachment"),
   });
+  const filePreview = page.getByRole("dialog", { name: "Send attachment" });
+  await filePreview.locator('[data-file-family="text"]').waitFor();
+  assert.match(
+    await filePreview.locator(".media-preview-stage small").textContent(),
+    /Text \/ Notes/,
+  );
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await page.getByRole("dialog", { name: "Send attachment" }).waitFor({ state: "hidden" });
   const failedFile = page.locator("[data-message-id]").filter({ hasText: "retry.txt" });
   await failedFile.getByRole("button", { name: "Send failed. Retry" }).waitFor();
+  assert.equal(await failedFile.locator('[data-file-family="text"]').count(), 1);
+  assert.match(await failedFile.locator(".message-file small").textContent(), /Text \/ Notes/);
   const retryId = (await failedFile.getAttribute("data-message-id")).slice(5);
   const ownedUpload = uploads.at(-1);
   assert.equal(ownedUpload.status, "completed");
