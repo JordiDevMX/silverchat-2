@@ -170,7 +170,12 @@ try {
         '[data-slot="bubble-surface"]:not(#conversation-gallery *)[data-own="true"]',
       );
       const fab = page.getByRole("button", { name: "Preview chats action" });
-      assert.equal(await fab.evaluate((el) => getComputedStyle(el).backgroundColor), colors.at(-1));
+      assert.equal(
+        await fab.evaluate((el) => getComputedStyle(el).backgroundImage),
+        await page
+          .getByRole("button", { name: "Follow", exact: true })
+          .evaluate((el) => getComputedStyle(el).backgroundImage),
+      );
       assert.equal(await fab.evaluate((el) => getComputedStyle(el).borderWidth), "0px");
       assert.match(
         await fab.evaluate((el) => getComputedStyle(el).boxShadow),

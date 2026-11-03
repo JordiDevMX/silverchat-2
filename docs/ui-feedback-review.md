@@ -16,7 +16,7 @@ You should see the SilverChat brand, Light/Dark buttons, an Accent selector, the
 
 **Do not double-click the HTML file or open a file:// URL.** Browsers cannot run this TypeScript/ESM fixture directly from disk. The HTML now displays the command and working HTTP link if its module cannot load.
 
-If startup says `Port 5177 is already in use`, the new server did not start. Stop your previous instance in its terminal, then run the command again. If another server needs to stay running, explicitly use `pnpm review:ui --port 5187` and open `http://127.0.0.1:5187/tests/ui-foundation.html#conversation-gallery`. This exact alternative was verified from a new server and fresh browser contexts for Module 2A. Use the URL printed by the command; both commands use strict ports.
+If startup says `Port 5177 is already in use`, the new server did not start. Stop your previous instance in its terminal, then run the command again. Use the printed URL on **5177**; review no longer uses 5187. Both commands use strict ports.
 
 ## Exact URLs and expected content
 
@@ -44,11 +44,22 @@ If startup says `Port 5177 is already in use`, the new server did not start. Sto
 
 ## Primary fills and mobile search polish
 
-Run `pnpm review:ui` and open **http://127.0.0.1:5177/tests/ui-foundation.html**. For an independent clean server, the verified alternative remains `pnpm review:ui --port 5187` and **http://127.0.0.1:5187/tests/ui-foundation.html**. No login or backend is needed for this fixture.
+Run `pnpm review:ui` and open **http://127.0.0.1:5177/tests/ui-foundation.html**. No login or backend is needed for this fixture. The current fix was verified from a clean server and fresh browser contexts on 5177.
 
 - At **375 × 844**, **768 × 1024**, and **1280 × 900**, select Light/Dark and each of blue, orange, green, purple, red, yellow. Compare the logo, **Light, built in** switch/badge/active Chats navigation sample, and all four **Tab actions** tiles. Every fill has two accent-aware gradient stops. Glyphs and checked-switch thumbs are white in light and near-black in dark; the logo S stays white in both.
-- Buttons and logo retain the approved gradient stops. Light-mode icon controls use a contrast-adjusted gradient; small badge labels use a slightly deeper version. Dark-mode controls use the original bright stops. The second accent stop is now named **--neon-end**, replacing the misleading --neon-magenta name.
-- The automated resting-state contrast samples cover 21 points across each gradient in all twelve mode/accent combinations. Light controls measure at least **3.43:1**, badge text **4.67:1**; dark controls and badges at least **6.01:1**. These figures apply to the adjusted controls, not to the deliberately preserved logo/button palette.
+- **The fill must not change when switching Light/Dark.** Each accent uses the exact approved dark-mode stop pair on Follow/Light buttons, logo, all FABs, checked switch, neon badges and active nav icons. Only glyph/foreground colors switch. The deeper light-only variants have been removed; the logo S remains white in both modes.
+- The canonical **--gradient-neon** now reads mode-invariant **--primary-fill-from / --primary-fill-to** stops. Separate fill stops avoid changing the existing mode-aware outline, text-accent and glow palette. **--neon-end** retains its approved theme-neutral name. Legacy icon/label utility names now resolve to the same canonical gradient, with no contrast caps.
+- Automated checks compare exact gradient stops across all consumers and modes at all three viewports, including the pre-fix approved dark palette. Resting-state contrast is sampled at 21 gradient positions. The lower light-mode contrast below is an intentional consequence of the requested bright fill plus white glyphs; the previous contrast thresholds no longer apply. No fill hue, brightness or glyph color was changed to raise these ratios.
+
+| Accent | Minimum light-mode white glyph/text contrast | Dark-mode near-black control contrast |
+|---|---:|---:|
+| Blue | 1.74:1 | 7.24:1 |
+| Orange | 2.03:1 | 8.17:1 |
+| Green | 1.73:1 | 10.94:1 |
+| Purple | 2.19:1 | 6.91:1 |
+| Red | 2.37:1 | 6.01:1 |
+| Yellow | 1.37:1 | 14.13:1 |
+
 - In **Conversation timeline**, inspect the header at **375px and 767px**: magnifier hidden, three-dot control visible. At **768px and 1280px**, both are visible. Fixture header controls remain static/disabled.
 - To verify actual mobile search after normal backend login, open `/chats/<chatId>` on your app origin at **375 × 844**, choose **Chat options → Search in chat**, enter existing message text, navigate a result, then press Escape or close search. The existing search UI opens and closes; the header magnifier stays hidden. Repeat at **1280 × 900** using the visible header magnifier. This behavior is also covered by the mocked authenticated browser harness; the standalone fixture does not simulate a session.
 
@@ -57,7 +68,7 @@ Module 2B remains deferred. No search redesign, new dependency, auth change or i
 
 ## Module 2A: conversation timeline acceptance
 
-Open **http://127.0.0.1:5177/tests/ui-foundation.html#conversation-gallery** after starting the default review command. For the explicit alternate-port command above, use **http://127.0.0.1:5187/tests/ui-foundation.html#conversation-gallery**.
+Open **http://127.0.0.1:5177/tests/ui-foundation.html#conversation-gallery** after starting the review command.
 
 Use **375 × 844**, **768 × 1024**, and **1280 × 900**. At each width select both **Light** and **Dark**, and all six accents: **blue, purple, red, orange, yellow, green**. The gallery is a complete document section so every sample is easy to inspect; the authenticated app keeps a fixed header/composer with only the message history scrolling.
 
