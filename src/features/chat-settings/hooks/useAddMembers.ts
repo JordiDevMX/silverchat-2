@@ -1,10 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { refreshCommunities } from "@/features/communities/lib/cache";
+import { communityApi } from "@/features/communities/lib/communityApi";
 import { useContacts } from "@/features/settings/hooks";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { refreshChatSettings } from "../lib/cache";
-export function useAddMembers(chatId: string, text: string) {
+export function useAddMembers(
+  chatId: string,
+  text: string,
+  context: "group" | "community" = "group",
+) {
   const { user } = useAuth();
   const cache = useQueryClient();
   const contacts = useContacts();
@@ -40,11 +46,19 @@ export function useAddMembers(chatId: string, text: string) {
   const mutation = useMutation({
     mutationFn: async (ids: string[]) => {
       if (ids.length < 1 || ids.length > 50) throw new Error("Select 1–50 members");
+      if (context === "community") {
+        // Sequential individual RPCs; a retry is safe because joins are idempotent.
+        for (const id of ids) await communityApi(supabase).join(chatId, id);
+        return ids.length;
+      }
       const result = await supabase.rpc("add_chat_members", { p_chat_id: chatId, p_user_ids: ids });
       if (result.error) throw result.error;
       return result.data;
     },
-    onSettled: () => refreshChatSettings(cache, user?.id ?? "", chatId),
+    onSettled: () =>
+      context === "community"
+        ? refreshCommunities(cache, user?.id ?? "")
+        : refreshChatSettings(cache, user?.id ?? "", chatId),
   });
   return { contacts, search, term, add: mutation.mutateAsync, busy: mutation.isPending };
 }

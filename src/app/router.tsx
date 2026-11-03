@@ -200,7 +200,56 @@ const settingsChildren = [
   }),
   createRoute({ getParentRoute: () => settings, path: "security", component: SecurityPage }),
 ];
+const communityLayout = createRoute({
+  getParentRoute: () => authenticated,
+  path: "/communities/$communityId",
+  component: lazyRouteComponent(
+    () => import("@/routes/_authenticated.communities.$communityId"),
+    "CommunityLayout",
+  ),
+});
+const communityChildren = [
+  createRoute({
+    getParentRoute: () => communityLayout,
+    path: "/",
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.communities.$communityId.index"),
+      "CommunityIndexPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => communityLayout,
+    path: "chats/$chatId",
+    validateSearch: (search: Record<string, unknown>): { scrollTo?: string } => ({
+      scrollTo:
+        typeof search.scrollTo === "string" && /^[0-9a-f-]{36}$/i.test(search.scrollTo)
+          ? search.scrollTo
+          : undefined,
+    }),
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.communities.$communityId.chats.$chatId"),
+      "CommunityChatPage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => communityLayout,
+    path: "info",
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.communities.$communityId.info"),
+      "CommunityInfoPage",
+    ),
+  }),
+];
 const protectedRoutes = [
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/communities",
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.communities"),
+      "CommunitiesPage",
+    ),
+  }),
+  communityLayout.addChildren(communityChildren),
   createRoute({
     getParentRoute: () => authenticated,
     path: "/onboarding/pick-username",
@@ -328,7 +377,7 @@ const protectedRoutes = [
       throw redirect({ to: "/novedades", search: { create: undefined } });
     },
   }),
-  ...["communities", "calls", "profile"].map((path) =>
+  ...["calls", "profile"].map((path) =>
     createRoute({
       getParentRoute: () => authenticated,
       path: `/${path}`,

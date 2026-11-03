@@ -19,6 +19,7 @@ export function useChatMutations() {
     until?: string | null,
   ): Promise<boolean> => {
     if (!user || locked.current || !chats.length) return false;
+    if (action === "delete" && chats.some((chat) => chat.type === "community_chat")) return false;
     locked.current = true;
     setBusy(true);
     setError("");
@@ -114,6 +115,7 @@ export function useChatMutations() {
       setError(`${failed.size}/${chats.length}`);
     }
     await cache.invalidateQueries({ queryKey: key });
+    await cache.invalidateQueries({ queryKey: ["community-chats", user.id] });
     locked.current = false;
     setBusy(false);
     return failed.size === 0;

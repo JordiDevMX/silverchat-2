@@ -76,7 +76,9 @@ export function ChatContextMenu({
           ] as const,
         ]
       : []),
-    [Trash2, "Delete chat", () => action("delete")],
+    ...(chat.type === "community_chat"
+      ? []
+      : [[Trash2, "Delete chat", () => action("delete")] as const]),
   ] as const;
   return createPortal(
     <div

@@ -32,6 +32,9 @@ importers:
       browser-image-compression:
         specifier: ^2.0.2
         version: 2.0.2
+      focus-trap-react:
+        specifier: ^12.0.3
+        version: 12.0.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       frimousse:
         specifier: ^0.4.0
         version: 0.4.0(react@19.3.1)(typescript@6.0.3)
@@ -686,6 +689,17 @@ packages:
       picomatch:
         optional: true
 
+  focus-trap-react@12.0.3:
+    resolution: {integrity: sha512-4eXtzhRTtFrxle9Tkl0Wkj8SFJnWz3i3yb5e53Mdn4E8XZQ/Lzqom9U4uUAJ8wd7yDmyGVP96dxwQZXLXd4sbg==}
+    peerDependencies:
+      '@types/react': ^18.0.0 || ^19.0.0
+      '@types/react-dom': ^18.0.0 || ^19.0.0
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+
+  focus-trap@8.2.4:
+    resolution: {integrity: sha512-oy6dj7WZYgMbbpoOA29K5W++473F1zEzdI1oJgPb6x7yWT36YaWedUe6i6YPWEt5quSh0pRMohVyHLWXUxtdxg==}
+
   frimousse@0.4.0:
     resolution: {integrity: sha512-wA/1Xt9UTk51wYNpy+EvHKPUA4jdm4NuEFzSNNZxqT0Nxrj4RFwYByjRMuaq4qSLOco/ikDCpLKesB8W1w2q+Q==}
     peerDependencies:
@@ -962,6 +976,9 @@ packages:
   supabase@2.121.0:
     resolution: {integrity: sha512-xffhOgD9rXsXLK+DQ+3Gq8b2KmavMjPHGuJr7lfVlD8vKK1HHFggYlmzdRECqPmOL8g3Yd5PN3URcUR8xWZcWw==}
     hasBin: true
+
+  tabbable@6.5.1:
+    resolution: {integrity: sha512-dMCuwDUY6Noz3zVKLefBC4wq+aJV20yc7vWmM7uTNGwtQSFF5kX7OUIUsxuVajz/bdt5Xqdah3/0NLjth+cM5A==}
 
   tailwindcss@4.3.3:
     resolution: {integrity: sha512-gOhV3P7ufE62QDGg1zVaTgCR+EtPv92k2nIhVcVKcLmxT1sUBsQGhnZj175j+MqRt4zLF7ic+sCYjfhxMxj7YQ==}
@@ -1434,6 +1451,19 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.7
 
+  focus-trap-react@12.0.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+    dependencies:
+      '@types/react': 19.3.0
+      '@types/react-dom': 19.3.0(@types/react@19.3.0)
+      focus-trap: 8.2.4
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
+      tabbable: 6.5.1
+
+  focus-trap@8.2.4:
+    dependencies:
+      tabbable: 6.5.1
+
   frimousse@0.4.0(react@19.3.1)(typescript@6.0.3):
     dependencies:
       react: 19.3.1
@@ -1649,6 +1679,8 @@ snapshots:
       '@supabase/cli-linux-x64-musl': 2.121.0
       '@supabase/cli-windows-arm64': 2.121.0
       '@supabase/cli-windows-x64': 2.121.0
+
+  tabbable@6.5.1: {}
 
   tailwindcss@4.3.3: {}
 

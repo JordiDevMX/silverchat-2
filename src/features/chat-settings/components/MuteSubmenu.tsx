@@ -6,11 +6,13 @@ export function MuteSubmenu({
   busy,
   onChoose,
   onClose,
+  error,
 }: {
   muted: boolean;
   busy: boolean;
   onChoose: (until: string | null) => void;
   onClose: () => void;
+  error?: string;
 }) {
   const { say } = useMessageText();
   return (
@@ -18,6 +20,7 @@ export function MuteSubmenu({
       title={say("Mute notifications", "Silenciar notificaciones")}
       onClose={busy ? undefined : onClose}
     >
+      {error && <p role="alert">{error}</p>}
       <div className="mute-options">
         {[
           { hours: 1, label: say("1 hour", "1 hora") },

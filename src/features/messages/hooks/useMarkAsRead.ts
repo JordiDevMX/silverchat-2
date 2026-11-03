@@ -40,6 +40,7 @@ export function useMarkAsRead(
             messageKey(user?.id ?? "", chatId),
             detailKey(user?.id ?? "", chatId),
             ["chats", user?.id ?? ""],
+            ["community-chats", user?.id ?? ""],
           ])
             void cache.invalidateQueries({ queryKey: key });
         }

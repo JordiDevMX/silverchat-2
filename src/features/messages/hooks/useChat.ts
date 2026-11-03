@@ -7,6 +7,7 @@ export function useChat(chatId: string) {
   const { user } = useAuth();
   return useQuery({
     queryKey: detailKey(user?.id ?? "", chatId),
+    enabled: !!user && !!chatId,
     refetchInterval: 30000,
     queryFn: async (): Promise<ChatDetails | null> => {
       const [chat, members, requests] = await Promise.all([

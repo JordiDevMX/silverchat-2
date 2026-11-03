@@ -8,6 +8,7 @@ export function MultiSelectToolbar({
   onClose,
   onAll,
   onAction,
+  canDelete = true,
 }: {
   count: number;
   all: boolean;
@@ -15,6 +16,7 @@ export function MultiSelectToolbar({
   onClose: () => void;
   onAll: () => void;
   onAction: (action: ChatAction) => void;
+  canDelete?: boolean;
 }) {
   const t = useChatText();
   return (
@@ -42,7 +44,15 @@ export function MultiSelectToolbar({
           <button
             type="button"
             key={action}
-            disabled={!count || busy}
+            disabled={!count || busy || (action === "delete" && !canDelete)}
+            title={
+              action === "delete" && !canDelete
+                ? t(
+                    "Leave community chats from Community info",
+                    "Sal de los chats desde la información de la comunidad",
+                  )
+                : undefined
+            }
             className={action === "delete" ? "destructive-text" : ""}
             onClick={() => onAction(action)}
           >
