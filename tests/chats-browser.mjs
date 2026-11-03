@@ -322,8 +322,9 @@ const menu = async (id, label) => {
   await page.getByRole("menuitem", { name: label, exact: true }).click();
 };
 const waitRefresh = async () => {
-  await page.getByRole("button", { name: "Refresh", exact: true }).waitFor({ state: "visible" });
-  await page.waitForFunction(() => !document.querySelector(".chat-refresh")?.disabled);
+  await page.waitForFunction(
+    () => document.querySelector(".chats-page")?.getAttribute("aria-busy") === "false",
+  );
 };
 try {
   await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats`);
@@ -345,6 +346,15 @@ try {
   assert.equal(await navigation.getByRole("img", { name: "1028 Unread" }).textContent(), "99+");
   for (const width of [390, 767, 768, 1023, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
+    assert.equal(await page.locator(".chats-header button").count(), 0);
+    assert.equal(
+      await page.locator(".chats-header [data-slot=brand-lockup]").getAttribute("aria-label"),
+      "SilverChat",
+    );
+    assert.equal(
+      await page.getByRole("searchbox").evaluate((el) => getComputedStyle(el).borderWidth),
+      "0px",
+    );
     const frame = await navigation.boundingBox();
     const content = await page.locator(".authenticated-content").boundingBox();
     assert.equal(Math.round(frame.width), width >= 1024 ? 68 : width);
@@ -477,11 +487,16 @@ try {
   );
   await row(101).getByText("Draft: Remember the tickets").waitFor();
   assert.equal(await row(101).locator(".chat-badge").textContent(), "99+");
-  await page.getByRole("button", { name: "Select", exact: true }).click();
+  await page
+    .locator(".chat-list-item")
+    .first()
+    .locator(".chat-row-main")
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Select", exact: true }).click();
   const visible = await page
     .locator(".chat-list-item")
     .evaluateAll((rows) => rows.map((r) => r.getAttribute("data-chat-id")));
-  await page.locator(`[data-chat-id="${visible[0]}"] .chat-row-main`).click();
+
   await page
     .locator(`[data-chat-id="${visible[2]}"] .chat-row-main`)
     .click({ modifiers: ["Shift"] });
@@ -518,8 +533,9 @@ try {
   realtime("chat_requests", { id: uid(399), recipient_id: me, sender_id: uid(8) });
   await page.getByRole("button", { name: "Accept Samuel Green", exact: true }).waitFor();
   console.log("PASS Realtime updates include previously unknown chats and empty requests");
-  await page.getByRole("button", { name: "Select", exact: true }).click();
-  await row(102).locator(".chat-row-main").click();
+  await row(102).locator(".chat-row-main").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Select", exact: true }).click();
+
   await row(108).locator(".chat-row-main").click();
   failId = uid(108);
   failAction = "delete_direct_chat_for_me";

@@ -1,9 +1,9 @@
-import { RefreshCw } from "lucide-react";
 import { ChatContextMenu } from "@/features/chats/components/ChatContextMenu";
 import { ChatFilters } from "@/features/chats/components/ChatFilters";
 import { ChatListItem } from "@/features/chats/components/ChatListItem";
 import { ChatSearchBar } from "@/features/chats/components/ChatSearchBar";
 import { ChatsEmptyState } from "@/features/chats/components/ChatsEmptyState";
+import { ChatsHeader } from "@/features/chats/components/ChatsHeader";
 import { DeleteChatModal } from "@/features/chats/components/DeleteChatModal";
 import { MessageRequestsSection } from "@/features/chats/components/MessageRequestsSection";
 import { MultiSelectToolbar } from "@/features/chats/components/MultiSelectToolbar";
@@ -43,10 +43,17 @@ export function ChatsPage() {
     showRequests,
     pullHandlers,
     closeSelection,
+    startSelection,
     confirmDeletion,
   } = useChatsPage();
   return (
-    <main id="main" className="chats-page" data-clock={clock} {...pullHandlers}>
+    <main
+      id="main"
+      className="chats-page"
+      data-clock={clock}
+      aria-busy={query.isFetching || mutations.busy}
+      {...pullHandlers}
+    >
       {filters.notice && (
         <p role="status" className="conversation-unavailable">
           {language === "es"
@@ -73,32 +80,7 @@ export function ChatsPage() {
             }
           />
         ) : (
-          <header className="chats-header">
-            <div>
-              <p className="chats-eyebrow">SILVERCHAT</p>
-              <h1>{t("Chats")}</h1>
-              <p>{t("Your conversations, together.")}</p>
-            </div>
-            <div className="chats-header-actions">
-              <button
-                className="button secondary"
-                type="button"
-                onClick={() => filters.update({ select: "true" })}
-              >
-                {t("Select")}
-              </button>
-              <button
-                type="button"
-                className="chat-refresh"
-                aria-label={t("Refresh")}
-                title={t("Refresh")}
-                disabled={query.isFetching}
-                onClick={() => void refresh()}
-              >
-                <RefreshCw size={20} className={query.isFetching ? "chat-spin" : ""} />
-              </button>
-            </div>
-          </header>
+          <ChatsHeader title={t("Chats")} />
         )}
         {auth.user?.user_metadata.requires_reenrollment &&
           !auth.user.factors?.some((f) => f.status === "verified") && (
@@ -185,6 +167,7 @@ export function ChatsPage() {
           x={menu.x}
           y={menu.y}
           onClose={closeMenu}
+          onSelect={() => startSelection(menuChat.id)}
           onAction={(kind, until) => action([menuChat], kind, until)}
           onBlock={() => setBlock(menuChat)}
         />

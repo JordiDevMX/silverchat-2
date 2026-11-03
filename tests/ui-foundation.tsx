@@ -12,6 +12,7 @@ import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Avatar } from "../src/components/ui/avatar";
 import { Badge } from "../src/components/ui/badge";
+import { BrandLockup } from "../src/components/ui/brand-lockup";
 import { BubbleSurface } from "../src/components/ui/bubble-surface";
 import { Button } from "../src/components/ui/button";
 import { CodeInput } from "../src/components/ui/code-input";
@@ -34,6 +35,7 @@ import { InlineError } from "../src/components/ui/inline-error";
 import { Input } from "../src/components/ui/input";
 import { Modal } from "../src/components/ui/modal";
 import { Popover, PopoverContent, PopoverTrigger } from "../src/components/ui/popover";
+import { SearchField } from "../src/components/ui/search-field";
 import { Separator } from "../src/components/ui/separator";
 import { CardSurface, SectionHeading, SettingsRow } from "../src/components/ui/settings-row";
 import {
@@ -47,8 +49,10 @@ import {
 import { Skeleton } from "../src/components/ui/skeleton";
 import { Switch } from "../src/components/ui/switch";
 import { Textarea } from "../src/components/ui/textarea";
+import { ChatsHeader } from "../src/features/chats/components/ChatsHeader";
 
 function FoundationReview() {
+  const [search, setSearch] = useState("");
   const [native, setNative] = useState(false);
   const [nested, setNested] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -72,10 +76,30 @@ function FoundationReview() {
       `}</style>
       <div className="review-header">
         <div>
-          <h1>SilverChat</h1>
+          <h1>
+            <BrandLockup />
+          </h1>
           <p>Design system foundation</p>
         </div>
         <div className="review-actions">
+          <label>
+            Accent
+            <select
+              data-slot="accent-select"
+              aria-label="Accent"
+              className="ml-2 rounded-md border border-border bg-card p-2"
+              defaultValue="blue"
+              onChange={(event) => {
+                document.documentElement.className = `theme-${event.target.value}`;
+              }}
+            >
+              {["blue", "purple", "red", "orange", "yellow", "green"].map((accent) => (
+                <option key={accent} value={accent}>
+                  {accent}
+                </option>
+              ))}
+            </select>
+          </label>
           <Button
             onClick={() => {
               document.documentElement.dataset.theme = "light";
@@ -117,6 +141,17 @@ function FoundationReview() {
       <section className="mb-8 flex flex-wrap items-start gap-6 p-4" aria-label="Bubble surfaces">
         <BubbleSurface>See you in a moment.</BubbleSurface>
         <BubbleSurface own>On my way. See you soon!</BubbleSurface>
+      </section>
+      <section className="mb-8 rounded-3xl bg-card pb-4" aria-label="Chats header preview">
+        <ChatsHeader title="Chats" />
+        <SearchField
+          className="chat-search"
+          label="Search chats…"
+          clearLabel="Clear preview search"
+          value={search}
+          onChange={setSearch}
+          onClear={() => setSearch("")}
+        />
       </section>
       <div className="review-grid">
         <CardSurface>

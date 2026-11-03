@@ -149,6 +149,12 @@ try {
       assert.equal(colors.length, 6);
       assert.ok(colors.every((value) => value !== "rgba(0, 0, 0, 0)" && value !== "transparent"));
       primaries.add(colors.at(-1));
+      const brand = page.locator('[data-slot="brand-mark"]').first();
+      assert.equal(
+        await brand.evaluate((el) => getComputedStyle(el).backgroundColor),
+        colors.at(-1),
+      );
+      assert.equal(await brand.evaluate((el) => getComputedStyle(el).color), "rgb(255, 255, 255)");
       const own = page.locator('[data-slot="bubble-surface"][data-own="true"]');
       const bubbleShadow = await own.evaluate((el) => getComputedStyle(el).boxShadow);
       assert.match(bubbleShadow, mode === "dark" ? /32px/ : /24px/);

@@ -1,6 +1,7 @@
 import { useRouterState } from "@tanstack/react-router";
 import { MessageCircle, Phone, Radio, Settings, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { BrandMark } from "@/components/ui/brand-lockup";
 import { NavLink } from "@/features/settings/components/shared";
 import { useAppNavigation } from "../hooks/useAppNavigation";
 import { useChatText } from "../i18n";
@@ -11,9 +12,7 @@ export function AppNavigation() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
     <nav className="app-navigation" aria-label={t("Main navigation", "Navegación principal")}>
-      <span className="app-monogram bg-gradient-neon shadow-glow" aria-hidden="true">
-        S
-      </span>
+      <BrandMark className="app-monogram hidden lg:grid" />
       <span className="app-nav-divider" aria-hidden="true" />
       <ul className="app-nav-items">
         {(

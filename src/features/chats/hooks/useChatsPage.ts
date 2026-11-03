@@ -109,6 +109,10 @@ export function useChatsPage() {
     filters.update({ select: undefined, selectedIds: "" });
     anchor.current = null;
   };
+  const startSelection = (id: string) => {
+    anchor.current = id;
+    filters.update({ select: "true", selectedIds: id });
+  };
   const confirmDeletion = () => {
     void mutations.run(deleting, "delete").then((success) => {
       if (success) {
@@ -150,6 +154,7 @@ export function useChatsPage() {
     showRequests,
     pullHandlers,
     closeSelection,
+    startSelection,
     confirmDeletion,
   };
 }

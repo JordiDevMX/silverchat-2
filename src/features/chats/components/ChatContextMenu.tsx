@@ -11,6 +11,7 @@ export function ChatContextMenu({
   onAction,
   onBlock,
   onClose,
+  onSelect,
 }: {
   chat: Chat;
   x: number;
@@ -18,6 +19,7 @@ export function ChatContextMenu({
   onAction: (action: ChatAction, until?: string | null) => void;
   onBlock: () => void;
   onClose: () => void;
+  onSelect?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [mute, setMute] = useState(false);
@@ -54,6 +56,18 @@ export function ChatContextMenu({
     onClose();
   };
   const entries = [
+    ...(onSelect
+      ? [
+          [
+            Check,
+            "Select",
+            () => {
+              onSelect();
+              onClose();
+            },
+          ] as const,
+        ]
+      : []),
     [Pin, chat.pinnedAt ? "Unpin" : "Pin", () => action("pin")],
     [Star, chat.favoritedAt ? "Unfavorite" : "Favorite", () => action("favorite")],
     [
