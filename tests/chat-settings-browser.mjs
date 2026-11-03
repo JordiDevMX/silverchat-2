@@ -446,7 +446,7 @@ const page = await context.newPage();
 page.setDefaultTimeout(10000);
 page.on("pageerror", (e) => errors.push(e.message));
 const goto = async (id = chatId, suffix = "") => {
-  await page.goto(`http://127.0.0.1:5173/chats/${id}${suffix}`);
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats/${id}${suffix}`);
   await page.locator(suffix ? ".chat-settings-screen > header" : ".conversation-header").waitFor();
   await page.waitForTimeout(400);
 };
@@ -507,7 +507,7 @@ try {
   await settle();
   assert.equal(await page.locator("[data-message-id]").count(), 0);
   assert.equal(rows.length, 80);
-  await page.goto("http://127.0.0.1:5173/chats");
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats`);
   await page.locator(".chat-list-item").first().waitFor();
   await settle();
   assert.equal(
@@ -633,7 +633,7 @@ try {
   });
   await setup(mobile);
   const mp = await mobile.newPage();
-  await mp.goto(`http://127.0.0.1:5173/chats/${chatId}`);
+  await mp.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats/${chatId}`);
   await mp.locator("button.conversation-identity").click();
   await mp.getByRole("dialog", { name: "Contact profile" }).waitFor();
   assert.equal(await mp.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);

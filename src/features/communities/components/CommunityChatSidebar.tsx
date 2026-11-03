@@ -17,8 +17,8 @@ export function CommunityChatSidebar({
   const chats = useCommunityChats(community.id);
   const [create, setCreate] = useState(false);
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col border-r border-border lg:w-80">
-      <header className="flex flex-col items-start justify-start gap-1 border-b border-border p-4">
+    <aside className="community-sidebar">
+      <header className="community-sidebar-header">
         <NavLink className="text-sm text-primary" href="/communities">
           ← {say("Communities", "Comunidades")}
         </NavLink>
@@ -43,17 +43,13 @@ export function CommunityChatSidebar({
           <p className="p-4 text-muted-foreground">{say("No chats yet", "Aún no hay chats")}</p>
         )}
         {community.role === "admin" && (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 p-4 text-primary"
-            onClick={() => setCreate(true)}
-          >
+          <button type="button" className="community-new-chat" onClick={() => setCreate(true)}>
             <Plus size={18} />
             {say("New chat", "Nuevo chat")}
           </button>
         )}
       </nav>
-      <footer className="border-t border-border p-4">
+      <footer className="community-sidebar-footer">
         <NavLink className="flex items-center gap-2" href={`/communities/${community.id}/info`}>
           <Info size={18} />
           {say("Community info", "Información de la comunidad")}

@@ -1,6 +1,6 @@
 import { FocusTrap } from "focus-trap-react";
 import { type PropsWithChildren, useEffect, useRef, useState } from "react";
-import { Modal } from "@/features/auth/components";
+import { Modal } from "@/components/ui/modal";
 
 export function CreationDialog({
   title,
@@ -13,7 +13,7 @@ export function CreationDialog({
   // Activate after showModal makes the shared dialog's controls visible.
   useEffect(() => setActive(true), []);
   return (
-    <Modal title={title} onClose={onClose}>
+    <Modal title={title} onClose={onClose} className="community-creation-dialog">
       <FocusTrap
         active={active}
         paused={paused}

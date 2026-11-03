@@ -12,7 +12,7 @@ pnpm review:ui
 3. Wait for Vite to print `http://127.0.0.1:5177/` and its UI review link. Keep that terminal open.
 4. Open **http://127.0.0.1:5177/** in your browser. It redirects to **http://127.0.0.1:5177/tests/ui-foundation.html**.
 
-You should see the SilverChat brand, Light/Dark buttons, an Accent selector, the neon action examples, two message-bubble samples, a Chats header with metallic search, a closed Message requests section, four tab-action tiles, and the **Conversation timeline** gallery. This uses the real migrated components. It does not mount the app/auth providers, load .env files, require Supabase credentials, or contact the auth backend.
+You should see the SilverChat brand, Light/Dark buttons, an Accent selector, the neon action examples, two message-bubble samples, a Chats header with metallic search, a closed Message requests section, four tab-action tiles, and the **Conversation timeline**, **Interactive messaging** and **Communities** galleries. This uses the real migrated components. It does not mount the app/auth providers, load .env files, require Supabase credentials, or contact the auth backend.
 
 **Do not double-click the HTML file or open a file:// URL.** Browsers cannot run this TypeScript/ESM fixture directly from disk. The HTML now displays the command and working HTTP link if its module cannot load.
 
@@ -131,6 +131,31 @@ For real behavior, use the normal authenticated backend on **your app origin**, 
 5. Search from the header at widths ≥768px; at 375px use Chat options → Search in chat. Verify result navigation, highlights, Enter/Shift+Enter/Escape and the loaded-messages explanation.
 6. Open image/video messages; check filename/caption, signed download, native video playback, close/backdrop/Escape and focus return. Use English and Spanish to check translated controls and text wrapping.
 
+## Communities — Module 3A
+
+Run pnpm review:ui and open **http://127.0.0.1:5177/tests/ui-foundation.html#communities-gallery**. This section uses pure production card/row/header/settings surfaces and the actual CreationDialog with fixture-local state. No login, provider, microphone or remote request is needed.
+
+Repeat at **375 × 844**, **768 × 1024**, **1280 × 900**, in **Light and Dark**, for **blue, orange, green, purple, red and yellow** (36 combinations). Select the mode/accent at the top of the fixture, then return to the Communities anchor.
+
+1. **Weekend friends card:** inspect the silver heading, rounded avatar, member count and three compact chat rows. Collapse/expand with pointer and Enter/Space. General shows a glowing count, Weekend plans a manual-unread dot, Photos a muted icon. Text should truncate neatly and no horizontal overflow should appear.
+2. **Sidebar/header:** compare the active General icon and unread badge with Follow/Light above: identical accent gradient, white foreground in Light and near-black in Dark. Inspect the outlined New chat action, silver header, back/info/menu controls and card spacing. The fixture stacks its sidebar/detail preview below 900px to keep both samples visible; the real app retains its existing lg sidebar breakpoint (1024px).
+3. **Info/settings:** inspect the silver details card, identity/avatar, member and mute rows, and destructive leave/delete color. Preview actions update a local notice only. They never operate on an account.
+4. **Creation:** choose Open community creation preview. Inspect the rounded silver dialog, labeled name/description, outline Cancel and glowing Create preview community. Tab/Shift+Tab stay inside, Escape/cancel return focus, and submit closes with a local notice. Repeat at all three viewports; the dialog must fit the screen.
+5. Recheck **#conversation-gallery** and **#interactive-gallery**: file-type tile rings, bubbles, composer controls and primary fills retain their approved appearance. The fixture stylesheet entry must load canonical styles before feature layers.
+
+For actual behavior, log in through the normal application/auth setup on **your app origin** (the isolated 5177 server explains backend requirements instead of hosting accounts). Use real community/chat IDs:
+
+| Route | Manual states and actions |
+|---|---|
+| /communities | Search/clear, empty/loading/error retry, persisted card expansion, signed avatar, unread/muted/count states, See all chats, existing group-glyph FAB. Create with/without photo; check nested avatar dialog, cancel/focus, and successful automatic General chat. |
+| /communities/<communityId> | At 375/768px, full-width chat list; at 1280px, 320px sidebar plus select-chat pane. Check Back, info, New chat and real chat navigation. |
+| /communities/<communityId>/chats/<chatId> | Community name/header/info/menu; one shared timeline/composer. Send and reply, react/edit according to permissions, search, audio and attachments; verify read/unread clears, back/navigation and optional scrollTo message remain functional. |
+| /communities/<communityId>/info | Signed avatar and editable name/description per role; members/add/promote/demote/remove, mute/unmute, Create chat, leave/successor explanation and owner-only typed delete confirmation. Check busy/error retry and cancel/focus. |
+
+Repeat live routes in both themes, all six accents and the three sizes above; check English/Spanish wrapping. Use owner/admin/member accounts to compare controls. Destructive actions should use disposable test communities. The screenshot-free mocked journey additionally verifies created-ID reuse after failed avatar update, read retry, role restrictions, successor warnings and delete outcomes and shared messaging reuse; no live backend deployment is certified by these tests.
+
+Module 3A checks ran with a clean review-server start and fresh browser contexts on **5177**. Mocked community/shared-settings tests used **5175** to leave the existing **5173** app untouched. No screenshots or image artifacts were generated. **Stop at Module 3A; Module 3B remains deferred.**
+
 ## Live application review is a separate setup
 
 For actual accounts, use the existing Netlify/auth setup in [authentication.md](authentication.md#dependencies-and-local-workflow), including its HTTPS/cookie and callback requirements. Plain pnpm dev and pnpm review:ui are not substitutes for that backend. This turn verified protected routes with mocked auth/data boundaries; it did not certify a live-account login deployment.
@@ -141,4 +166,4 @@ Once that normal application setup is working, inspect /chats, /chats?filter=arc
 
 See [review-path-evidence.md](review-path-evidence.md) for the original reproduction and clean-start results, and UI_MIGRATION_MAP.md §11 for Module 2A. The screenshot-free journey harness is tests/ui-review-path-browser.mjs. Module 2A adds tests/conversation-gallery-browser.mjs and preserves existing outcome assertions; focus/entry selectors account for asynchronous sheet closure and Vite module cache suffixes. Messaging harnesses also check reply restoration/reconciliation and failed upload ownership.
 
-Module 2A migrates the read-only conversation frame/header/timeline/bubbles and extracts the five approved controllers. Module 2B now migrates composer/tools, audio player/recorder, action menus/modals, search UI, lightbox and reaction picker (UI_MIGRATION_MAP.md §15). Later feature modules remain deferred. Calls remains its existing placeholder. No auth bypass is included.
+Module 2A migrates the read-only conversation frame/header/timeline/bubbles and extracts the five approved controllers. Module 2B now migrates composer/tools, audio player/recorder, action menus/modals, search UI, lightbox and reaction picker (UI_MIGRATION_MAP.md §15). Module 3A now migrates the community surfaces and extracts their workflows (UI_MIGRATION_MAP.md §16). Module 3B and later modules remain deferred. Calls remains its existing placeholder. No auth bypass is included.

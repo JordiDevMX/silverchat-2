@@ -1,3 +1,4 @@
+import { CommunitiesGallery } from "./communities-gallery";
 import { ConversationGallery } from "./conversation-gallery";
 import { InteractiveGallery } from "./interactive-gallery";
 // Development-only review fixture. No app routes, auth, or remote services.
@@ -342,6 +343,7 @@ function FoundationReview() {
       </div>
       <ConversationGallery />
       <InteractiveGallery />
+      <CommunitiesGallery />
       {native && (
         <Modal title="Existing modal" onClose={busy ? undefined : () => setNative(false)}>
           <label>

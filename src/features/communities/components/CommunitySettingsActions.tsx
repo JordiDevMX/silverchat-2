@@ -1,16 +1,12 @@
-import { useState } from "react";
+import { BellOff, LogOut, MessageCirclePlus, Trash2, UserPlus, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CardSurface, SettingsRow } from "@/components/ui/settings-row";
 import { Modal } from "@/features/auth/components";
 import { AddMembersModal } from "@/features/chat-settings/components/AddMembersModal";
 import { GroupMembersList } from "@/features/chat-settings/components/GroupMembersList";
 import { MuteSubmenu } from "@/features/chat-settings/components/MuteSubmenu";
-import { useMessageText } from "@/features/messages/i18n";
 import type { ChatDetails } from "@/features/messages/types";
-import { useAuth } from "@/lib/auth-provider";
-import { useCommunityChats } from "../hooks/useCommunityChats";
-import { useDeleteCommunity } from "../hooks/useDeleteCommunity";
-import { useLeaveCommunity } from "../hooks/useLeaveCommunity";
-import { useMuteCommunity } from "../hooks/useMuteCommunity";
-import { getAvailableCommunityActions } from "../lib/communityActions";
+import { useCommunitySettingsActions } from "../hooks/useCommunitySettingsActions";
 import type { Community } from "../types";
 import { CreateCommunityChatModal } from "./CreateCommunityChatModal";
 export function CommunitySettingsActions({
@@ -20,60 +16,70 @@ export function CommunitySettingsActions({
   community: Community;
   chat: ChatDetails;
 }) {
-  const { say } = useMessageText();
-  const { user } = useAuth();
-  const [modal, setModal] = useState<
-    "members" | "add" | "mute" | "leave" | "delete" | "create" | null
-  >(null);
-  const [confirmation, setConfirmation] = useState("");
-  const [error, setError] = useState(false);
-  const chats = useCommunityChats(community.id);
-  const leave = useLeaveCommunity(community.id);
-  const remove = useDeleteCommunity(community.id);
-  const mute = useMuteCommunity(community.id);
-  const owner = community.owner_id === user?.id;
-  const admin = community.role === "admin";
-  const muted =
-    !!chats.data?.length &&
-    chats.data.every(
-      (c) => !!c.membership.muted_until && Date.parse(c.membership.muted_until) > Date.now(),
-    );
-  const actions = getAvailableCommunityActions(community, user?.id ?? "", admin, owner, muted);
-  const open = (value: typeof modal) => {
-    setError(false);
-    setConfirmation("");
-    setModal(value);
-  };
+  const {
+    say,
+    modal,
+    setModal,
+    confirmation,
+    setConfirmation,
+    error,
+    leave,
+    remove,
+    mute,
+    owner,
+    admin,
+    muted,
+    actions,
+    open,
+    chooseMute,
+    confirmAction,
+  } = useCommunitySettingsActions(community);
   return (
     <>
-      <div className="group-links flex flex-col gap-3">
-        <button type="button" className="button secondary" onClick={() => open("members")}>
-          {say("View members", "Ver miembros")}
-        </button>
-        <button type="button" className="button secondary" onClick={() => open("mute")}>
-          {muted
-            ? say("Unmute community", "Activar sonido de la comunidad")
-            : say("Mute community", "Silenciar comunidad")}
-        </button>
+      <CardSurface className="community-actions">
+        <SettingsRow
+          icon={<Users />}
+          label={say("View members", "Ver miembros")}
+          onClick={() => open("members")}
+        />
+        <SettingsRow
+          icon={<BellOff />}
+          label={
+            muted
+              ? say("Unmute community", "Activar sonido de la comunidad")
+              : say("Mute community", "Silenciar comunidad")
+          }
+          onClick={() => open("mute")}
+        />
         {actions.includes("add_members") && (
-          <button type="button" className="button secondary" onClick={() => open("add")}>
-            {say("Add members", "Añadir miembros")}
-          </button>
+          <SettingsRow
+            icon={<UserPlus />}
+            label={say("Add members", "Añadir miembros")}
+            onClick={() => open("add")}
+          />
         )}
         {actions.includes("create_chat") && (
-          <button type="button" className="button secondary" onClick={() => open("create")}>
-            {say("Create chat", "Crear chat")}
-          </button>
+          <SettingsRow
+            icon={<MessageCirclePlus />}
+            label={say("Create chat", "Crear chat")}
+            onClick={() => open("create")}
+          />
         )}
-        <button type="button" className="button danger" onClick={() => open("leave")}>
-          {say("Leave community", "Salir de la comunidad")}
-        </button>
+        <SettingsRow
+          className="text-destructive [&_svg]:text-destructive"
+          icon={<LogOut />}
+          label={say("Leave community", "Salir de la comunidad")}
+          onClick={() => open("leave")}
+        />
         {actions.includes("delete") && (
-          <button type="button" className="button danger" onClick={() => open("delete")}>
-            {say("Delete community", "Eliminar comunidad")}
-          </button>
+          <SettingsRow
+            className="text-destructive [&_svg]:text-destructive"
+            icon={<Trash2 />}
+            label={say("Delete community", "Eliminar comunidad")}
+            onClick={() => open("delete")}
+          />
         )}
-      </div>
+      </CardSurface>
       {modal === "members" && (
         <Modal
           title={say("Community members", "Miembros de la comunidad")}
@@ -106,15 +112,7 @@ export function CommunitySettingsActions({
           muted={muted}
           busy={mute.isPending}
           onClose={() => setModal(null)}
-          onChoose={async (until) => {
-            try {
-              await mute.mutateAsync(until);
-              setModal(null);
-              setError(false);
-            } catch {
-              setError(true);
-            }
-          }}
+          onChoose={chooseMute}
         />
       )}
       {error && (
@@ -169,35 +167,28 @@ export function CommunitySettingsActions({
             </p>
           )}
           <div className="modal-actions">
-            <button
+            <Button
               type="button"
-              className="button secondary"
+              variant="outline"
+              className="rounded-xl"
               disabled={leave.isPending || remove.isPending}
               onClick={() => setModal(null)}
             >
               {say("Cancel", "Cancelar")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="button danger"
+              variant="destructive"
+              className="rounded-xl"
               disabled={
                 leave.isPending ||
                 remove.isPending ||
                 (modal === "delete" && confirmation !== community.name)
               }
-              onClick={async () => {
-                setError(false);
-                try {
-                  if (modal === "leave") await leave.mutateAsync();
-                  else await remove.mutateAsync();
-                  setModal(null);
-                } catch {
-                  setError(true);
-                }
-              }}
+              onClick={confirmAction}
             >
               {say("Confirm", "Confirmar")}
-            </button>
+            </Button>
           </div>
         </Modal>
       )}

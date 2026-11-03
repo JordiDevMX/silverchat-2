@@ -89,3 +89,54 @@
     }
   }
 }
+
+@source "./communities-gallery.tsx";
+@layer components {
+  .communities-gallery {
+    margin-top: 48px;
+    min-width: 0;
+  }
+  .communities-gallery > p {
+    margin: 12px 0 24px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+  }
+  .communities-gallery .community-chat-row {
+    width: 100%;
+    text-align: left;
+  }
+  .community-preview-columns {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    margin: 24px 0;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    overflow: hidden;
+  }
+  .community-preview-detail {
+    min-width: 0;
+  }
+  .community-preview-columns .community-sidebar {
+    width: 100%;
+  }
+  .community-preview-columns .community-info {
+    padding: 16px;
+  }
+  .community-preview-columns .chat-settings-screen {
+    padding: 16px;
+  }
+  .community-preview-columns .community-sidebar-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  @media (max-width: 900px) {
+    .community-preview-columns {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .community-preview-columns .community-sidebar {
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+  }
+}
