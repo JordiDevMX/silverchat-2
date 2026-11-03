@@ -333,7 +333,8 @@ try {
   assert.equal(await page.locator(".chat-list-item").count(), 5);
   assert.equal(await row(101).locator(".chat-badge").textContent(), "99+");
   assert.equal(await row(106).locator(".chat-badge").count(), 0);
-  assert.equal(await page.locator(".request-row").count(), 3);
+  assert.equal(await page.locator(".request-row").count(), 0);
+  assert.equal(await page.locator(".request-toggle").getAttribute("aria-expanded"), "false");
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   assert.equal(await navigation.count(), 1);
   assert.deepEqual(
@@ -510,7 +511,7 @@ try {
   );
   await page.getByRole("button", { name: "Exit selection" }).click();
   console.log("PASS same-tab drafts preserve unread, shift range selection and bulk mute");
-  await page.getByRole("button", { name: "See all", exact: true }).click();
+  await page.locator(".request-toggle").click();
   assert.equal(await page.locator(".request-row").count(), 4);
   await page.getByRole("button", { name: "Accept Nora Bennett", exact: true }).click();
   await page.getByText("Chat request accepted", { exact: true }).waitFor();

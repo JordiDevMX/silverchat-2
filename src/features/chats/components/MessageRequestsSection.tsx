@@ -1,70 +1,60 @@
 import { useRouter } from "@tanstack/react-router";
-import { Check, ChevronDown, X } from "lucide-react";
-import { useState } from "react";
+import { Check, X } from "lucide-react";
 import { Modal } from "@/features/auth/components";
 import { Avatar } from "@/features/settings/components/shared";
 import { useMessageRequestActions } from "../hooks/useMessageRequestActions";
 import { useChatText } from "../i18n";
 import type { MessageRequest } from "../types";
+import { RequestDisclosure } from "./RequestDisclosure";
 export function MessageRequestsSection({ requests }: { requests: MessageRequest[] }) {
   const t = useChatText();
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
   const { decline, setDecline, notice, error, mutation, run } = useMessageRequestActions();
   if (!requests.length && !decline && !notice && !error) return null;
   return (
     <section className="message-requests" aria-label={t("Message requests")}>
       {!!requests.length && (
-        <header>
-          <h2>
-            {t("Message requests")} <span className="message-request-count">{requests.length}</span>
-          </h2>
-          {requests.length > 3 && (
-            <button type="button" onClick={() => setExpanded(!expanded)}>
-              {t(expanded ? "Show less" : "See all")}
-              <ChevronDown size={15} />
-            </button>
-          )}
-        </header>
+        <RequestDisclosure label={t("Message requests")} count={requests.length}>
+          {requests.map((r) => (
+            <div className="request-row" key={r.id}>
+              <button
+                type="button"
+                className="request-open"
+                onClick={() => void router.navigate({ href: `/chats/${r.chatId}` })}
+              >
+                <Avatar
+                  size="small"
+                  profile={{ id: r.senderId, display_name: r.name, avatar_url: r.avatarUrl }}
+                />
+                <span>
+                  <strong>{t(r.name)}</strong> <small>{r.username && `@${r.username}`}</small>
+                  <span className="request-preview">
+                    {r.preview ? t(r.preview) : t("No messages yet")}
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="request-accept"
+                aria-label={`${t("Accept")} ${r.name}`}
+                disabled={mutation.busy}
+                onClick={() => void run(r, true)}
+              >
+                <Check size={20} />
+              </button>
+              <button
+                type="button"
+                className="request-decline"
+                aria-label={`${t("Decline")} ${r.name}`}
+                disabled={mutation.busy}
+                onClick={() => setDecline(r)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+          ))}
+        </RequestDisclosure>
       )}
-      {(expanded ? requests : requests.slice(0, 3)).map((r) => (
-        <div className="request-row" key={r.id}>
-          <button
-            type="button"
-            className="request-open"
-            onClick={() => void router.navigate({ href: `/chats/${r.chatId}` })}
-          >
-            <Avatar
-              size="small"
-              profile={{ id: r.senderId, display_name: r.name, avatar_url: r.avatarUrl }}
-            />
-            <span>
-              <strong>{t(r.name)}</strong> <small>{r.username && `@${r.username}`}</small>
-              <span className="request-preview">
-                {r.preview ? t(r.preview) : t("No messages yet")}
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            className="request-accept"
-            aria-label={`${t("Accept")} ${r.name}`}
-            disabled={mutation.busy}
-            onClick={() => void run(r, true)}
-          >
-            <Check size={20} />
-          </button>
-          <button
-            type="button"
-            className="request-decline"
-            aria-label={`${t("Decline")} ${r.name}`}
-            disabled={mutation.busy}
-            onClick={() => setDecline(r)}
-          >
-            <X size={20} />
-          </button>
-        </div>
-      ))}
       {notice && <p role="status">{notice}</p>}
       {error && <p role="alert">{t("Could not update chats. Please try again.")}</p>}
       {decline && (

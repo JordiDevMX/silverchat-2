@@ -468,6 +468,20 @@
     height: 34px;
     border-radius: 50%;
   }
+  .request-toggle {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    gap: 8px;
+    text-align: left;
+    color: var(--foreground);
+    border-radius: 8px;
+  }
+  .request-toggle:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 4px;
+  }
   .request-accept {
     color: #248352;
     background: color-mix(in oklab, #248352 10%, transparent);

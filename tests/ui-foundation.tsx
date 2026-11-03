@@ -50,6 +50,7 @@ import { Skeleton } from "../src/components/ui/skeleton";
 import { Switch } from "../src/components/ui/switch";
 import { Textarea } from "../src/components/ui/textarea";
 import { ChatsHeader } from "../src/features/chats/components/ChatsHeader";
+import { RequestDisclosure } from "../src/features/chats/components/RequestDisclosure";
 
 function FoundationReview() {
   const [search, setSearch] = useState("");
@@ -152,6 +153,14 @@ function FoundationReview() {
           onChange={setSearch}
           onClear={() => setSearch("")}
         />
+      </section>
+      <section
+        className="message-requests mb-8 rounded-3xl"
+        aria-label="Request disclosure preview"
+      >
+        <RequestDisclosure label="Message requests" count={2}>
+          <p className="p-4 text-sm">Request previews appear only after you open this section.</p>
+        </RequestDisclosure>
       </section>
       <div className="review-grid">
         <CardSurface>

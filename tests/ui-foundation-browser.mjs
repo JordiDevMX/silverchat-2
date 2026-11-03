@@ -21,6 +21,17 @@ try {
   await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/tests/ui-foundation.html`);
   await page.getByRole("heading", { name: "SilverChat", exact: true }).waitFor();
   await page.evaluate(() => document.fonts.ready);
+  const requestToggle = page.getByRole("button", { name: "Message requests 2" });
+  assert.equal(await requestToggle.getAttribute("aria-expanded"), "false");
+  await requestToggle.focus();
+  await page.keyboard.press("Enter");
+  await page.getByText("Request previews appear only after you open this section.").waitFor();
+  await page.keyboard.press("Space");
+  assert.equal(await requestToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(
+    await page.getByText("Request previews appear only after you open this section.").count(),
+    0,
+  );
   // Glow is a primitive contract, including Slot composition and disabled states.
   for (const target of [
     page.getByRole("button", { name: "Follow", exact: true }),
