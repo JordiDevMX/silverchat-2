@@ -1,12 +1,6 @@
 // Chromium integration tests with mocked HTTP boundaries; SQL authorization is tested separately.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-const artifacts = process.env.TEST_ARTIFACTS_DIR ?? join(tmpdir(), "silverchat-novedades");
-await mkdir(artifacts, { recursive: true });
 
 const clip = (seconds) =>
   execFileSync("ffmpeg", [
@@ -638,7 +632,6 @@ try {
     });
   await cropDialog.locator(".avatar-crop img").waitFor();
   await cropDialog.getByRole("slider").fill("2");
-  await page.screenshot({ path: join(artifacts, "channel-avatar-crop.png") });
   await cycleFocus(cropDialog);
   await cropDialog.getByRole("button", { name: "Save", exact: true }).click();
   await cropDialog.waitFor({ state: "detached" });
@@ -669,7 +662,6 @@ try {
     .getByRole("button", { name: "Delete channel", exact: true })
     .click();
   await page.waitForURL("**/novedades");
-  await page.screenshot({ path: join(artifacts, "novedades-desktop.png"), fullPage: true });
   await page.getByRole("link", { name: /Explore more/ }).click();
   await page.waitForURL("**/novedades/explore");
   for (let i = 0; i < 8; i++) {
@@ -688,7 +680,6 @@ try {
   await mp.getByRole("button", { name: "My story", exact: true }).waitFor();
   await mp.locator(".channel-list-item").first().waitFor();
   assert.ok(await mp.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  await mp.screenshot({ path: join(artifacts, "novedades-mobile.png"), fullPage: true });
   const row = mp.locator(".stories-row");
   assert.ok(await row.evaluate((el) => el.scrollWidth > el.clientWidth));
   const rowBox = await row.boundingBox();
@@ -754,7 +745,6 @@ try {
     "PASS: stories text/image/video uploads, duration rejection/playback, ordering/timer/hold/navigation/reply/idempotent creation/viewers/delete; discover top20/follow; channel Realtime/paging/read-only/react8/mute/owner composer/edit/create/delete; explore; mobile layout.",
   );
 } catch (e) {
-  await page.screenshot({ path: join(artifacts, "novedades-failure.png"), fullPage: true });
   console.error(await page.locator("body").textContent());
   throw e;
 } finally {

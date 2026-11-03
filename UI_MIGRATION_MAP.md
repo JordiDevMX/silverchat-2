@@ -566,3 +566,7 @@ Per-feature end-to-end behavior and exact screen fidelity remain Phase 3 verific
 Browser harnesses use mocked HTTP/Realtime boundaries and local Chrome, not real accounts. A pre-existing Vite process on 5173 served stale CSS; validation used a fresh isolated Vite server on 5174 with UI_BASE_URL. Both existing application harnesses now accept that optional base URL; chat screenshot paths are portable. Screenshot animations are disabled for reproducible theme captures.
 
 Artifacts: node_modules/.cache/ui-foundation/ — foundation-light-desktop.png, foundation-dark-desktop.png, foundation-dark-mobile.png, silverchat-chats-desktop.png, silverchat-shell-dark-desktop.png, silverchat-shell-tablet.png, silverchat-chats-mobile.png, silverchat-chats-dark.png, and settings desktop/dark/mobile captures. These remain ignored review artifacts. No unresolved failures. Module 2 is not started.
+
+## 9. Feedback turn working rules (CON-006/007/008)
+
+Baseline captured as ff3b4eb (F01-F06, T024/T106/T124). Permanent rules are recorded in AGENTS.md: quality-first scoped work, commits per completed unit, no generated review images. All nine browser harnesses now omit screenshots (including failure captures); assertions and textual diagnostics remain. Syntax checks passed for all nine harnesses. Prior artifact notes above are historical. Future visual acceptance is manual through pnpm dev and devtools.

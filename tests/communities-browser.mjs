@@ -1,8 +1,5 @@
 // Actual React surfaces with mocked BFF/PostgREST/Storage boundaries; no remote writes.
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
 const browser = await chromium.launch({
@@ -10,8 +7,6 @@ const browser = await chromium.launch({
   headless: true,
 });
 const origin = process.env.TEST_ORIGIN ?? "http://127.0.0.1:5175";
-const artifacts = join(tmpdir(), "silverchat-communities");
-await mkdir(artifacts, { recursive: true });
 const id = (n) => `${String(n).padStart(8, "0")}-4444-4444-8444-444444444444`;
 const me = id(1),
   other = id(2),
@@ -312,7 +307,6 @@ try {
   );
   assert.equal(bounds[0].width, 320);
   assert.ok(bounds[1].x >= bounds[0].x + 320);
-  await page.screenshot({ path: join(artifacts, "desktop.png") });
   await page.getByRole("button", { name: "Chat options", exact: true }).click();
   assert.equal(
     await page
@@ -359,7 +353,6 @@ try {
   await page.getByRole("link", { name: "Back to community", exact: true }).waitFor();
   assert.equal(await page.locator("aside:visible").count(), 0);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  await page.screenshot({ path: join(artifacts, "mobile.png") });
   await page.getByRole("link", { name: "Back to community", exact: true }).click();
   await page.getByRole("link", { name: /Announcements/ }).waitFor();
   await page.goto(`${origin}/communities`);
@@ -400,13 +393,11 @@ try {
   console.log(
     "Communities browser checks passed: creation/crop/focus, retries, list/search/persistence, desktop/mobile, messages/menu/read, shared settings/members, mute, admin controls, succession warning, delete and access redirect.",
   );
-  console.log(`Screenshots: ${artifacts}`);
   await context.close();
 } catch (error) {
   if (diagnosticPage) {
     console.error(await diagnosticPage.locator("body").textContent());
     console.error("Page errors", errors);
-    await diagnosticPage.screenshot({ path: join(artifacts, "failure.png") });
   }
   throw error;
 } finally {

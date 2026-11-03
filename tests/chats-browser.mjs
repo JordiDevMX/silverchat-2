@@ -1,11 +1,5 @@
 // Chromium against mocked HTTP/Realtime boundaries. Never touches remote accounts.
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
-const screenshotDirectory = process.env.UI_ARTIFACT_DIR ?? tmpdir();
-await mkdir(screenshotDirectory, { recursive: true });
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
 const browser = await chromium.launch({
@@ -364,12 +358,6 @@ try {
       const fab = await page.locator(".new-chat-fab").boundingBox();
       assert.ok(fab.y + fab.height < frame.y, "Floating action clears bottom tabs");
     }
-    if (width === 768)
-      await page.screenshot({
-        path: path.join(screenshotDirectory, "silverchat-shell-tablet.png"),
-        animations: "disabled",
-        fullPage: false,
-      });
   }
   const chatsLink = navigation.locator('a[href="/chats"]');
   await chatsLink.focus();
@@ -393,17 +381,8 @@ try {
   console.log(
     "PASS shell breakpoints, five URLs, single navigation, active state, keyboard labels, unread exclusions and floating-action clearance",
   );
-  await page.screenshot({
-    path: path.join(screenshotDirectory, "silverchat-chats-desktop.png"),
-    animations: "disabled",
-    fullPage: false,
-  });
   await page.evaluate(() => {
     document.documentElement.dataset.theme = "dark";
-  });
-  await page.screenshot({
-    path: path.join(screenshotDirectory, "silverchat-shell-dark-desktop.png"),
-    animations: "disabled",
   });
   await page.evaluate(() => {
     document.documentElement.dataset.theme = "light";
@@ -620,11 +599,6 @@ try {
   await archive.tap();
   await row(103).waitFor({ state: "hidden" });
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({
-    path: path.join(screenshotDirectory, "silverchat-chats-mobile.png"),
-    animations: "disabled",
-    fullPage: false,
-  });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   console.log("PASS mobile long-press, swipe action, and no horizontal overflow");
   await page.locator(".new-chat-fab").click();
@@ -635,11 +609,6 @@ try {
   await page.getByRole("dialog").waitFor({ state: "hidden" });
   await page.evaluate(() => {
     document.documentElement.dataset.theme = "dark";
-  });
-  await page.screenshot({
-    path: path.join(screenshotDirectory, "silverchat-chats-dark.png"),
-    animations: "disabled",
-    fullPage: false,
   });
   assert.deepEqual(errors, []);
   console.log("Chats browser checks passed; no uncaught page errors.");

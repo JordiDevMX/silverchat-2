@@ -588,7 +588,6 @@ try {
   await page.getByRole("button", { name: "Send voice note" }).waitFor();
   await page.getByRole("button", { name: "Discard", exact: true }).click();
   await page.clock.resume();
-  await page.screenshot({ path: "/workspace/message-actions-desktop.png", fullPage: true });
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -612,7 +611,6 @@ try {
   const bounds = await mp.getByRole("menu").boundingBox();
   assert.ok(bounds.width > 350);
   assert.equal(await mp.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await mp.screenshot({ path: "/workspace/message-actions-mobile.png", fullPage: true });
   await mp.keyboard.press("Escape");
   await mp.getByRole("button", { name: "Record voice note" }).click();
   await mp.getByRole("button", { name: "Stop recording" }).waitFor();
@@ -629,9 +627,6 @@ try {
   console.log(
     "PASS: context menu/copy, reply and navigation, edit and rollback, reaction toggle/replacement/Realtime, three-pin limit, search, forwarding cap and idempotent retries, deletion/tombstones, real voice recording/upload, discard/late permission/denial/five-minute stop, mobile long press/scroll cancellation/slide-to-cancel/layout.",
   );
-} catch (error) {
-  await page.screenshot({ path: "/workspace/message-actions-failure.png", fullPage: true });
-  throw error;
 } finally {
   await browser.close();
 }

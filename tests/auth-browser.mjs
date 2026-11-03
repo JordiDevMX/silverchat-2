@@ -137,7 +137,6 @@ await page.route("https://supabase.test/**", async (route) => {
 try {
   await page.goto("http://127.0.0.1:5173/");
   await page.getByRole("heading", { name: "Good conversations need their own space." }).waitFor();
-  await page.screenshot({ path: "/tmp/silverchat-auth-landing.png", fullPage: true });
   console.log("PASS landing and desktop render");
   await page.goto("http://127.0.0.1:5173/chats?tab=media#last");
   await page.getByRole("heading", { name: "Welcome back" }).waitFor();
@@ -152,7 +151,6 @@ try {
   await page.goto("http://127.0.0.1:5173/auth/login");
   await page.getByRole("heading", { name: "Welcome back" }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await page.screenshot({ path: "/tmp/silverchat-auth-mobile.png", fullPage: true });
   console.log("PASS mobile layout without horizontal overflow");
   signedIn = true;
   username = "user_a1b2c3d4";

@@ -613,8 +613,6 @@ try {
   });
   await page.waitForTimeout(700);
   assert.equal(readCalls, beforeHidden + 1);
-
-  await page.screenshot({ path: "/workspace/messages-desktop.png", fullPage: true });
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -632,7 +630,6 @@ try {
   );
   const composer = await mp.locator(".conversation-composer").boundingBox();
   assert.ok(composer.y + composer.height <= 844 - 68 + 1, "Composer stays above mobile navigation");
-  await mp.screenshot({ path: "/workspace/messages-mobile.png", fullPage: true });
   await mobile.close();
   assert.deepEqual(errors, []);
   console.log(

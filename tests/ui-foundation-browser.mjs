@@ -1,7 +1,4 @@
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
 const browser = await chromium.launch({
@@ -9,8 +6,6 @@ const browser = await chromium.launch({
   headless: true,
   args: ["--no-sandbox"],
 });
-const artifacts = process.env.UI_ARTIFACT_DIR ?? path.join(tmpdir(), "silverchat-foundation");
-await mkdir(artifacts, { recursive: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 page.setDefaultTimeout(10000);
 const errors = [];
@@ -164,11 +159,6 @@ try {
     await page.evaluate(() => {
       document.documentElement.className = "theme-blue";
     });
-    await page.screenshot({
-      path: path.join(artifacts, `foundation-${mode}-desktop.png`),
-      fullPage: true,
-      animations: "disabled",
-    });
   }
   // Explicit light remains light under dark OS preference; absent theme has a semantic fallback.
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
@@ -208,18 +198,12 @@ try {
     await page.getByRole("button", { name: "Dismiss preferences" }).click();
   }
   await page.setViewportSize({ width: 375, height: 900 });
-  await page.screenshot({
-    path: path.join(artifacts, "foundation-dark-mobile.png"),
-    fullPage: true,
-    animations: "disabled",
-  });
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify({
       result: "passed",
       checks:
         "cascade, glow/disabled/focus-ring composition, Slot link, ambient light, buttons, switches, OTP, avatar recovery, modal nesting/focus, menu keyboard, popovers, 12 theme/accent combinations, system theme, reduced motion, 3 viewport widths",
-      artifacts,
     }),
   );
 } finally {
