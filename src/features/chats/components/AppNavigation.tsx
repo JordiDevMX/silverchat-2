@@ -34,7 +34,9 @@ export function AppNavigation() {
                 className={`app-nav-link ${active ? "active" : ""}`}
                 aria-current={active ? "page" : undefined}
               >
-                <span className={`app-nav-icon ${active ? "bg-gradient-neon shadow-glow" : ""}`}>
+                <span
+                  className={`app-nav-icon ${active ? "bg-gradient-neon neon-icon-fill shadow-glow" : ""}`}
+                >
                   <Icon size={20} strokeWidth={active ? 2.4 : 2} aria-hidden="true" />
                   {label === "Chats" && unread > 0 && (
                     <Badge

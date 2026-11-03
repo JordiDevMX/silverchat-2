@@ -110,7 +110,7 @@ export function ConversationGallery() {
                 key={label}
                 type="button"
                 disabled
-                className="message-icon"
+                className={`message-icon ${label === "search" ? "conversation-search-trigger" : ""}`}
                 aria-label={`Preview ${label}`}
               >
                 <Icon size={20} />

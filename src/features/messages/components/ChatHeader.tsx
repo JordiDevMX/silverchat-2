@@ -94,7 +94,7 @@ export function ChatHeader({ chat, onSearch }: { chat: ChatDetails; onSearch: ()
       <div className="conversation-actions">
         <button
           type="button"
-          className="message-icon"
+          className="message-icon conversation-search-trigger"
           aria-label={say("Search messages", "Buscar mensajes")}
           onClick={onSearch}
         >

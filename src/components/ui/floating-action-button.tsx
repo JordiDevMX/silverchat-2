@@ -23,7 +23,7 @@ export function FloatingActionButton({
       data-slot="floating-action-button"
       data-kind={kind}
       className={cn(
-        "grid size-14 shrink-0 cursor-pointer place-items-center rounded-2xl border-0 bg-neon text-[oklch(0.12_0.01_255)] shadow-glow outline-none hover:brightness-105 focus-visible:outline-none focus-visible:ring-0 focus-visible:brightness-125 focus-visible:[&_svg]:stroke-[3] disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none",
+        "grid size-14 shrink-0 cursor-pointer place-items-center rounded-2xl border-0 bg-neon bg-gradient-neon neon-icon-fill text-primary-foreground shadow-glow outline-none hover:brightness-105 focus-visible:outline-none focus-visible:ring-0 focus-visible:brightness-125 focus-visible:[&_svg]:stroke-[3] disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none",
         className,
       )}
     >

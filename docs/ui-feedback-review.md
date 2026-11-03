@@ -37,10 +37,22 @@ If startup says `Port 5177 is already in use`, the new server did not start. Sto
 - Emulate reduced motion, and use Tab/Enter/Space. Glows remain static and keyboard focus remains distinguishable.
 
 1. **Bubble surfaces** and the **bubble-self** tile: light mode has pale accent fill and a softer visible halo; dark mode has gradient fill, bright rim and diffuse glow. The other bubble remains unlit. Change accents and confirm the fill and halo follow them.
-2. **Chats header preview**: inspect the white S tile, foreground “ilver,” accent “Chat,” and separate small Chats heading. No Select/Refresh/PWA control should appear.
+2. **Chats header preview**: inspect the white S glyph on its neon-gradient tile, foreground “ilver,” accent “Chat,” and separate small Chats heading. No Select/Refresh/PWA control should appear.
 3. Search: inspect the metallic surface at rest and while typing; no gray outline box. Tab into the field to see its intentional focus indicator; clear entered text.
 4. **Message requests** starts closed with a count. Open and close it by click, Enter and Space. Content should appear only when expanded.
-5. **Tab actions**: compare chat-plus, phone-plus, group and broadcast glyphs. Confirm accent-filled squircle tiles, dark glyphs and static halo, without a surrounding ring. Keyboard focus brightens the tile and thickens the glyph. Calls/Updates here are presentation previews, not live creation features.
+5. **Tab actions**: compare chat-plus, phone-plus, group and broadcast glyphs. Confirm neon-gradient squircle tiles, **white glyphs in light mode / near-black glyphs in dark mode**, and static halo without a surrounding ring. Keyboard focus brightens the tile and thickens the glyph. Calls/Updates here are presentation previews, not live creation features.
+
+## Primary fills and mobile search polish
+
+Run `pnpm review:ui` and open **http://127.0.0.1:5177/tests/ui-foundation.html**. For an independent clean server, the verified alternative remains `pnpm review:ui --port 5187` and **http://127.0.0.1:5187/tests/ui-foundation.html**. No login or backend is needed for this fixture.
+
+- At **375 × 844**, **768 × 1024**, and **1280 × 900**, select Light/Dark and each of blue, orange, green, purple, red, yellow. Compare the logo, **Light, built in** switch/badge/active Chats navigation sample, and all four **Tab actions** tiles. Every fill has two accent-aware gradient stops. Glyphs and checked-switch thumbs are white in light and near-black in dark; the logo S stays white in both.
+- Buttons and logo retain the approved gradient stops. Light-mode icon controls use a contrast-adjusted gradient; small badge labels use a slightly deeper version. Dark-mode controls use the original bright stops. The second accent stop is now named **--neon-end**, replacing the misleading --neon-magenta name.
+- The automated resting-state contrast samples cover 21 points across each gradient in all twelve mode/accent combinations. Light controls measure at least **3.43:1**, badge text **4.67:1**; dark controls and badges at least **6.01:1**. These figures apply to the adjusted controls, not to the deliberately preserved logo/button palette.
+- In **Conversation timeline**, inspect the header at **375px and 767px**: magnifier hidden, three-dot control visible. At **768px and 1280px**, both are visible. Fixture header controls remain static/disabled.
+- To verify actual mobile search after normal backend login, open `/chats/<chatId>` on your app origin at **375 × 844**, choose **Chat options → Search in chat**, enter existing message text, navigate a result, then press Escape or close search. The existing search UI opens and closes; the header magnifier stays hidden. Repeat at **1280 × 900** using the visible header magnifier. This behavior is also covered by the mocked authenticated browser harness; the standalone fixture does not simulate a session.
+
+Module 2B remains deferred. No search redesign, new dependency, auth change or image capture is included.
 
 
 ## Module 2A: conversation timeline acceptance

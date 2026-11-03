@@ -8,7 +8,7 @@ export function BrandMark({ className, ...props }: ComponentProps<"span">) {
       data-slot="brand-mark"
       aria-hidden="true"
       className={cn(
-        "grid size-10 shrink-0 place-items-center rounded-xl bg-neon text-lg font-bold text-white shadow-glow",
+        "grid size-10 shrink-0 place-items-center rounded-xl bg-neon bg-gradient-neon text-lg font-bold text-white shadow-glow",
         className,
       )}
     >

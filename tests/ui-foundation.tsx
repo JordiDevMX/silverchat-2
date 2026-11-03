@@ -8,7 +8,7 @@ import "../src/styles/messages.css";
 import "../src/styles/chat-settings.css";
 import "../src/styles/communities.css";
 import "../src/styles/novedades.css";
-import { Bell, Shield } from "lucide-react";
+import { Bell, MessageCircle, Shield } from "lucide-react";
 import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Avatar } from "../src/components/ui/avatar";
@@ -138,6 +138,14 @@ function FoundationReview() {
             12
           </Badge>
           <Switch aria-label="Glow enabled" defaultChecked />
+          <span className="app-nav-link active" role="img" aria-label="Active Chats navigation">
+            <span
+              className="app-nav-icon bg-gradient-neon neon-icon-fill shadow-glow"
+              data-slot="active-nav-preview"
+            >
+              <MessageCircle size={20} strokeWidth={2.4} />
+            </span>
+          </span>
           <Button disabled>Disabled primary</Button>
         </div>
       </section>

@@ -657,6 +657,16 @@ try {
   await mp.goto(`http://127.0.0.1:5173/chats/${chatId}`);
   await mp.locator(".message-list").waitFor();
   await mp.waitForTimeout(300);
+  assert.equal(
+    await mp.getByRole("button", { name: "Search messages", exact: true }).isVisible(),
+    false,
+  );
+  await mp.getByRole("button", { name: "Chat options", exact: true }).click();
+  await mp.getByRole("menuitem", { name: "Search in chat", exact: true }).click();
+  await mp.getByRole("searchbox", { name: "Search in conversation" }).fill("searchable");
+  await mp.locator('.in-chat-search [role="status"]').getByText("1/2", { exact: true }).waitFor();
+  await mp.getByRole("searchbox", { name: "Search in conversation" }).press("Escape");
+  await mp.getByRole("button", { name: "Chat options", exact: true }).waitFor();
   const target = mp.locator(`[data-message-id="${incoming.id}"] .message-bubble`);
   await target.scrollIntoViewIfNeeded();
   await target.dispatchEvent("pointerdown", { pointerType: "touch", clientX: 100, clientY: 200 });

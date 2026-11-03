@@ -8,7 +8,7 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: "bg-secondary text-secondary-foreground",
-        neon: "bg-primary bg-gradient-neon text-primary-foreground shadow-glow",
+        neon: "bg-primary bg-gradient-neon neon-label-fill text-primary-foreground shadow-glow",
       },
     },
     defaultVariants: { variant: "default" },

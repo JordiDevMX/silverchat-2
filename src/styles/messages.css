@@ -1,5 +1,10 @@
 /* Module 2A timeline presentation; composer, actions and audio remain legacy until 2B. */
 @layer components {
+  @media (max-width: 767px) {
+    .conversation-header .conversation-search-trigger {
+      display: none;
+    }
+  }
   /* Prompt 08a: a fixed conversation frame with one scrolling message canvas. */
   .conversation-page {
     height: 100dvh;

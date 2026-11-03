@@ -15,7 +15,7 @@
 
 @theme inline {
   --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
-  --color-neon-magenta: var(--neon-magenta);
+  --color-neon-end: var(--neon-end);
   --color-neon-lime: var(--neon-lime);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -89,7 +89,7 @@
      the rest of the app cascades from them via --primary / --ring / --gradient-neon / --shadow-glow. */
   --neon: oklch(0.62 0.22 255);
   --neon-glow: oklch(0.72 0.18 250);
-  --neon-magenta: oklch(0.7 0.2 210);
+  --neon-end: oklch(0.7 0.2 210);
   --neon-lime: oklch(0.85 0.2 130);
 
   /* Chat bubbles */
@@ -115,7 +115,7 @@
   --popover-foreground: oklch(0.2 0.03 255);
 
   --primary: var(--neon);
-  --primary-foreground: oklch(0.99 0.003 250);
+  --primary-foreground: #fff;
   --secondary: var(--silver);
   --secondary-foreground: oklch(0.22 0.04 255);
   --muted: var(--silver-light);
@@ -135,17 +135,38 @@
     oklch(0.88 0.012 250) 50%,
     oklch(0.95 0.006 250) 100%
   );
-  /* Holographic gradient: --neon → --neon-magenta (theme-aware) */
-  --gradient-neon: linear-gradient(135deg, var(--neon) 0%, var(--neon-magenta) 100%);
+  /* Holographic gradient: --neon → --neon-end (theme-aware) */
+  --gradient-neon: linear-gradient(135deg, var(--neon) 0%, var(--neon-end) 100%);
+  /* White controls need contrast against yellow/green endpoints. Brand/buttons retain
+     the approved gradient; these variants preserve both accent hues. */
+  --neon-icon-lightness: 0.6;
+  --neon-label-lightness: 0.52;
+  --neon-control-chroma: 0.16;
+  --gradient-neon-icon: linear-gradient(
+    135deg,
+    oklch(from var(--neon) min(l, var(--neon-icon-lightness)) min(c, var(--neon-control-chroma)) h),
+    oklch(
+      from var(--neon-end) min(l, var(--neon-icon-lightness)) min(c, var(--neon-control-chroma)) h
+    )
+  );
+  --gradient-neon-label: linear-gradient(
+    135deg,
+    oklch(
+      from var(--neon) min(l, var(--neon-label-lightness)) min(c, var(--neon-control-chroma)) h
+    ),
+    oklch(
+      from var(--neon-end) min(l, var(--neon-label-lightness)) min(c, var(--neon-control-chroma)) h
+    )
+  );
   /* Double-layered glow: wide soft outer + tight bright inner (color follows --neon) */
   --shadow-glow:
     0 0 24px -4px color-mix(in oklab, var(--neon) 55%, transparent),
     0 0 8px 0 color-mix(in oklab, var(--neon) 35%, transparent);
   --shadow-silver: 0 4px 16px -4px color-mix(in oklab, oklch(0.5 0.03 255) 22%, transparent);
 
-  /* Chart palette: 1=primary (neon), 2=endpoint (neon-magenta), 3/5=fixed, 4=highlight (neon-lime) */
+  /* Chart palette: 1=primary (neon), 2=endpoint (neon-end), 3/5=fixed, 4=highlight (neon-lime) */
   --chart-1: var(--neon);
-  --chart-2: var(--neon-magenta);
+  --chart-2: var(--neon-end);
   --chart-3: oklch(0.55 0.18 270);
   --chart-4: var(--neon-lime);
   --chart-5: oklch(0.45 0.2 260);
@@ -172,7 +193,7 @@
   /* Same as :root — explicit for clarity and so the theme is selectable. */
   --neon: oklch(0.62 0.22 255);
   --neon-glow: oklch(0.72 0.18 250);
-  --neon-magenta: oklch(0.7 0.2 210);
+  --neon-end: oklch(0.7 0.2 210);
   --neon-lime: oklch(0.85 0.2 130);
 }
 
@@ -180,28 +201,28 @@
   /* Cyberpunk Violet — deep electric violet → magenta */
   --neon: oklch(0.58 0.24 300);
   --neon-glow: oklch(0.72 0.2 305);
-  --neon-magenta: oklch(0.7 0.22 330);
+  --neon-end: oklch(0.7 0.22 330);
 }
 
 :root.theme-red {
   /* Crimson Red — vivid red → hot-pink */
   --neon: oklch(0.62 0.24 25);
   --neon-glow: oklch(0.72 0.2 25);
-  --neon-magenta: oklch(0.7 0.22 350);
+  --neon-end: oklch(0.7 0.22 350);
 }
 
 :root.theme-orange {
   /* Plasma Orange — warm orange → amber */
   --neon: oklch(0.7 0.2 50);
   --neon-glow: oklch(0.78 0.18 55);
-  --neon-magenta: oklch(0.72 0.2 80);
+  --neon-end: oklch(0.72 0.2 80);
 }
 
 :root.theme-yellow {
   /* Neon Yellow — bright yellow → lime-green (highlight flipped to violet for contrast) */
   --neon: oklch(0.82 0.2 95);
   --neon-glow: oklch(0.88 0.16 100);
-  --neon-magenta: oklch(0.82 0.2 130);
+  --neon-end: oklch(0.82 0.2 130);
   --neon-lime: oklch(0.78 0.2 280);
 }
 
@@ -209,7 +230,7 @@
   /* Radioactive Green — emerald → teal (highlight flipped to magenta for contrast) */
   --neon: oklch(0.72 0.22 145);
   --neon-glow: oklch(0.82 0.18 145);
-  --neon-magenta: oklch(0.7 0.22 175);
+  --neon-end: oklch(0.7 0.22 175);
   --neon-lime: oklch(0.78 0.22 330);
 }
 
@@ -219,7 +240,7 @@
   --silver-dark: oklch(0.18 0.016 255);
   --neon: oklch(0.7 0.22 250);
   --neon-glow: oklch(0.78 0.18 245);
-  --neon-magenta: oklch(0.78 0.2 210);
+  --neon-end: oklch(0.78 0.2 210);
   --neon-lime: oklch(0.85 0.2 130);
 
   --bubble-self: var(--neon);
@@ -237,6 +258,9 @@
   --popover-foreground: oklch(0.96 0.005 250);
   --primary: var(--neon);
   --primary-foreground: oklch(0.12 0.01 255);
+  --neon-icon-lightness: 1;
+  --neon-label-lightness: 1;
+  --neon-control-chroma: 1;
   --secondary: oklch(0.26 0.015 255);
   --secondary-foreground: oklch(0.96 0.005 250);
   --muted: oklch(0.24 0.014 255);
@@ -255,14 +279,14 @@
     oklch(0.3 0.018 255) 50%,
     oklch(0.22 0.014 255) 100%
   );
-  --gradient-neon: linear-gradient(135deg, var(--neon) 0%, var(--neon-magenta) 100%);
+  --gradient-neon: linear-gradient(135deg, var(--neon) 0%, var(--neon-end) 100%);
   --shadow-glow:
     0 0 32px -2px color-mix(in oklab, var(--neon) 70%, transparent),
     0 0 12px 0 color-mix(in oklab, var(--neon) 40%, transparent);
   --shadow-silver: 0 4px 18px -4px oklch(0 0 0 / 0.5);
 
   --chart-1: var(--neon);
-  --chart-2: var(--neon-magenta);
+  --chart-2: var(--neon-end);
   --chart-3: oklch(0.6 0.2 270);
   --chart-4: var(--neon-lime);
   --chart-5: oklch(0.5 0.22 260);
@@ -287,37 +311,37 @@
 :root[data-theme="dark"].theme-blue {
   --neon: oklch(0.7 0.22 250);
   --neon-glow: oklch(0.78 0.18 245);
-  --neon-magenta: oklch(0.78 0.2 210);
+  --neon-end: oklch(0.78 0.2 210);
 }
 
 :root[data-theme="dark"].theme-purple {
   --neon: oklch(0.72 0.24 295);
   --neon-glow: oklch(0.82 0.18 300);
-  --neon-magenta: oklch(0.78 0.2 330);
+  --neon-end: oklch(0.78 0.2 330);
 }
 
 :root[data-theme="dark"].theme-red {
   --neon: oklch(0.7 0.24 25);
   --neon-glow: oklch(0.8 0.2 25);
-  --neon-magenta: oklch(0.78 0.2 350);
+  --neon-end: oklch(0.78 0.2 350);
 }
 
 :root[data-theme="dark"].theme-orange {
   --neon: oklch(0.76 0.2 50);
   --neon-glow: oklch(0.84 0.16 55);
-  --neon-magenta: oklch(0.78 0.2 80);
+  --neon-end: oklch(0.78 0.2 80);
 }
 
 :root[data-theme="dark"].theme-yellow {
   --neon: oklch(0.88 0.2 95);
   --neon-glow: oklch(0.92 0.16 100);
-  --neon-magenta: oklch(0.88 0.2 130);
+  --neon-end: oklch(0.88 0.2 130);
 }
 
 :root[data-theme="dark"].theme-green {
   --neon: oklch(0.78 0.22 145);
   --neon-glow: oklch(0.86 0.18 145);
-  --neon-magenta: oklch(0.78 0.2 175);
+  --neon-end: oklch(0.78 0.2 175);
 }
 
 /* Before the theme provider resolves system mode, use the same semantic palette. */
@@ -328,7 +352,7 @@
     --silver-dark: oklch(0.18 0.016 255);
     --neon: oklch(0.7 0.22 250);
     --neon-glow: oklch(0.78 0.18 245);
-    --neon-magenta: oklch(0.78 0.2 210);
+    --neon-end: oklch(0.78 0.2 210);
     --neon-lime: oklch(0.85 0.2 130);
 
     --bubble-self: var(--neon);
@@ -346,6 +370,9 @@
     --popover-foreground: oklch(0.96 0.005 250);
     --primary: var(--neon);
     --primary-foreground: oklch(0.12 0.01 255);
+    --neon-icon-lightness: 1;
+    --neon-label-lightness: 1;
+    --neon-control-chroma: 1;
     --secondary: oklch(0.26 0.015 255);
     --secondary-foreground: oklch(0.96 0.005 250);
     --muted: oklch(0.24 0.014 255);
@@ -364,14 +391,14 @@
       oklch(0.3 0.018 255) 50%,
       oklch(0.22 0.014 255) 100%
     );
-    --gradient-neon: linear-gradient(135deg, var(--neon) 0%, var(--neon-magenta) 100%);
+    --gradient-neon: linear-gradient(135deg, var(--neon) 0%, var(--neon-end) 100%);
     --shadow-glow:
       0 0 32px -2px color-mix(in oklab, var(--neon) 70%, transparent),
       0 0 12px 0 color-mix(in oklab, var(--neon) 40%, transparent);
     --shadow-silver: 0 4px 18px -4px oklch(0 0 0 / 0.5);
 
     --chart-1: var(--neon);
-    --chart-2: var(--neon-magenta);
+    --chart-2: var(--neon-end);
     --chart-3: oklch(0.6 0.2 270);
     --chart-4: var(--neon-lime);
     --chart-5: oklch(0.5 0.22 260);
@@ -396,6 +423,12 @@
 }
 @utility bg-gradient-silver {
   background-image: var(--gradient-silver);
+}
+@utility neon-icon-fill {
+  --gradient-neon: var(--gradient-neon-icon);
+}
+@utility neon-label-fill {
+  --gradient-neon: var(--gradient-neon-label);
 }
 @utility bg-gradient-neon {
   background-image: var(--gradient-neon);
