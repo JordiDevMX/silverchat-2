@@ -80,9 +80,14 @@ migration.
 
 ## Review and checks
 
-Run `pnpm dev` and open `/tests/ui-foundation.html` for the standalone review. It
-does not mount app providers or access Supabase. It is not an application route
-and is not included in the production entry.
+Run `pnpm review:ui` and open **http://127.0.0.1:5177/**. This strict-port,
+auth-independent server redirects directly to the fixture, ignores .env files,
+and prints the exact review link. Do not open the HTML from disk. See
+[the verified procedure](ui-feedback-review.md) for expected content and port-conflict handling.
+
+Plain `pnpm dev` uses http://127.0.0.1:5173/tests/ui-foundation.html for this fixture;
+its root is the application entry, and its protected routes require the separate
+Netlify auth backend. The fixture is excluded from the production entry.
 
 Required checks:
 
@@ -91,6 +96,7 @@ pnpm exec tsc --noEmit -p tsconfig.app.json
 pnpm typecheck
 pnpm test
 pnpm exec vite build
+node tests/ui-review-path-browser.mjs
 node tests/ui-foundation-browser.mjs
 node tests/settings-browser.mjs
 ```
@@ -101,7 +107,10 @@ Start Vite on port 5173 with `VITE_SUPABASE_URL=https://supabase.test` and a dum
 `VITE_SUPABASE_ANON_KEY` when running the mocked settings harness. All settings
 mutations are intercepted. The foundation harness also blocks remote requests.
 Browser harnesses run functional assertions without saving screenshots (CON-008).
-Use `UI_BASE_URL` for a different Vite port.
+Use UI_BASE_URL=http://127.0.0.1:5177 for the foundation harness against the review server.
+The new review-path harness defaults to 5177 (UI_REVIEW_URL can override it).
+Run the existing application harnesses against the ordinary Vite server with their
+mocked-service environment, not against the dedicated review server.
 
 Browser coverage includes utility/legacy cascade, button submit semantics,
 switches, OTP entry, avatar recovery, native nested dialogs, keyboard menus,

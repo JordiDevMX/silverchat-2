@@ -567,7 +567,7 @@ Browser harnesses use mocked HTTP/Realtime boundaries and local Chrome, not real
 
 Artifacts: node_modules/.cache/ui-foundation/ — foundation-light-desktop.png, foundation-dark-desktop.png, foundation-dark-mobile.png, silverchat-chats-desktop.png, silverchat-shell-dark-desktop.png, silverchat-shell-tablet.png, silverchat-chats-mobile.png, silverchat-chats-dark.png, and settings desktop/dark/mobile captures. These remain ignored review artifacts. No unresolved failures. Module 2 is not started.
 
-## 9. Feedback turn working rules (CON-006/007/008)
+## 9. Feedback turn working rules (CON-006/007/008; historical)
 
 Baseline captured as ff3b4eb (F01-F06, T024/T106/T124). Permanent rules are recorded in AGENTS.md: quality-first scoped work, commits per completed unit, no generated review images. All nine browser harnesses now omit screenshots (including failure captures); assertions and textual diagnostics remain. Syntax checks passed for all nine harnesses. Prior artifact notes above are historical. Future visual acceptance is manual through pnpm dev and devtools.
 
@@ -594,3 +594,13 @@ FloatingActionButton provides chats (square message-plus), calls (phone-plus com
 Final verification: app no-emit typecheck passed; pnpm typecheck passed; pnpm test 69/69; Vite production build passed; scoped Biome passed (28 source/style/harness files); screenshot-free foundation, chats, settings and communities browser suites passed. All nine browser harnesses are syntactically valid and contain no screenshot calls. Reduced-motion focus assertions wait for computed state rather than screenshot animation completion. No outstanding functional failures; manual visual acceptance remains with the user.
 
 Working rules are in AGENTS.md. Exact manual routes/states/themes/viewports are in docs/ui-feedback-review.md. No new dependencies, SSR artifacts, database changes or Module 2 migration. Pre-existing tsconfig.json and _ui_reference/ remain excluded from commits.
+
+## 10. Review-path defect repair (F01/F04, T024/T117/T124; T131 remains Pending)
+
+Reproduced plain pnpm dev with no env overrides, canonical/short fixture URLs, file://, logged-out and mocked-session app routes, and a pre-existing server on 5173. The full evidence is in docs/review-path-evidence.md. Bare Vite lacks the Netlify auth backend (POST /api/auth/refresh 404); root/public/auth presentation is not the migrated fixture. Canonical HTTP fixture worked; the short URL fell through to the SPA, file:// was blocked, and the absent favicon emitted a console 404. Silent fallback to 5174 was reproduced; stale CSS itself was not.
+
+Added pnpm review:ui: strict 127.0.0.1:5177, independent cache, .env loading disabled, root/short aliases redirect to the real fixture. Review-only app URLs explain the backend requirement, with no auth bypass or mock account. Plain pnpm dev is strict on 127.0.0.1:5173 and prints the fixture URL plus the backend distinction. Fixture HTML now has its favicon and readable startup fallback. No MPA build entry, feature migration, new dependency or production route changes.
+
+Updated AGENTS.md: CON-007 now requires exactly one final commit per turn; history is preserved. CON-008 now requires executing the documented clean-start user journey. Corrected README and both review docs. New tests/ui-review-path-browser.mjs validates all seven review URLs without auth mocks: actual component markers/styles, redirects, no console/network errors or auth requests; it also verifies the file:// help text. Existing foundation/chats/settings/communities assertions are untouched and passing. All typechecks, 69 unit tests, production build and scoped lint passed. Original tsconfig.json and _ui_reference user state remain excluded.
+
+The current human review procedure is docs/ui-feedback-review.md. No-login visual acceptance uses pnpm review:ui, not the app root or a disk HTML file. Stop for review; Module 2 remains unstarted.
