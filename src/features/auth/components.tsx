@@ -1,6 +1,13 @@
 import { useRouter } from "@tanstack/react-router";
 import { MessageCircle, ShieldCheck } from "lucide-react";
-import { type PropsWithChildren, useEffect, useRef } from "react";
+import type { PropsWithChildren } from "react";
+import { Modal } from "@/components/ui/modal";
+
+export { AppSkeleton } from "@/components/ui/app-skeleton";
+export { CodeInput } from "@/components/ui/code-input";
+export { InlineError } from "@/components/ui/inline-error";
+export { Modal } from "@/components/ui/modal";
+
 import { useAuth } from "@/lib/auth-provider";
 
 export function Brand() {
@@ -46,95 +53,6 @@ export function AuthFrame({
     </div>
   );
 }
-export function AppSkeleton({ text = "Opening your space…" }: { text?: string }) {
-  return (
-    <main className="app-skeleton" aria-busy="true" aria-label={text}>
-      <p role="status">{text}</p>
-      <div className="skeleton-grid" aria-hidden="true">
-        <div>
-          <div className="skeleton h-12 mb-8" />
-          {[1, 2, 3, 4, 5].map((n) => (
-            <div className="skeleton h-16 mb-4" key={n} />
-          ))}
-        </div>
-        <div className="skeleton min-h-96" />
-      </div>
-    </main>
-  );
-}
-export function InlineError({ children }: PropsWithChildren) {
-  return children ? (
-    <p role="alert" className="form-error">
-      {children}
-    </p>
-  ) : null;
-}
-export function Modal({
-  title,
-  children,
-  onClose,
-  className = "",
-}: PropsWithChildren<{ title: string; onClose?: () => void; className?: string }>) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialog?.showModal();
-    return () => {
-      dialog?.close();
-      if (trigger?.isConnected) trigger.focus();
-    };
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      tabIndex={-1}
-      aria-label={title}
-      onKeyDown={(event) => {
-        // Nested dialogs own their focus loop; hidden/disabled controls are skipped.
-        if (
-          event.key !== "Tab" ||
-          (event.target as Element).closest("dialog") !== event.currentTarget
-        )
-          return;
-        const dialog = event.currentTarget;
-        const controls = [
-          ...dialog.querySelectorAll<HTMLElement>(
-            'button, a[href], input, select, textarea, [tabindex], [contenteditable="true"], audio[controls], video[controls]',
-          ),
-        ].filter(
-          (el) =>
-            el.tabIndex >= 0 &&
-            !el.matches(":disabled") &&
-            !el.closest("[hidden], [inert]") &&
-            el.closest("dialog") === dialog &&
-            el.getClientRects().length > 0 &&
-            getComputedStyle(el).visibility !== "hidden",
-        );
-        const first = controls[0];
-        const last = controls.at(-1);
-        const active = document.activeElement;
-        if (
-          !first ||
-          !controls.includes(active as HTMLElement) ||
-          (event.shiftKey ? active === first : active === last)
-        ) {
-          event.preventDefault();
-          (event.shiftKey ? (last ?? dialog) : (first ?? dialog)).focus();
-        }
-      }}
-      onCancel={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        onClose?.();
-      }}
-      className={`auth-modal ${className}`}
-    >
-      <h2>{title}</h2>
-      {children}
-    </dialog>
-  );
-}
 export function SessionExpiredModal() {
   const auth = useAuth();
   const router = useRouter();
@@ -154,59 +72,5 @@ export function SessionExpiredModal() {
         Log in
       </button>
     </Modal>
-  );
-}
-export function CodeInput({
-  value,
-  onChange,
-  invalid = false,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  invalid?: boolean;
-}) {
-  const refs = useRef<(HTMLInputElement | null)[]>([]);
-  const positions = [0, 1, 2, 3, 4, 5];
-  return (
-    <fieldset className="code-field">
-      <legend>Authenticator code</legend>
-      <div className="code-inputs">
-        {positions.map((index) => (
-          <input
-            key={index}
-            ref={(input) => {
-              refs.current[index] = input;
-            }}
-            aria-label={`Digit ${index + 1}`}
-            aria-invalid={invalid}
-            inputMode="numeric"
-            autoComplete={index === 0 ? "one-time-code" : "off"}
-            value={value[index] ?? ""}
-            maxLength={6}
-            onChange={(event) => {
-              const digits = event.target.value.replace(/\D/g, "");
-              if (digits.length > 1) {
-                onChange(digits.slice(0, 6));
-                refs.current[Math.min(digits.length, 5)]?.focus();
-                return;
-              }
-              const next = value.split("");
-              next[index] = digits;
-              onChange(next.join(""));
-              if (digits) refs.current[index + 1]?.focus();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Backspace" && !value[index]) refs.current[index - 1]?.focus();
-            }}
-            onPaste={(event) => {
-              event.preventDefault();
-              const digits = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-              onChange(digits);
-              refs.current[Math.min(digits.length, 5)]?.focus();
-            }}
-          />
-        ))}
-      </div>
-    </fieldset>
   );
 }

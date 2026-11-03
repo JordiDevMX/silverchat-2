@@ -1,4 +1,5 @@
 import { Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { ShellBackdrop } from "@/components/ui/shell-backdrop";
 import { AppSkeleton } from "@/features/auth/components";
 import { nextDestination, safeRedirect } from "@/features/auth/navigation";
 import type { AuthState } from "@/features/auth/types";
@@ -29,12 +30,13 @@ export function AuthenticatedLayout() {
   return !auth.user || auth.mfaRequired ? (
     <AppSkeleton />
   ) : (
-    <>
-      <PendingDeletionBanner />
+    <div className={onboarding ? undefined : "app-shell"}>
       {!onboarding && <AppNavigation />}
       <div className={onboarding ? undefined : "authenticated-content"}>
+        {!onboarding && <ShellBackdrop />}
+        <PendingDeletionBanner />
         <Outlet />
       </div>
-    </>
+    </div>
   );
 }

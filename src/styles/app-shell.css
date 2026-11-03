@@ -1,0 +1,191 @@
+@layer components {
+  .app-shell {
+    --shell-rail-width: 0px;
+    --shell-tab-height: calc(68px + env(safe-area-inset-bottom));
+    min-height: 100dvh;
+  }
+  .app-shell > .authenticated-content {
+    position: relative;
+    min-width: 0;
+    margin-left: var(--shell-rail-width);
+    padding-bottom: var(--shell-tab-height);
+  }
+  .app-navigation {
+    position: fixed;
+    z-index: 30;
+    inset: auto 0 0;
+    height: var(--shell-tab-height);
+    padding: 4px 8px calc(4px + env(safe-area-inset-bottom));
+    border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+    background: var(--gradient-silver);
+    box-shadow: var(--shadow-silver);
+    backdrop-filter: blur(24px);
+  }
+  .app-monogram,
+  .app-nav-divider {
+    display: none;
+  }
+  .app-nav-items {
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2px;
+  }
+  .app-nav-items > li {
+    flex: 1;
+    min-width: 0;
+  }
+  .app-nav-link {
+    position: relative;
+    display: flex;
+    height: 100%;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 2px;
+    border-radius: var(--radius-xl);
+    color: var(--muted-foreground);
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .app-nav-link:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .app-nav-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: min(64px, 100%);
+    height: 34px;
+    border-radius: 999px;
+  }
+  .app-nav-link.active {
+    color: var(--neon);
+    font-weight: 600;
+  }
+  .app-nav-link.active .app-nav-icon {
+    color: var(--primary-foreground);
+  }
+  .app-nav-link:not(.active):hover .app-nav-icon {
+    background: color-mix(in oklab, var(--accent) 60%, transparent);
+    color: var(--foreground);
+  }
+  .app-nav-badge {
+    position: absolute;
+    top: -4px;
+    right: -2px;
+    border: 2px solid var(--card);
+  }
+  /* Fixed route canvases share the remaining height with the deletion banner.
+     Ordinary routes retain window scrolling (including pull-to-refresh). */
+  .app-shell > .authenticated-content:has(> :is(.conversation-page, .community-layout)) {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - var(--shell-tab-height));
+    padding-bottom: 0;
+  }
+  .app-shell > .authenticated-content > :is(.conversation-page, .community-layout) {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+  .app-shell .deletion-banner {
+    flex: none;
+  }
+  @media (width < 1024px) {
+    .app-shell .new-chat-fab {
+      bottom: calc(22px + var(--shell-tab-height));
+    }
+    .app-shell .chat-selection-bar {
+      bottom: var(--shell-tab-height);
+    }
+  }
+  @media (700px <= width < 1024px) {
+    .app-shell .chat-selection-bar {
+      left: 50%;
+    }
+  }
+  @media (width >= 1024px) {
+    .app-shell {
+      --shell-rail-width: 68px;
+      --shell-tab-height: 0px;
+    }
+    .app-navigation {
+      inset: 0 auto 0 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: var(--shell-rail-width);
+      height: 100dvh;
+      padding: 16px 8px;
+      gap: 12px;
+      border-top: 0;
+      border-right: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+    }
+    .app-shell .chat-selection-bar {
+      left: calc(50% + var(--shell-rail-width) / 2);
+    }
+    .app-monogram {
+      display: grid;
+      place-items: center;
+      flex: none;
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-xl);
+      color: var(--primary-foreground);
+      font-size: 18px;
+      font-weight: 700;
+      outline: 1px solid rgb(255 255 255 / 30%);
+      outline-offset: -1px;
+    }
+    .app-nav-divider {
+      display: block;
+      width: 32px;
+      height: 1px;
+      background: var(--border);
+    }
+    .app-nav-items {
+      flex: 1;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      min-height: 0;
+    }
+    .app-nav-items > li {
+      flex: none;
+    }
+    .app-nav-items > li:last-child {
+      margin-top: auto;
+    }
+    .app-nav-link {
+      height: 48px;
+    }
+    .app-nav-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-xl);
+    }
+    .app-nav-label {
+      position: absolute;
+      left: calc(100% + 16px);
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--popover);
+      color: var(--popover-foreground);
+      box-shadow: var(--shadow-silver);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .app-nav-link:is(:hover, :focus-visible) .app-nav-label {
+      opacity: 1;
+    }
+  }
+}

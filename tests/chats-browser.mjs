@@ -1,5 +1,11 @@
 // Chromium against mocked HTTP/Realtime boundaries. Never touches remote accounts.
 import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+const screenshotDirectory = process.env.UI_ARTIFACT_DIR ?? tmpdir();
+await mkdir(screenshotDirectory, { recursive: true });
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
 const browser = await chromium.launch({
@@ -326,14 +332,82 @@ const waitRefresh = async () => {
   await page.waitForFunction(() => !document.querySelector(".chat-refresh")?.disabled);
 };
 try {
-  await page.goto("http://127.0.0.1:5173/chats");
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats`);
   await row(101).waitFor();
   assert.equal(await page.locator(".chat-filters button").count(), 7);
   assert.equal(await page.locator(".chat-list-item").count(), 5);
   assert.equal(await row(101).locator(".chat-badge").textContent(), "99+");
   assert.equal(await row(106).locator(".chat-badge").count(), 0);
   assert.equal(await page.locator(".request-row").count(), 3);
-  await page.screenshot({ path: "/tmp/silverchat-chats-desktop.png", fullPage: true });
+  const navigation = page.getByRole("navigation", { name: "Main navigation" });
+  assert.equal(await navigation.count(), 1);
+  assert.deepEqual(
+    await navigation
+      .locator("a")
+      .evaluateAll((links) => links.map((link) => link.getAttribute("href"))),
+    ["/chats", "/novedades", "/communities", "/calls", "/settings"],
+  );
+  assert.equal(await navigation.locator('[aria-current="page"]').getAttribute("href"), "/chats");
+  assert.equal(await navigation.getByRole("img", { name: "1028 Unread" }).textContent(), "99+");
+  for (const width of [390, 767, 768, 1023, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const frame = await navigation.boundingBox();
+    const content = await page.locator(".authenticated-content").boundingBox();
+    assert.equal(Math.round(frame.width), width >= 1024 ? 68 : width);
+    assert.equal(Math.round(content.x), width >= 1024 ? 68 : 0);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
+    );
+    assert.equal(await navigation.locator("a").count(), 5);
+    if (width < 1024) {
+      const fab = await page.locator(".new-chat-fab").boundingBox();
+      assert.ok(fab.y + fab.height < frame.y, "Floating action clears bottom tabs");
+    }
+    if (width === 768)
+      await page.screenshot({
+        path: path.join(screenshotDirectory, "silverchat-shell-tablet.png"),
+        animations: "disabled",
+        fullPage: false,
+      });
+  }
+  const chatsLink = navigation.locator('a[href="/chats"]');
+  await chatsLink.focus();
+  assert.equal(
+    await chatsLink.locator(".app-nav-label").evaluate((el) => getComputedStyle(el).opacity),
+    "1",
+  );
+  assert.equal(await chatsLink.evaluate((el) => getComputedStyle(el).outlineStyle), "solid");
+  assert.notEqual(
+    await chatsLink.locator(".app-nav-icon").evaluate((el) => getComputedStyle(el).boxShadow),
+    "none",
+  );
+  await page.keyboard.press("Tab");
+  assert.equal(
+    await navigation
+      .locator('a[href="/novedades"]')
+      .evaluate((el) => el === document.activeElement),
+    true,
+  );
+  await page.locator(".chat-search input").focus();
+  console.log(
+    "PASS shell breakpoints, five URLs, single navigation, active state, keyboard labels, unread exclusions and floating-action clearance",
+  );
+  await page.screenshot({
+    path: path.join(screenshotDirectory, "silverchat-chats-desktop.png"),
+    animations: "disabled",
+    fullPage: false,
+  });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "dark";
+  });
+  await page.screenshot({
+    path: path.join(screenshotDirectory, "silverchat-shell-dark-desktop.png"),
+    animations: "disabled",
+  });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "light";
+  });
   console.log(
     "PASS batched unread pagination, receipt rendering, request collapse, muted/global badges",
   );
@@ -486,6 +560,15 @@ try {
   await page.locator(".new-chat-fab").click();
   await page.getByRole("button", { name: "Message yourself", exact: true }).click();
   await page.getByRole("heading", { name: "A little space for you" }).waitFor();
+  for (const width of [390, 768, 1024]) {
+    await page.setViewportSize({ width, height: 844 });
+    const canvas = await page.locator(".conversation-page").boundingBox();
+    assert.ok(
+      Math.abs(canvas.y + canvas.height - (width < 1024 ? 776 : 844)) <= 1,
+      "Conversation canvas clears navigation at every breakpoint",
+    );
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('.app-navigation a[href="/chats"]').click();
   await row(120).waitFor();
   assert.equal(memberships.find((m) => m.chat_id === uid(120)).pinned_at, null);
@@ -502,7 +585,7 @@ try {
   page = await mobileContext.newPage();
   page.setDefaultTimeout(10000);
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("http://127.0.0.1:5173/chats");
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats`);
   await row(103).waitFor();
   const cdp = await mobileContext.newCDPSession(page);
   assert.equal(await page.evaluate(() => matchMedia("(pointer: coarse)").matches), true);
@@ -537,7 +620,11 @@ try {
   await archive.tap();
   await row(103).waitFor({ state: "hidden" });
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "/tmp/silverchat-chats-mobile.png", fullPage: true });
+  await page.screenshot({
+    path: path.join(screenshotDirectory, "silverchat-chats-mobile.png"),
+    animations: "disabled",
+    fullPage: false,
+  });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   console.log("PASS mobile long-press, swipe action, and no horizontal overflow");
   await page.locator(".new-chat-fab").click();
@@ -549,7 +636,11 @@ try {
   await page.evaluate(() => {
     document.documentElement.dataset.theme = "dark";
   });
-  await page.screenshot({ path: "/tmp/silverchat-chats-dark.png", fullPage: true });
+  await page.screenshot({
+    path: path.join(screenshotDirectory, "silverchat-chats-dark.png"),
+    animations: "disabled",
+    fullPage: false,
+  });
   assert.deepEqual(errors, []);
   console.log("Chats browser checks passed; no uncaught page errors.");
 } catch (error) {

@@ -1,19 +1,22 @@
-.community-layout {
-  height: 100dvh;
-}
-.community-layout .conversation-page {
-  height: 100%;
-  min-height: 0;
-  flex: 1;
-}
-.community-layout .chat-settings-screen {
-  min-height: 100%;
-}
-@media (max-width: 699px) {
+/* Legacy presentation remains active; utilities win for transplanted primitives. */
+@layer components {
   .community-layout {
-    height: calc(100dvh - 68px - env(safe-area-inset-bottom));
+    height: 100dvh;
   }
-  .authenticated-content:has(.community-layout) {
-    padding-bottom: 0;
+  .community-layout .conversation-page {
+    height: 100%;
+    min-height: 0;
+    flex: 1;
+  }
+  .community-layout .chat-settings-screen {
+    min-height: 100%;
+  }
+  @media (max-width: 699px) {
+    .community-layout {
+      height: calc(100dvh - 68px - env(safe-area-inset-bottom));
+    }
+    .authenticated-content:has(.community-layout) {
+      padding-bottom: 0;
+    }
   }
 }

@@ -1,5 +1,9 @@
 // Real Chromium interaction with mocked Supabase/BFF boundaries; never changes remote accounts.
 import assert from "node:assert/strict";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+const screenshotDirectory = process.env.UI_ARTIFACT_DIR ?? tmpdir();
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
 const browser = await chromium.launch({
@@ -133,6 +137,7 @@ await page.route("https://supabase.test/**", async (route) => {
       blocked ? [{ id: otherId, username: "bob", display_name: "Bob Stone" }] : [],
     );
   if (path.endsWith("/user_blocks")) {
+    if (method === "GET") return fulfill(route, blocked ? [{ blocked_id: otherId }] : []);
     blocked = method !== "DELETE";
     return fulfill(route, []);
   }
@@ -211,14 +216,17 @@ await page.route("https://supabase.test/**", async (route) => {
   throw new Error(`Unmocked data ${method} ${path}`);
 });
 const visit = async (path, title) => {
-  await page.goto(`http://127.0.0.1:5173${path}`);
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}${path}`);
   await page.getByRole("heading", { name: title, exact: true }).first().waitFor();
 };
 try {
   await visit("/settings", "Settings");
   await page.getByRole("heading", { name: "Alice Rivera" }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await page.screenshot({ path: "/tmp/silverchat-settings-desktop.png", fullPage: true });
+  await page.screenshot({
+    path: path.join(screenshotDirectory, "silverchat-settings-desktop.png"),
+    fullPage: true,
+  });
   console.log("PASS settings index, identity and desktop layout");
   await visit("/settings/profile", "Edit profile");
   await page.getByLabel("Display name", { exact: true }).fill("Alice Updated");
@@ -301,7 +309,10 @@ try {
   await page.getByRole("heading", { name: "Apariencia" }).waitFor();
   assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
   assert.match(await page.locator("html").getAttribute("class"), /theme-purple/);
-  await page.screenshot({ path: "/tmp/silverchat-settings-dark.png", fullPage: true });
+  await page.screenshot({
+    path: path.join(screenshotDirectory, "silverchat-settings-dark.png"),
+    fullPage: true,
+  });
   await page.getByLabel("Idioma").selectOption("en");
   await page.getByRole("heading", { name: "Appearance" }).waitFor();
   await page.waitForResponse(
@@ -361,6 +372,10 @@ try {
   await page.getByRole("button", { name: "Schedule deletion" }).click();
   await page.getByRole("dialog").waitFor({ state: "hidden" });
   await page.locator(".deletion-banner").waitFor();
+  assert.ok(
+    (await page.locator(".deletion-banner").boundingBox()).x >= 68,
+    "Deletion banner clears desktop rail",
+  );
   await visit("/chats", /^Chats$/);
   await page.locator(".deletion-banner").getByRole("button", { name: "Cancel deletion" }).click();
   await page.locator(".deletion-banner").waitFor({ state: "hidden" });
@@ -386,7 +401,10 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await visit("/settings", "Settings");
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await page.screenshot({ path: "/tmp/silverchat-settings-mobile.png", fullPage: true });
+  await page.screenshot({
+    path: path.join(screenshotDirectory, "silverchat-settings-mobile.png"),
+    fullPage: true,
+  });
   await visit("/settings/storage", "Storage");
   await page.getByText(/MB used/).waitFor();
   await visit("/settings/about", "About");

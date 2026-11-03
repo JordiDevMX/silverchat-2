@@ -1,114 +1,208 @@
-@import "tailwindcss";
+@import "tailwindcss" source("../");
+@import "tw-animate-css";
+@import "./app-shell.css";
 
-/* Auth surfaces use the locked Prompt #3 palette. */
+/* Theme state is owned by the existing data-theme provider, not OS-only dark variants. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@utility bg-ambient-glow {
+  background-image: radial-gradient(
+    ellipse at 50% 0%,
+    color-mix(in oklab, var(--neon) 9%, transparent),
+    transparent 70%
+  );
+}
+
 @theme inline {
-  --color-silver-light: var(--silver-light);
-  --color-silver: var(--silver);
-  --color-silver-dark: var(--silver-dark);
-  --color-neon: var(--neon);
-  --color-neon-glow: var(--neon-glow);
+  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
   --color-neon-magenta: var(--neon-magenta);
   --color-neon-lime: var(--neon-lime);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-primary: var(--primary);
-  --color-muted: var(--muted);
-  --color-secondary: var(--secondary);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: var(--radius);
-  --radius-xl: 1.25rem;
-  --radius-2xl: 1.75rem;
+  --color-ring-offset-background: var(--background);
+
+  /* SilverChat custom tokens */
+  --color-silver: var(--silver);
+  --color-silver-light: var(--silver-light);
+  --color-silver-dark: var(--silver-dark);
+  --color-neon: var(--neon);
+  --color-neon-glow: var(--neon-glow);
+  --color-bubble-self: var(--bubble-self);
+  --color-bubble-other: var(--bubble-other);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
+
 :root {
-  --silver-light: oklch(0.97 0.005 250);
-  --silver: oklch(0.9 0.008 250);
-  --silver-dark: oklch(0.78 0.012 250);
-  --neon: oklch(0.62 0.22 255);
-  --neon-glow: oklch(0.72 0.18 250);
-  --neon-magenta: oklch(0.7 0.2 210);
-  --neon-lime: oklch(0.85 0.2 130);
-  --background: oklch(0.96 0.006 250);
-  --foreground: oklch(0.2 0.03 255);
-  --card: oklch(0.99 0.003 250);
-  --card-foreground: oklch(0.2 0.03 255);
-  --primary-foreground: oklch(0.99 0.003 250);
-  --muted-foreground: oklch(0.48 0.03 255);
-  --border: oklch(0.88 0.01 250);
-  --input: oklch(0.92 0.008 250);
-  --destructive: oklch(0.62 0.23 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --accent: oklch(0.92 0.04 250);
-  --accent-foreground: oklch(0.25 0.08 255);
-  --secondary-foreground: oklch(0.22 0.04 255);
-  --primary: var(--neon);
-  --secondary: var(--silver);
-  --muted: var(--silver-light);
-  --ring: var(--neon);
-  --radius: 0.875rem;
   --duration-fast: 150ms;
   --duration-base: 200ms;
   --duration-slow: 300ms;
   --duration-slower: 400ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --radius: 0.875rem;
+
+  /* Silver palette — cool metallic grays (theme-agnostic) */
+  --silver-light: oklch(0.97 0.005 250);
+  --silver: oklch(0.9 0.008 250);
+  --silver-dark: oklch(0.78 0.012 250);
+
+  /* === DEFAULT ACCENT: NEON BLUE ===
+     Any of the .theme-* classes below overrides these four tokens;
+     the rest of the app cascades from them via --primary / --ring / --gradient-neon / --shadow-glow. */
+  --neon: oklch(0.62 0.22 255);
+  --neon-glow: oklch(0.72 0.18 250);
+  --neon-magenta: oklch(0.7 0.2 210);
+  --neon-lime: oklch(0.85 0.2 130);
+
+  /* Chat bubbles */
+  --bubble-self: var(--neon);
+  --bubble-other: oklch(0.98 0.003 250);
+
+  /* Core semantic mapping */
+  --background: oklch(0.96 0.006 250);
+  --foreground: oklch(0.2 0.03 255);
+  --card: oklch(0.99 0.003 250);
+  --card-foreground: oklch(0.2 0.03 255);
+  --popover: oklch(0.99 0.003 250);
+  --popover-foreground: oklch(0.2 0.03 255);
+
+  --primary: var(--neon);
+  --primary-foreground: oklch(0.99 0.003 250);
+  --secondary: var(--silver);
+  --secondary-foreground: oklch(0.22 0.04 255);
+  --muted: var(--silver-light);
+  --muted-foreground: oklch(0.48 0.03 255);
+  --accent: oklch(0.92 0.04 250);
+  --accent-foreground: oklch(0.25 0.08 255);
+  --destructive: oklch(0.62 0.23 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.88 0.01 250);
+  --input: oklch(0.92 0.008 250);
+  --ring: var(--neon);
+
+  /* Signature gradients & shadows */
   --gradient-silver: linear-gradient(
     135deg,
     oklch(0.98 0.004 250) 0%,
     oklch(0.88 0.012 250) 50%,
     oklch(0.95 0.006 250) 100%
   );
+  /* Holographic gradient: --neon → --neon-magenta (theme-aware) */
+  --gradient-neon: linear-gradient(135deg, var(--neon) 0%, var(--neon-magenta) 100%);
+  /* Double-layered glow: wide soft outer + tight bright inner (color follows --neon) */
+  --shadow-glow:
+    0 0 24px -4px color-mix(in oklab, var(--neon) 55%, transparent),
+    0 0 8px 0 color-mix(in oklab, var(--neon) 35%, transparent);
   --shadow-silver: 0 4px 16px -4px color-mix(in oklab, oklch(0.5 0.03 255) 22%, transparent);
+
+  /* Chart palette: 1=primary (neon), 2=endpoint (neon-magenta), 3/5=fixed, 4=highlight (neon-lime) */
+  --chart-1: var(--neon);
+  --chart-2: var(--neon-magenta);
+  --chart-3: oklch(0.55 0.18 270);
+  --chart-4: var(--neon-lime);
+  --chart-5: oklch(0.45 0.2 260);
+
+  --sidebar: oklch(0.94 0.008 250);
+  --sidebar-foreground: oklch(0.22 0.03 255);
+  --sidebar-primary: var(--neon);
+  --sidebar-primary-foreground: oklch(0.99 0.003 250);
+  --sidebar-accent: oklch(0.9 0.012 250);
+  --sidebar-accent-foreground: oklch(0.22 0.04 255);
+  --sidebar-border: oklch(0.86 0.012 250);
+  --sidebar-ring: var(--neon);
 }
+
+/* ============================================================
+   ACCENT THEME OVERRIDES (light mode)
+   Apply by adding a class to <html>, e.g. <html class="theme-purple">.
+   The default (no class) is Neon Blue.
+   Each theme only overrides the four accent tokens; everything else
+   (gradients, shadows, charts, ring, primary) cascades automatically.
+   ============================================================ */
+
 :root.theme-blue {
+  /* Same as :root — explicit for clarity and so the theme is selectable. */
   --neon: oklch(0.62 0.22 255);
   --neon-glow: oklch(0.72 0.18 250);
   --neon-magenta: oklch(0.7 0.2 210);
   --neon-lime: oklch(0.85 0.2 130);
 }
+
 :root.theme-purple {
+  /* Cyberpunk Violet — deep electric violet → magenta */
   --neon: oklch(0.58 0.24 300);
   --neon-glow: oklch(0.72 0.2 305);
   --neon-magenta: oklch(0.7 0.22 330);
-  --neon-lime: oklch(0.85 0.2 130);
 }
+
 :root.theme-red {
+  /* Crimson Red — vivid red → hot-pink */
   --neon: oklch(0.62 0.24 25);
   --neon-glow: oklch(0.72 0.2 25);
   --neon-magenta: oklch(0.7 0.22 350);
-  --neon-lime: oklch(0.85 0.2 130);
 }
+
 :root.theme-orange {
+  /* Plasma Orange — warm orange → amber */
   --neon: oklch(0.7 0.2 50);
   --neon-glow: oklch(0.78 0.18 55);
   --neon-magenta: oklch(0.72 0.2 80);
-  --neon-lime: oklch(0.85 0.2 130);
 }
+
 :root.theme-yellow {
+  /* Neon Yellow — bright yellow → lime-green (highlight flipped to violet for contrast) */
   --neon: oklch(0.82 0.2 95);
   --neon-glow: oklch(0.88 0.16 100);
   --neon-magenta: oklch(0.82 0.2 130);
   --neon-lime: oklch(0.78 0.2 280);
 }
+
 :root.theme-green {
+  /* Radioactive Green — emerald → teal (highlight flipped to magenta for contrast) */
   --neon: oklch(0.72 0.22 145);
   --neon-glow: oklch(0.82 0.18 145);
   --neon-magenta: oklch(0.7 0.22 175);
   --neon-lime: oklch(0.78 0.22 330);
 }
+
 :root[data-theme="dark"] {
   --silver-light: oklch(0.32 0.012 255);
   --silver: oklch(0.24 0.014 255);
@@ -117,28 +211,102 @@
   --neon-glow: oklch(0.78 0.18 245);
   --neon-magenta: oklch(0.78 0.2 210);
   --neon-lime: oklch(0.85 0.2 130);
+
+  --bubble-self: var(--neon);
+  --bubble-other: oklch(0.26 0.015 255);
+
   --background: oklch(0.16 0.014 255);
   --foreground: oklch(0.96 0.005 250);
   --card: oklch(0.2 0.014 255);
   --card-foreground: oklch(0.96 0.005 250);
+  --popover: oklch(0.2 0.014 255);
+  --popover-foreground: oklch(0.96 0.005 250);
+  --primary: var(--neon);
   --primary-foreground: oklch(0.12 0.01 255);
-  --muted-foreground: oklch(0.7 0.02 250);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
-  --destructive: oklch(0.68 0.2 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --accent: oklch(0.3 0.05 250);
-  --accent-foreground: oklch(0.96 0.005 250);
+  --secondary: oklch(0.26 0.015 255);
   --secondary-foreground: oklch(0.96 0.005 250);
   --muted: oklch(0.24 0.014 255);
-  --secondary: oklch(0.26 0.015 255);
+  --muted-foreground: oklch(0.7 0.02 250);
+  --accent: oklch(0.3 0.05 250);
+  --accent-foreground: oklch(0.96 0.005 250);
+  --destructive: oklch(0.68 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: var(--neon);
+
   --gradient-silver: linear-gradient(
     135deg,
     oklch(0.24 0.014 255) 0%,
     oklch(0.3 0.018 255) 50%,
     oklch(0.22 0.014 255) 100%
   );
+  --gradient-neon: linear-gradient(135deg, var(--neon) 0%, var(--neon-magenta) 100%);
+  --shadow-glow:
+    0 0 32px -2px color-mix(in oklab, var(--neon) 70%, transparent),
+    0 0 12px 0 color-mix(in oklab, var(--neon) 40%, transparent);
+  --shadow-silver: 0 4px 18px -4px oklch(0 0 0 / 0.5);
+
+  --chart-1: var(--neon);
+  --chart-2: var(--neon-magenta);
+  --chart-3: oklch(0.6 0.2 270);
+  --chart-4: var(--neon-lime);
+  --chart-5: oklch(0.5 0.22 260);
+
+  --sidebar: oklch(0.2 0.014 255);
+  --sidebar-foreground: oklch(0.96 0.005 250);
+  --sidebar-primary: var(--neon);
+  --sidebar-primary-foreground: oklch(0.12 0.01 255);
+  --sidebar-accent: oklch(0.26 0.015 255);
+  --sidebar-accent-foreground: oklch(0.96 0.005 250);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: var(--neon);
 }
+
+/* ============================================================
+   ACCENT THEME OVERRIDES (dark mode)
+   Combined `:root[data-theme="dark"].theme-*` selectors have higher
+   specificity than the plain `.theme-*` rules above, so the dark
+   variant wins when both are present.
+   ============================================================ */
+
+:root[data-theme="dark"].theme-blue {
+  --neon: oklch(0.7 0.22 250);
+  --neon-glow: oklch(0.78 0.18 245);
+  --neon-magenta: oklch(0.78 0.2 210);
+}
+
+:root[data-theme="dark"].theme-purple {
+  --neon: oklch(0.72 0.24 295);
+  --neon-glow: oklch(0.82 0.18 300);
+  --neon-magenta: oklch(0.78 0.2 330);
+}
+
+:root[data-theme="dark"].theme-red {
+  --neon: oklch(0.7 0.24 25);
+  --neon-glow: oklch(0.8 0.2 25);
+  --neon-magenta: oklch(0.78 0.2 350);
+}
+
+:root[data-theme="dark"].theme-orange {
+  --neon: oklch(0.76 0.2 50);
+  --neon-glow: oklch(0.84 0.16 55);
+  --neon-magenta: oklch(0.78 0.2 80);
+}
+
+:root[data-theme="dark"].theme-yellow {
+  --neon: oklch(0.88 0.2 95);
+  --neon-glow: oklch(0.92 0.16 100);
+  --neon-magenta: oklch(0.88 0.2 130);
+}
+
+:root[data-theme="dark"].theme-green {
+  --neon: oklch(0.78 0.22 145);
+  --neon-glow: oklch(0.86 0.18 145);
+  --neon-magenta: oklch(0.78 0.2 175);
+}
+
+/* Before the theme provider resolves system mode, use the same semantic palette. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     --silver-light: oklch(0.32 0.012 255);
@@ -148,58 +316,77 @@
     --neon-glow: oklch(0.78 0.18 245);
     --neon-magenta: oklch(0.78 0.2 210);
     --neon-lime: oklch(0.85 0.2 130);
+
+    --bubble-self: var(--neon);
+    --bubble-other: oklch(0.26 0.015 255);
+
     --background: oklch(0.16 0.014 255);
     --foreground: oklch(0.96 0.005 250);
     --card: oklch(0.2 0.014 255);
     --card-foreground: oklch(0.96 0.005 250);
+    --popover: oklch(0.2 0.014 255);
+    --popover-foreground: oklch(0.96 0.005 250);
+    --primary: var(--neon);
     --primary-foreground: oklch(0.12 0.01 255);
-    --muted-foreground: oklch(0.7 0.02 250);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 14%);
-    --destructive: oklch(0.68 0.2 25);
-    --destructive-foreground: oklch(0.99 0 0);
-    --accent: oklch(0.3 0.05 250);
-    --accent-foreground: oklch(0.96 0.005 250);
+    --secondary: oklch(0.26 0.015 255);
     --secondary-foreground: oklch(0.96 0.005 250);
     --muted: oklch(0.24 0.014 255);
-    --secondary: oklch(0.26 0.015 255);
+    --muted-foreground: oklch(0.7 0.02 250);
+    --accent: oklch(0.3 0.05 250);
+    --accent-foreground: oklch(0.96 0.005 250);
+    --destructive: oklch(0.68 0.2 25);
+    --destructive-foreground: oklch(0.99 0 0);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 14%);
+    --ring: var(--neon);
+
     --gradient-silver: linear-gradient(
       135deg,
       oklch(0.24 0.014 255) 0%,
       oklch(0.3 0.018 255) 50%,
       oklch(0.22 0.014 255) 100%
     );
+    --gradient-neon: linear-gradient(135deg, var(--neon) 0%, var(--neon-magenta) 100%);
+    --shadow-glow:
+      0 0 32px -2px color-mix(in oklab, var(--neon) 70%, transparent),
+      0 0 12px 0 color-mix(in oklab, var(--neon) 40%, transparent);
+    --shadow-silver: 0 4px 18px -4px oklch(0 0 0 / 0.5);
+
+    --chart-1: var(--neon);
+    --chart-2: var(--neon-magenta);
+    --chart-3: oklch(0.6 0.2 270);
+    --chart-4: var(--neon-lime);
+    --chart-5: oklch(0.5 0.22 260);
+
+    --sidebar: oklch(0.2 0.014 255);
+    --sidebar-foreground: oklch(0.96 0.005 250);
+    --sidebar-primary: var(--neon);
+    --sidebar-primary-foreground: oklch(0.12 0.01 255);
+    --sidebar-accent: oklch(0.26 0.015 255);
+    --sidebar-accent-foreground: oklch(0.96 0.005 250);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: var(--neon);
   }
 }
-:root[data-theme="dark"].theme-blue {
-  --neon: oklch(0.7 0.22 250);
-  --neon-glow: oklch(0.78 0.18 245);
-  --neon-magenta: oklch(0.78 0.2 210);
+
+/* Custom utilities backed by the tokens above */
+@utility bg-gradient-silver {
+  background-image: var(--gradient-silver);
 }
-:root[data-theme="dark"].theme-purple {
-  --neon: oklch(0.72 0.24 295);
-  --neon-glow: oklch(0.82 0.18 300);
-  --neon-magenta: oklch(0.78 0.2 330);
+@utility bg-gradient-neon {
+  background-image: var(--gradient-neon);
 }
-:root[data-theme="dark"].theme-red {
-  --neon: oklch(0.7 0.24 25);
-  --neon-glow: oklch(0.8 0.2 25);
-  --neon-magenta: oklch(0.78 0.2 350);
+@utility shadow-glow {
+  --tw-shadow: var(--shadow-glow);
+  box-shadow:
+    var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
-:root[data-theme="dark"].theme-orange {
-  --neon: oklch(0.76 0.2 50);
-  --neon-glow: oklch(0.84 0.16 55);
-  --neon-magenta: oklch(0.78 0.2 80);
+@utility shadow-silver {
+  box-shadow: var(--shadow-silver);
 }
-:root[data-theme="dark"].theme-yellow {
-  --neon: oklch(0.88 0.2 95);
-  --neon-glow: oklch(0.92 0.16 100);
-  --neon-magenta: oklch(0.88 0.2 130);
-}
-:root[data-theme="dark"].theme-green {
-  --neon: oklch(0.78 0.22 145);
-  --neon-glow: oklch(0.86 0.18 145);
-  --neon-magenta: oklch(0.78 0.2 175);
+@utility text-neon {
+  color: var(--neon);
 }
 
 @layer base {
@@ -207,6 +394,12 @@
   *::before,
   *::after {
     box-sizing: border-box;
+    border-color: var(--border);
+  }
+  html,
+  body,
+  #root {
+    min-height: 100%;
   }
   body {
     margin: 0;
@@ -298,12 +491,12 @@
     display: flex;
     flex-direction: column;
   }
-  header {
+  header:not([data-slot]) {
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
-  footer {
+  footer:not([data-slot]) {
     padding: 2rem 0 0.5rem;
     color: var(--muted-foreground);
     font-size: 0.8rem;
@@ -361,18 +554,18 @@
     color: var(--muted-foreground);
     margin-bottom: 0.5rem;
   }
-  form {
+  form:not([data-slot]) {
     display: flex;
     flex-direction: column;
     gap: 0.9rem;
   }
-  label,
-  legend {
+  label:not([data-slot]),
+  legend:not([data-slot]) {
     font-weight: 500;
     font-size: 0.9rem;
   }
-  input:not([type="checkbox"]),
-  select {
+  input:not([type="checkbox"]):not([data-slot]),
+  select:not([data-slot]) {
     min-height: 48px;
     width: 100%;
     background: var(--card);
@@ -528,11 +721,12 @@
     max-width: min(92vw, 520px);
     max-height: 90dvh;
     overflow-y: auto;
-    background: var(--card);
-    color: var(--foreground);
+    background: var(--popover);
+    color: var(--popover-foreground);
     padding: 2rem;
     border: 1px solid var(--border);
-    border-radius: 1.25rem;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-silver);
     margin: auto;
   }
   .auth-modal::backdrop {
@@ -704,5 +898,82 @@
     to {
       background-position: 200% 0;
     }
+  }
+}
+
+@layer base {
+  /* ---------- Global custom scrollbar (SilverChat theme) ---------- */
+
+  /* Firefox & modern standards */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.72 0.01 250 / 0.35) transparent;
+  }
+
+  /* WebKit (Chrome, Edge, Safari) */
+  ::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.72 0.01 250 / 0.35);
+    border-radius: 9999px;
+    border: 1.5px solid transparent;
+    background-clip: padding-box;
+    transition: background 0.3s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--neon) 70%, transparent);
+    border: 1.5px solid transparent;
+    background-clip: padding-box;
+  }
+}
+
+/* Opt-in named chat rows; activation belongs to Phase 3. */
+:root {
+  view-transition-name: none;
+}
+
+::view-transition-group(*) {
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); /* easeOutCubic */
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Entering-only rows (present in the new state, absent from the old):
+   fade in + subtle upward drift (8px) instead of the browser's default
+   zoom. Paired (surviving) rows keep the native crossfade + FLIP slide. */
+::view-transition-new(*):only-child {
+  animation-name: vt-chat-in;
+}
+
+@keyframes vt-chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    /* biome-ignore lint/complexity/noImportantStyles: honor reduced motion for browser snapshot pseudo-elements */
+    animation: none !important;
   }
 }
