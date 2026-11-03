@@ -93,7 +93,17 @@
   --neon-lime: oklch(0.85 0.2 130);
 
   /* Chat bubbles */
-  --bubble-self: var(--neon);
+  --bubble-self: color-mix(in oklab, var(--neon) 12%, var(--card));
+  --bubble-self-foreground: var(--foreground);
+  --gradient-bubble-self: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--neon) 8%, var(--card)),
+    var(--bubble-self)
+  );
+  --shadow-bubble-self:
+    inset 0 0 0 1px color-mix(in oklab, var(--neon) 22%, transparent),
+    0 0 24px -4px color-mix(in oklab, var(--neon) 35%, transparent),
+    0 0 8px color-mix(in oklab, var(--neon) 18%, transparent);
   --bubble-other: oklch(0.98 0.003 250);
 
   /* Core semantic mapping */
@@ -213,6 +223,10 @@
   --neon-lime: oklch(0.85 0.2 130);
 
   --bubble-self: var(--neon);
+  --bubble-self-foreground: var(--primary-foreground);
+  --gradient-bubble-self: var(--gradient-neon);
+  --shadow-bubble-self:
+    inset 0 0 0 1px color-mix(in oklab, var(--neon-glow) 60%, transparent), var(--shadow-glow);
   --bubble-other: oklch(0.26 0.015 255);
 
   --background: oklch(0.16 0.014 255);
@@ -318,6 +332,10 @@
     --neon-lime: oklch(0.85 0.2 130);
 
     --bubble-self: var(--neon);
+    --bubble-self-foreground: var(--primary-foreground);
+    --gradient-bubble-self: var(--gradient-neon);
+    --shadow-bubble-self:
+      inset 0 0 0 1px color-mix(in oklab, var(--neon-glow) 60%, transparent), var(--shadow-glow);
     --bubble-other: oklch(0.26 0.015 255);
 
     --background: oklch(0.16 0.014 255);
@@ -370,6 +388,12 @@
 }
 
 /* Custom utilities backed by the tokens above */
+@utility bubble-self {
+  background-color: var(--bubble-self);
+  background-image: var(--gradient-bubble-self);
+  color: var(--bubble-self-foreground);
+  box-shadow: var(--shadow-bubble-self);
+}
 @utility bg-gradient-silver {
   background-image: var(--gradient-silver);
 }

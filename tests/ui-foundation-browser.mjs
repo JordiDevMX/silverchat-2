@@ -134,6 +134,7 @@ try {
   for (const mode of ["light", "dark"]) {
     const primaries = new Set();
     const glows = new Set();
+    const bubbleGlows = new Set();
     for (const accent of ["blue", "purple", "red", "orange", "yellow", "green"]) {
       await page.evaluate(
         ({ mode, accent }) => {
@@ -148,6 +149,20 @@ try {
       assert.equal(colors.length, 6);
       assert.ok(colors.every((value) => value !== "rgba(0, 0, 0, 0)" && value !== "transparent"));
       primaries.add(colors.at(-1));
+      const own = page.locator('[data-slot="bubble-surface"][data-own="true"]');
+      const bubbleShadow = await own.evaluate((el) => getComputedStyle(el).boxShadow);
+      assert.match(bubbleShadow, mode === "dark" ? /32px/ : /24px/);
+      assert.match(
+        await own.evaluate((el) => getComputedStyle(el).backgroundImage),
+        /linear-gradient/,
+      );
+      assert.equal(
+        await page
+          .locator('[data-slot="bubble-surface"][data-own="false"]')
+          .evaluate((el) => getComputedStyle(el).boxShadow),
+        "none",
+      );
+      bubbleGlows.add(bubbleShadow);
       glows.add(
         await page
           .getByRole("button", { name: "Follow", exact: true })
@@ -156,6 +171,7 @@ try {
     }
     assert.equal(primaries.size, 6);
     assert.equal(glows.size, 6);
+    assert.equal(bubbleGlows.size, 6);
     await page.evaluate(() => {
       document.documentElement.className = "theme-blue";
     });

@@ -120,3 +120,7 @@ theme persistence, notifications and mobile layout.
 - AuthenticatedLayout owns the shell frame and banner placement. AppNavigation mounts once and transforms from bottom tabs to a 68px rail at lg. useAppNavigation owns the unchanged query/realtime/draft/unread work. Never mount separate live desktop/mobile navigation instances.
 - app-shell.css is imported by globals.css; it replaces only the legacy navigation styles in chats.css and bridges viewport/FAB/selection geometry. Keep feature-owned headers, search state, document scroll and content sidebars intact until those modules migrate.
 - Shell regression coverage lives in tests/chats-browser.mjs. All browser harnesses accept UI_BASE_URL (default http://127.0.0.1:5173) and UI_ARTIFACT_DIR for local review.
+
+## Own-bubble surfaces
+
+Use BubbleSurface with own for message-owned styling; feature code determines ownership and retains actions/receipts. The bubble-self utility is also available for other silhouettes. Rounded corners determine the static halo shape. Light surfaces are pale with foreground text; dark surfaces use the accent gradient with contrasting text and a bright rim. Other bubbles remain unlit. Visual review is manual in /tests/ui-foundation.html; browser harnesses no longer save image artifacts (CON-008).

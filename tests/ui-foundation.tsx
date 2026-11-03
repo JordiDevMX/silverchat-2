@@ -12,6 +12,7 @@ import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Avatar } from "../src/components/ui/avatar";
 import { Badge } from "../src/components/ui/badge";
+import { BubbleSurface } from "../src/components/ui/bubble-surface";
 import { Button } from "../src/components/ui/button";
 import { CodeInput } from "../src/components/ui/code-input";
 import {
@@ -113,6 +114,10 @@ function FoundationReview() {
           <Button disabled>Disabled primary</Button>
         </div>
       </section>
+      <section className="mb-8 flex flex-wrap items-start gap-6 p-4" aria-label="Bubble surfaces">
+        <BubbleSurface>See you in a moment.</BubbleSurface>
+        <BubbleSurface own>On my way. See you soon!</BubbleSurface>
+      </section>
       <div className="review-grid">
         <CardSurface>
           <div className="review-stack settings-form">
@@ -191,14 +196,16 @@ function FoundationReview() {
                   (token) => (
                     <div
                       key={token}
-                      className="review-swatch"
+                      className={`review-swatch ${token === "bubble-self" ? "bubble-self" : ""}`}
                       data-token={token}
                       style={{
-                        background: `var(--${token})`,
+                        background: token === "bubble-self" ? undefined : `var(--${token})`,
                         color:
-                          token === "primary" || token === "bubble-self"
-                            ? "var(--primary-foreground)"
-                            : "var(--foreground)",
+                          token === "bubble-self"
+                            ? "var(--bubble-self-foreground)"
+                            : token === "primary"
+                              ? "var(--primary-foreground)"
+                              : "var(--foreground)",
                       }}
                     >
                       {token}

@@ -570,3 +570,7 @@ Artifacts: node_modules/.cache/ui-foundation/ — foundation-light-desktop.png, 
 ## 9. Feedback turn working rules (CON-006/007/008)
 
 Baseline captured as ff3b4eb (F01-F06, T024/T106/T124). Permanent rules are recorded in AGENTS.md: quality-first scoped work, commits per completed unit, no generated review images. All nine browser harnesses now omit screenshots (including failure captures); assertions and textual diagnostics remain. Syntax checks passed for all nine harnesses. Prior artifact notes above are historical. Future visual acceptance is manual through pnpm dev and devtools.
+
+### Feedback unit: own-bubble luminosity (F01/F04) — Verified
+
+Added accent-aware --gradient-bubble-self/--shadow-bubble-self/--bubble-self-foreground tokens and bubble-self utility. Light uses pale accent fill and softer halo; explicit/system dark uses neon gradient, luminous rim and existing diffuse shadow-glow. New BubbleSurface is presentation-only; other bubbles have no glow. Both fixture swatch and conversation samples consume the same treatment. Existing message features remain outside this unit. App typecheck, scoped Biome and screenshot-free foundation harness passed, including all 12 theme/accent combinations and neutral-counterpart assertions. Manual visual acceptance: /tests/ui-foundation.html, Bubble surfaces and bubble-self tile, light/dark and all accents at 375/768/1280px.
