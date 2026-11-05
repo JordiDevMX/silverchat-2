@@ -12,7 +12,7 @@ pnpm review:ui
 3. Wait for Vite to print `http://127.0.0.1:5177/` and its UI review link. Keep that terminal open.
 4. Open **http://127.0.0.1:5177/** in your browser. It redirects to **http://127.0.0.1:5177/tests/ui-foundation.html**.
 
-You should see the SilverChat brand, Light/Dark buttons, an Accent selector, the neon action examples, two message-bubble samples, a Chats header with metallic search, a closed Message requests section, four tab-action tiles, and the **Conversation timeline**, **Interactive messaging** and **Communities** galleries. This uses the real migrated components. It does not mount the app/auth providers, load .env files, require Supabase credentials, or contact the auth backend.
+You should see the SilverChat brand, Light/Dark buttons, an Accent selector, the neon action examples, two message-bubble samples, a Chats header with metallic search, a closed Message requests section, four tab-action tiles, and the **Conversation timeline**, **Interactive messaging**, **Communities** and **Stories** galleries. This uses the real migrated components. It does not mount the app/auth providers, load .env files, require Supabase credentials, or contact the auth backend.
 
 **Do not double-click the HTML file or open a file:// URL.** Browsers cannot run this TypeScript/ESM fixture directly from disk. The HTML now displays the command and working HTTP link if its module cannot load.
 
@@ -167,6 +167,28 @@ Start with **pnpm review:ui** and **http://127.0.0.1:5177/tests/ui-foundation.ht
 
 No screenshot artifacts are produced. The fixture demonstrates the shared transition; the mocked community browser suite also checks production row retention, persistence and focus. Module 3B remains deferred.
 
+## Stories — Module 4A
+
+Run **pnpm review:ui** and open **http://127.0.0.1:5177/tests/ui-foundation.html#stories-gallery**. The review server is account-free; the new section uses the actual story surfaces with local preview state. It has no remote images, microphone, media playback or autoplay. All navigation/progress examples are manually stepped.
+
+Repeat in **375 × 844**, **768 × 1024**, **1280 × 900**, **Light/Dark**, and **blue, orange, green, purple, red, yellow** (36 combinations):
+
+1. Inspect the compact horizontal row: Add story is silver with the approved neon camera tile; Sofia and My story have unseen rings/glow; Alex has a quiet seen ring. The plus control remains separate from opening My story. Hover/press should respond subtly without shifting the row layout or clipping the name.
+2. Use Previous preview / Next preview and Pause preview story in the inline viewer. Progress changes only when stepped; Pause changes local feedback. Type a Preview story reply and send: the draft clears with a local notice and no request.
+3. Open Preview unseen Sofia. The dark viewer is centered and rounded on desktop and full-screen on mobile. Inspect progress, identity, story text, navigation and glowing send. Open Preview viewers; Tab/Shift+Tab remain within the sheet. Escape closes it with a short downward fade and returns focus to Preview viewers. Close the viewer and check focus returns to its card.
+4. Open Preview add story. Inspect the silver creator, text field and action buttons; type, cancel/save or Escape. Overlays enter/exit over 200ms with a small movement. Enable **prefers-reduced-motion: reduce** in DevTools Rendering: decorative movement and dismissal become instant. Repeat with keyboard controls.
+5. Recheck the approved conversation, interactive and community galleries. Story styling should not change their layout, fills or motion.
+
+For real behavior, log in through the normal backend setup and open **/novedades on your app origin**. Port 5177 is the isolated gallery, not an authenticated application. Its channels/discovery section intentionally remains in the prior presentation pending Module 3B.
+
+- **Creation:** My story/Add story → Camera/Gallery/Text. Inspect selected mode styling, caption, photo/video preview, eight background swatches/custom color, character limits, upload progress, disabled/busy controls and cancel/focus return. Publish image/video/text; check 50 MB, 15-second video and ten-active-story limits. A failed publish retry reuses the existing story/upload IDs; the browser suite verifies this without creating duplicate media.
+- **Viewing:** check seen/unseen order and rings, signed image/video loading and unavailable-media fallback. Text/images advance after five active seconds; video follows its bounded duration. Hold the stage, release, navigate Previous/Next, tap left/right, swipe down, hide/restore the tab and open a menu/sheet. Pauses should freeze progress and resume from the same point. Reduced motion disables decoration while retaining functional story playback/progress.
+- **Replies:** type a reply to another person's story; focus/draft pauses playback. Send and verify the linked message reaches the direct chat once. Test a failure/retry when practical; automated mocked checks cover ambiguous success and reconciliation failure while preserving the same UUID and direct chat.
+- **Ownership:** open your own viewers sheet, close it and check focus/timer resume. Only your own story exposes deletion. Test Cancel and Confirm on a disposable story, including busy/error feedback. End-of-group autoplay and successful publishing keep their original immediate completion behavior.
+- Repeat live inspection at all three viewports, both themes and all six accents, including English/Spanish wrapping. Actual accounts/backend behavior beyond mocked boundaries still needs this manual review.
+
+The screenshot-free stories gallery verifies all 36 combinations. The Novedades harness also covers existing channels as a regression check; no channel migration is included. **Stop at Module 4A; 4B and 3B remain deferred.**
+
 ## Live application review is a separate setup
 
 For actual accounts, use the existing Netlify/auth setup in [authentication.md](authentication.md#dependencies-and-local-workflow), including its HTTPS/cookie and callback requirements. Plain pnpm dev and pnpm review:ui are not substitutes for that backend. This turn verified protected routes with mocked auth/data boundaries; it did not certify a live-account login deployment.
@@ -177,4 +199,4 @@ Once that normal application setup is working, inspect /chats, /chats?filter=arc
 
 See [review-path-evidence.md](review-path-evidence.md) for the original reproduction and clean-start results, and UI_MIGRATION_MAP.md §11 for Module 2A. The screenshot-free journey harness is tests/ui-review-path-browser.mjs. Module 2A adds tests/conversation-gallery-browser.mjs and preserves existing outcome assertions; focus/entry selectors account for asynchronous sheet closure and Vite module cache suffixes. Messaging harnesses also check reply restoration/reconciliation and failed upload ownership.
 
-Module 2A migrates the read-only conversation frame/header/timeline/bubbles and extracts the five approved controllers. Module 2B now migrates composer/tools, audio player/recorder, action menus/modals, search UI, lightbox and reaction picker (UI_MIGRATION_MAP.md §15). Module 3A now migrates the community surfaces and extracts their workflows (UI_MIGRATION_MAP.md §16). Module 3B and later modules remain deferred. Calls remains its existing placeholder. No auth bypass is included.
+Module 2A migrates the read-only conversation frame/header/timeline/bubbles and extracts the five approved controllers. Module 2B now migrates composer/tools, audio player/recorder, action menus/modals, search UI, lightbox and reaction picker (UI_MIGRATION_MAP.md §15). Module 3A now migrates the community surfaces and extracts their workflows (UI_MIGRATION_MAP.md §16). Module 4A now migrates story surfaces (UI_MIGRATION_MAP.md §18); T123 is partial. Module 4B, 3B and unmatched screens remain deferred. Calls remains its existing placeholder. No auth bypass is included.

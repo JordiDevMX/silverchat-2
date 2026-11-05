@@ -140,3 +140,42 @@
     }
   }
 }
+
+@source "./stories-gallery.tsx";
+@layer components {
+  .stories-gallery {
+    margin-top: 48px;
+    min-width: 0;
+  }
+  .stories-gallery > h2 {
+    font-size: 24px;
+    font-weight: 600;
+  }
+  .stories-gallery > p {
+    color: var(--muted-foreground);
+    margin: 12px 0;
+  }
+  .story-preview-frame {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 420px);
+    height: 700px;
+    background: #101218;
+    color: white;
+    padding: 16px;
+    border-radius: 24px;
+  }
+  .story-preview-frame .story-overlay-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    gap: 12px;
+    animation: none;
+  }
+  .story-preview-status {
+    font-size: 12px;
+    text-align: center;
+    color: #ffffffb0;
+  }
+}

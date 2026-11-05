@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useMessageText } from "@/features/messages/i18n";
 import { useCreateStory } from "../../hooks/stories/useCreateStory";
 import { STORY_COLORS } from "../../lib/storyColors";
@@ -53,17 +54,18 @@ export function StoryTextEditor({
       </div>
       {create.isError && <p role="alert">{create.error.message}</p>}
       <div className="modal-actions">
-        <button
+        <Button
           type="button"
-          className="button secondary"
+          variant="outline"
+          className="rounded-xl"
           disabled={create.isPending}
           onClick={onClose}
         >
           {say("Discard", "Descartar")}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="button primary"
+          className="rounded-xl"
           disabled={create.isPending || !text.trim()}
           onClick={() => {
             setAttempted(true);
@@ -74,7 +76,7 @@ export function StoryTextEditor({
           }}
         >
           {say("Send story", "Enviar historia")}
-        </button>
+        </Button>
       </div>
     </div>
   );

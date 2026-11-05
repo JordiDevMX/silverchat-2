@@ -1,5 +1,8 @@
+import { ChevronLeft, ChevronRight, Eye, MoreHorizontal, Pause, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Modal } from "@/features/auth/components";
+import { Button } from "@/components/ui/button";
+import { StoryOverlay } from "@/components/ui/story-overlay";
+import { StoryStageSurface } from "@/components/ui/story-surfaces";
 import { useMessageText } from "@/features/messages/i18n";
 import { useMediaUrl } from "@/features/messages/lib/media";
 import { Avatar } from "@/features/settings/components/shared";
@@ -23,6 +26,7 @@ function Segment({
   onNext,
   onPrevious,
   onClose,
+  closing,
 }: {
   story: Story;
   index: number;
@@ -30,6 +34,7 @@ function Segment({
   onNext: () => void;
   onPrevious: () => void;
   onClose: () => void;
+  closing: boolean;
 }) {
   const { user } = useAuth();
   const { say, language } = useMessageText();
@@ -48,7 +53,7 @@ function Segment({
   const [failed, setFailed] = useState(false);
   const advanced = useRef(false);
   const next = () => {
-    if (!advanced.current) {
+    if (!closing && !advanced.current) {
       advanced.current = true;
       onNext();
     }
@@ -58,24 +63,25 @@ function Segment({
   const remove = useDeleteStory();
   const gesture = useRef<{ x: number; y: number; at: number } | undefined>(undefined);
   useEffect(() => {
-    if (mine) return;
+    if (mine || closing) return;
     // Delay the view mark so fast swipes past a story cancel it before firing.
     const timer = setTimeout(() => mark.mutate(story.id), 500);
     return () => clearTimeout(timer);
-  }, [story.id, mine, mark.mutate]);
+  }, [story.id, mine, mark.mutate, closing]);
   useEffect(() => {
     const fn = () => setHidden(document.hidden);
     document.addEventListener("visibilitychange", fn);
     return () => document.removeEventListener("visibilitychange", fn);
   }, []);
-  const paused = held || reply || sheet || menu || confirm || hidden || buffering || playBlocked;
+  const paused =
+    closing || held || reply || sheet || menu || confirm || hidden || buffering || playBlocked;
   const progress = useStoryTimer(story.media_type === "video" ? duration : 5000, next, paused);
   useEffect(() => {
     const v = video.current;
     if (!v || !url.data) return;
-    if (held || reply || sheet || menu || confirm || hidden) v.pause();
+    if (closing || held || reply || sheet || menu || confirm || hidden) v.pause();
     else if (!playBlocked) void v.play().catch(() => setPlayBlocked(true));
-  }, [held, reply, sheet, menu, confirm, hidden, playBlocked, url.data]);
+  }, [closing, held, reply, sheet, menu, confirm, hidden, playBlocked, url.data]);
   return (
     <>
       <StoryProgressBar count={count} index={index} progress={progress} />
@@ -90,23 +96,27 @@ function Segment({
             )}
           </small>
         </span>
+        <span className="story-pause-indicator" data-paused={paused} aria-hidden="true">
+          <Pause size={12} />
+          {say("Paused", "En pausa")}
+        </span>
         {mine && (
           <button
             type="button"
             aria-label={say("Story options", "Opciones de historia")}
             onClick={() => setMenu(!menu)}
           >
-            ⋮
+            <MoreHorizontal size={20} />
           </button>
         )}
         <button type="button" aria-label={say("Close story", "Cerrar historia")} onClick={onClose}>
-          ×
+          <X size={20} />
         </button>
       </header>
       {menu && (
         <button
           type="button"
-          className="button danger"
+          className="story-delete-action"
           onClick={() => {
             setMenu(false);
             setConfirm(true);
@@ -115,9 +125,7 @@ function Segment({
           {say("Delete story", "Eliminar historia")}
         </button>
       )}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: Pointer gestures supplement the keyboard-accessible Previous/Next controls; suppress native media callouts during a hold. */}
-      <div
-        className="story-stage"
+      <StoryStageSurface
         onContextMenu={(e) => e.preventDefault()}
         style={{
           background:
@@ -241,20 +249,22 @@ function Segment({
             {say("Play video", "Reproducir video")}
           </button>
         )}
-      </div>
+      </StoryStageSurface>
       {story.caption && <p className="story-caption">{story.caption}</p>}
       <nav className="story-controls">
         <button type="button" onClick={onPrevious}>
+          <ChevronLeft size={16} />
           {say("Previous", "Anterior")}
         </button>
         <button type="button" onClick={next}>
           {say("Next", "Siguiente")}
+          <ChevronRight size={16} />
         </button>
       </nav>
       <footer>
         {mine ? (
           <button type="button" className="story-owner-views" onClick={() => setSheet(true)}>
-            👁 {views.data?.length ?? 0} {say("views", "vistas")}
+            <Eye size={16} /> {views.data?.length ?? 0} {say("views", "vistas")}
           </button>
         ) : (
           <StoryReplyInput story={story} onFocusChange={setReply} />
@@ -262,41 +272,48 @@ function Segment({
       </footer>
       {sheet && <StoryViewersSheet storyId={story.id} onClose={() => setSheet(false)} />}{" "}
       {confirm && (
-        <Modal
+        <StoryOverlay
           title={say("Delete this story?", "¿Eliminar esta historia?")}
-          onClose={remove.isPending ? undefined : () => setConfirm(false)}
+          onClose={() => setConfirm(false)}
+          canClose={!remove.isPending}
+          className="story-confirm"
         >
-          <p>
-            {say(
-              "This permanently removes your story.",
-              "Tu historia se eliminará permanentemente.",
-            )}
-          </p>
-          {remove.isError && (
-            <p role="alert">
-              {say("Unable to delete. Try again.", "No se pudo eliminar. Reinténtalo.")}
-            </p>
+          {(close) => (
+            <>
+              <p>
+                {say(
+                  "This permanently removes your story.",
+                  "Tu historia se eliminará permanentemente.",
+                )}
+              </p>
+              {remove.isError && (
+                <p role="alert">
+                  {say("Unable to delete. Try again.", "No se pudo eliminar. Reinténtalo.")}
+                </p>
+              )}
+              <div className="modal-actions">
+                <Button type="button" disabled={remove.isPending} variant="outline" onClick={close}>
+                  {say("Cancel", "Cancelar")}
+                </Button>
+                <Button
+                  type="button"
+                  disabled={remove.isPending}
+                  variant="destructive"
+                  onClick={async () => {
+                    try {
+                      await remove.mutateAsync(story);
+                      onClose();
+                    } catch {
+                      /* The mutation renders its error and remains retryable. */
+                    }
+                  }}
+                >
+                  {say("Delete story", "Eliminar historia")}
+                </Button>
+              </div>
+            </>
           )}
-          <div className="modal-actions">
-            <button type="button" disabled={remove.isPending} onClick={() => setConfirm(false)}>
-              {say("Cancel", "Cancelar")}
-            </button>
-            <button
-              type="button"
-              disabled={remove.isPending}
-              onClick={async () => {
-                try {
-                  await remove.mutateAsync(story);
-                  onClose();
-                } catch {
-                  /* The mutation renders its error and remains retryable. */
-                }
-              }}
-            >
-              {say("Delete story", "Eliminar historia")}
-            </button>
-          </div>
-        </Modal>
+        </StoryOverlay>
       )}
     </>
   );
@@ -345,25 +362,32 @@ export function StoryViewer({
     );
   };
   return (
-    <Modal title={say("Story", "Historia")} className="story-viewer" onClose={onClose}>
-      {story ? (
-        <Segment
-          key={story.id}
-          story={story}
-          index={index}
-          count={stories.length}
-          onNext={() => move(1)}
-          onPrevious={() => move(-1)}
-          onClose={onClose}
-        />
-      ) : (
+    <StoryOverlay title={say("Story", "Historia")} className="story-viewer" onClose={onClose}>
+      {(close, closing) => (
         <>
-          <p>{say("This story is no longer available.", "Esta historia ya no está disponible.")}</p>
-          <button type="button" onClick={onClose}>
-            {say("Close", "Cerrar")}
-          </button>
+          {story ? (
+            <Segment
+              key={story.id}
+              story={story}
+              index={index}
+              count={stories.length}
+              onNext={() => move(1)}
+              onPrevious={() => move(-1)}
+              onClose={close}
+              closing={closing}
+            />
+          ) : (
+            <>
+              <p>
+                {say("This story is no longer available.", "Esta historia ya no está disponible.")}
+              </p>
+              <button type="button" onClick={close}>
+                {say("Close", "Cerrar")}
+              </button>
+            </>
+          )}
         </>
       )}
-    </Modal>
+    </StoryOverlay>
   );
 }

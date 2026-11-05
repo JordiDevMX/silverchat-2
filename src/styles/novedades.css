@@ -1,4 +1,4 @@
-/* Legacy presentation remains active; utilities win for transplanted primitives. */
+/* Stories are migrated; channel presentation remains unchanged until Module 3B. */
 @layer components {
   .novedades-page {
     width: 100%;
@@ -63,7 +63,7 @@
   }
   .story-card-wrap {
     position: relative;
-    flex: 0 0 140px;
+    flex: 0 0 112px;
     min-width: 0;
     scroll-snap-align: start;
   }
@@ -71,11 +71,11 @@
     position: relative;
     isolation: isolate;
     border: 2px solid transparent;
-    border-radius: 22px;
-    height: 200px;
+    border-radius: 18px;
+    height: 176px;
     min-height: 0;
-    width: 140px;
-    padding: 14px;
+    width: 112px;
+    padding: 10px;
     overflow: clip;
     color: white;
     cursor: pointer;
@@ -93,7 +93,8 @@
     background: linear-gradient(transparent 30%, #0008);
   }
   .story-card.unwatched {
-    border-color: var(--primary);
+    border-color: color-mix(in oklab, var(--neon) 65%, transparent);
+    box-shadow: var(--shadow-glow);
   }
   .story-card.empty {
     border: 2px dashed var(--border);
@@ -122,6 +123,10 @@
     z-index: -2;
   }
   .story-card strong {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: 13px;
     text-align: left;
     text-shadow: 0 1px 5px #0008;
@@ -140,8 +145,9 @@
     z-index: 2;
     border: 2px solid var(--background);
     border-radius: 50%;
-    background: var(--primary);
-    color: white;
+    background: var(--gradient-neon);
+    color: var(--primary-foreground);
+    box-shadow: var(--shadow-glow);
     width: 29px;
     height: 29px;
     display: grid;
@@ -271,15 +277,15 @@
     margin: 24px 0;
   }
   .auth-modal.story-viewer {
-    width: 100vw;
+    width: min(440px, 100vw);
     max-width: 100vw;
-    height: 100dvh;
+    height: min(820px, calc(100dvh - 32px));
     max-height: 100dvh;
     background: #101218;
     color: #fff;
     border: 0;
-    border-radius: 0;
-    padding: 16px max(20px, calc((100vw - 760px) / 2));
+    padding: 16px;
+    border-radius: 24px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -317,7 +323,7 @@
     gap: 12px;
     flex: none;
   }
-  .story-viewer-header > span {
+  .story-viewer-header > span:not(.story-pause-indicator) {
     flex: 1;
   }
   .story-viewer-header small {
@@ -539,11 +545,11 @@
       border-radius: 0;
     }
     .story-card-wrap {
-      flex-basis: 125px;
+      flex-basis: 112px;
     }
     .story-card {
-      width: 125px;
-      height: 180px;
+      width: 112px;
+      height: 176px;
     }
     .discover-channel {
       gap: 8px;
@@ -568,5 +574,272 @@
     z-index: -2;
     background: color-mix(in oklab, var(--muted) 80%, #64748b);
     filter: blur(8px);
+  }
+}
+
+/* Scoped living-UI layer; story timing is driven only by useStoryTimer/media events. */
+@layer components {
+  .stories-section {
+    margin-top: 24px;
+  }
+  .novedades-page .stories-heading {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .story-card-wrap .story-card {
+    transition:
+      transform var(--duration-base) var(--ease-out),
+      filter var(--duration-base) var(--ease-out),
+      box-shadow var(--duration-base) var(--ease-out);
+    box-shadow: var(--shadow-silver);
+  }
+  .story-card-wrap .story-card.unwatched {
+    box-shadow: var(--shadow-glow);
+  }
+  .story-card-wrap .story-card.empty {
+    background: var(--gradient-silver);
+    border-style: solid;
+    border-width: 1px;
+  }
+  .story-card-wrap .story-card:hover {
+    filter: brightness(1.08);
+    transform: translateY(-2px);
+  }
+  .story-card-wrap .story-card:active {
+    transform: scale(0.97);
+  }
+  .story-card-wrap .story-card:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+  .story-avatar-ring {
+    border: 2px solid #ffffff55;
+    border-radius: 50%;
+    padding: 2px;
+  }
+  .unwatched .story-avatar-ring {
+    border-color: var(--neon);
+    box-shadow: var(--shadow-glow);
+  }
+  .story-card .story-avatar-ring .avatar {
+    width: 32px;
+    height: 32px;
+    border: 0;
+  }
+  .story-camera {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    background: var(--gradient-neon);
+    color: var(--primary-foreground);
+    box-shadow: var(--shadow-glow);
+  }
+  .story-overlay-body {
+    min-height: 0;
+    animation: story-enter var(--duration-base) var(--ease-out) both;
+  }
+  .story-viewer .story-overlay-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .story-overlay.story-exiting .story-overlay-body {
+    animation: story-exit var(--duration-base) var(--ease-out) both;
+  }
+  .auth-modal.story-overlay {
+    animation: story-fade-in var(--duration-base) var(--ease-out) both;
+  }
+  .auth-modal.story-overlay.story-exiting {
+    animation: story-fade-out var(--duration-base) var(--ease-out) both;
+  }
+  .story-overlay::backdrop {
+    background: #080d18b3;
+    backdrop-filter: blur(8px);
+  }
+  .story-overlay button,
+  .story-overlay .story-file-picker {
+    transition:
+      background var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out),
+      opacity var(--duration-fast) var(--ease-out);
+  }
+  .story-overlay button:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  .story-overlay button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+  .story-viewer-header button {
+    display: grid;
+    place-items: center;
+    padding: 8px;
+    border-radius: 50%;
+  }
+  .story-pause-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+  .story-pause-indicator[data-paused="true"] {
+    opacity: 1;
+  }
+  .story-controls button,
+  .story-owner-views {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .story-owner-views {
+    width: 100%;
+  }
+  .story-reply .story-send {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 50%;
+    color: var(--primary-foreground);
+  }
+  .story-delete-action {
+    background: color-mix(in oklab, var(--destructive) 16%, #101218);
+    color: #ff9eaa;
+    border: 1px solid #ff9eaa55;
+    border-radius: 12px;
+    padding: 10px;
+    cursor: pointer;
+  }
+  .auth-modal.story-creator {
+    width: min(520px, calc(100vw - 24px));
+    border-radius: 24px;
+    background: var(--gradient-silver);
+  }
+  .story-create-empty {
+    display: grid;
+    justify-items: center;
+    gap: 16px;
+    padding: 24px;
+    text-align: center;
+    color: var(--muted-foreground);
+  }
+  .story-create-empty svg {
+    color: var(--primary);
+  }
+  .story-overlay .story-file-picker {
+    display: grid;
+    border: 1px dashed var(--border);
+    background: var(--card);
+    border-radius: 16px;
+    padding: 12px 16px;
+    margin-top: 16px;
+  }
+  .story-create-modes button[aria-pressed="true"] {
+    background: var(--gradient-neon);
+    color: var(--primary-foreground);
+    box-shadow: var(--shadow-glow);
+    border-color: transparent;
+  }
+  .auth-modal.story-viewers-sheet {
+    width: min(440px, 100vw);
+    margin: auto auto 0;
+    border-radius: 24px 24px 0 0;
+    background: var(--gradient-silver);
+  }
+  .story-viewer-person {
+    border-bottom: 1px solid var(--border);
+  }
+  .story-overlay.story-viewers-sheet .story-overlay-body {
+    animation-name: story-sheet-enter;
+  }
+  .story-viewers-sheet.story-exiting .story-overlay-body {
+    animation-name: story-sheet-exit;
+  }
+  @media (max-width: 640px) {
+    .auth-modal.story-viewer {
+      width: 100vw;
+      height: 100dvh;
+      border-radius: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .auth-modal.story-overlay,
+    .story-overlay .story-overlay-body,
+    .story-overlay.story-exiting .story-overlay-body {
+      animation: none;
+    }
+    .story-card-wrap .story-card,
+    .story-overlay button,
+    .story-pause-indicator {
+      transition: none;
+    }
+    .story-card-wrap .story-card:hover,
+    .story-card-wrap .story-card:active,
+    .story-overlay button:active:not(:disabled) {
+      transform: none;
+    }
+  }
+}
+@keyframes story-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes story-exit {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes story-sheet-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes story-sheet-exit {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+@keyframes story-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes story-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }

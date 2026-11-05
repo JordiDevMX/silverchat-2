@@ -116,6 +116,10 @@ const sockets = new Map();
 const reactionRows = [],
   queries = [],
   errors = [];
+let failReplyOnce = false,
+  failReplyLookupOnce = false,
+  directRequests = 0;
+const replyAttempts = [];
 let failStoryOnce = false,
   storyCalls = [];
 const respond = (r, v, status = 200) =>
@@ -230,12 +234,25 @@ async function setup(ctx) {
       if (method === "HEAD")
         return r.fulfill({ status: 200, headers: { "content-range": "0-0/120" }, body: "" });
       if (method === "POST") {
+        if (body.reply_to_story_id) {
+          replyAttempts.push(body.id);
+          if (posts.some((post) => post.id === body.id))
+            return respond(r, { message: "Duplicate id" }, 409);
+        }
         posts.push({ ...body, created_at: now(), deleted_for_everyone: false });
+        if (body.reply_to_story_id && failReplyOnce) {
+          failReplyOnce = false;
+          return respond(r, { message: "Ambiguous response" }, 400);
+        }
         return result([posts.at(-1)]);
       }
       if (method === "PATCH") {
         for (const m of filter(posts)) Object.assign(m, body);
         return result(filter(posts));
+      }
+      if (s.get("select") === "id" && failReplyLookupOnce) {
+        failReplyLookupOnce = false;
+        return respond(r, { message: "Reconciliation offline" }, 400);
       }
       queries.push(url.toString());
       let a = filter(posts).sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -278,7 +295,10 @@ async function setup(ctx) {
         stories = stories.filter((x) => x.id !== body.p_story_id);
         return respond(r, null);
       }
-      if (fn === "create_direct_chat_request") return respond(r, direct);
+      if (fn === "create_direct_chat_request") {
+        directRequests++;
+        return respond(r, direct);
+      }
       if (fn === "follow_channel") {
         if (!follows.some((x) => x.channel_id === body.p_channel_id))
           follows.push({
@@ -387,6 +407,13 @@ try {
     .waitFor({ timeout: 7000 });
   await page.getByRole("button", { name: "Previous", exact: true }).click();
   await page.getByRole("textbox", { name: "Reply to story" }).fill("Nice story");
+  failReplyOnce = true;
+  failReplyLookupOnce = true;
+  await page.locator(".story-reply").getByRole("button", { name: "Send", exact: true }).click();
+  await page.getByRole("alert").filter({ hasText: "Reply failed" }).waitFor();
+  const replyPaused = await page.locator(".story-progress").innerHTML();
+  await page.waitForTimeout(250);
+  assert.equal(await page.locator(".story-progress").innerHTML(), replyPaused);
   await page.locator(".story-reply").getByRole("button", { name: "Send", exact: true }).click();
   await page.waitForFunction(() => !document.querySelector(".story-reply input")?.value);
   assert.ok(
@@ -394,11 +421,18 @@ try {
       (x) => x.chat_id === direct && x.reply_to_story_id === uid(301) && x.content === "Nice story",
     ),
   );
+  assert.equal(directRequests, 1);
+  assert.equal(replyAttempts.length, 2);
+  assert.equal(replyAttempts[0], replyAttempts[1]);
+  assert.equal(posts.filter((post) => post.reply_to_story_id === uid(301)).length, 1);
   assert.equal(views.filter((v) => v.story_id === uid(301)).length, 1);
   await page.getByRole("button", { name: "Close story", exact: true }).click();
   await page.getByRole("button", { name: "My story", exact: true }).click();
   await cycleFocus(page.getByRole("dialog", { name: "Create story", exact: true }));
   await page.keyboard.press("Escape");
+  await page
+    .getByRole("dialog", { name: "Create story", exact: true })
+    .waitFor({ state: "detached" });
   assert.ok(
     await page
       .getByRole("button", { name: "My story", exact: true })
@@ -423,6 +457,7 @@ try {
   await page.getByRole("dialog", { name: "Viewed by 1" }).waitFor();
   await cycleFocus(page.getByRole("dialog", { name: "Viewed by 1" }));
   await page.keyboard.press("Escape");
+  await page.getByRole("dialog", { name: "Viewed by 1" }).waitFor({ state: "detached" });
   assert.ok(
     await page
       .getByRole("button", { name: /1 views/ })
@@ -448,10 +483,20 @@ try {
     .locator("input[type=file]")
     .setInputFiles({ name: "short.mp4", mimeType: "video/mp4", buffer: shortClip });
   await page.getByLabel("Caption", { exact: true }).fill("Video caption below");
+  failStoryOnce = true;
+  await page.getByRole("button", { name: "Send story" }).click();
+  await page.getByRole("alert").filter({ hasText: "Unable to publish story" }).waitFor();
+  const uploadedBeforeRetry = uploads.map((upload) => upload.id);
+  assert.equal(await page.locator(".story-creator textarea").isDisabled(), true);
   await page.getByRole("button", { name: "Send story" }).click();
   await page
     .getByRole("dialog", { name: "Create story", exact: true })
     .waitFor({ state: "detached" });
+  assert.deepEqual(
+    uploads.map((upload) => upload.id),
+    uploadedBeforeRetry,
+  );
+  assert.equal(storyCalls.at(-1), storyCalls.at(-2));
   const videoStory = stories.find((x) => x.user_id === me);
   assert.ok(videoStory.media_thumbnail_upload_id);
   assert.ok(uploads.find((x) => x.id === videoStory.file_upload_id).duration_seconds <= 3);
@@ -671,6 +716,7 @@ try {
   }
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
+    reducedMotion: "reduce",
     isMobile: true,
     hasTouch: true,
   });
