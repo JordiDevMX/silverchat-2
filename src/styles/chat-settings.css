@@ -367,3 +367,413 @@
     }
   }
 }
+
+/* Module 5A: existing settings tokens and motion, scoped to chat-info consumers. */
+@layer components {
+  .chat-options-menu-v2 button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    min-height: 40px;
+    transition:
+      background var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out);
+  }
+  .shared-media-tile-v2 > span {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+  .shared-file-row-v2 strong {
+    font-size: 14px;
+  }
+  .shared-file-row-v2 small {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .chat-settings-panel {
+    width: 100%;
+    min-width: 0;
+    color: var(--foreground);
+  }
+  .chat-settings-panel > header {
+    gap: 14px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .chat-settings-panel > header > a {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    border-radius: 8px;
+  }
+  .chat-settings-panel h1 {
+    font-size: 24px;
+    font-weight: 650;
+    letter-spacing: -0.035em;
+  }
+  .chat-settings-panel h2 {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .chat-settings-panel .chat-info-card {
+    padding: 20px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  .chat-settings-panel .chat-info-card > p {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    margin-top: 12px;
+    overflow-wrap: anywhere;
+  }
+  .chat-settings-panel .field {
+    font-size: 13px;
+    font-weight: 550;
+    margin: 0 0 18px;
+  }
+  .chat-settings-panel :is(input, textarea),
+  .chat-settings-dialog textarea {
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--foreground);
+    padding: 12px;
+    width: 100%;
+    font-weight: 400;
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+  .chat-settings-panel :is(button, a, input, textarea):focus-visible,
+  .chat-settings-dialog :is(button, textarea, input):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+  .chat-settings-panel .group-avatar-placeholder {
+    background: var(--gradient-silver);
+    color: var(--neon);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-silver);
+  }
+  .chat-settings-panel .group-links {
+    display: grid;
+    gap: 0;
+    margin: 20px 0;
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .chat-settings-panel .group-links a {
+    color: var(--foreground);
+    padding: 16px;
+    font-size: 14px;
+    transition: background var(--duration-fast) var(--ease-out);
+  }
+  .chat-settings-panel .group-links a + a {
+    border-top: 1px solid var(--border);
+  }
+  .chat-settings-panel .group-links a:hover {
+    background: color-mix(in oklab, var(--neon) 7%, var(--card));
+  }
+  .chat-member-section {
+    margin: 24px 0;
+  }
+  .group-member-v2 {
+    border: 1px solid var(--border);
+    background: var(--card);
+    border-radius: 16px;
+    padding: 10px;
+    margin: 8px 0;
+    gap: 8px;
+  }
+  .group-member-v2 .member-identity {
+    height: auto;
+    min-height: 48px;
+    padding: 6px;
+    white-space: normal;
+    justify-content: flex-start;
+    border-radius: 12px;
+  }
+  .group-member-v2 .member-identity > span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .group-member-v2 .member-identity strong {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .group-member-v2 .member-identity small {
+    font-size: 12px;
+  }
+  .group-member-v2 .member-actions {
+    background: var(--popover);
+    border: 1px solid var(--border);
+    padding: 6px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-silver);
+    animation: chat-settings-enter var(--duration-fast) var(--ease-out) both;
+  }
+  .group-member-v2 .member-actions button {
+    width: 100%;
+    justify-content: flex-start;
+    font-size: 13px;
+  }
+  .auth-modal.settings-dialog.chat-settings-dialog {
+    width: min(520px, calc(100vw - 24px));
+  }
+  .chat-settings-dialog .field {
+    display: grid;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .chat-settings-dialog textarea {
+    resize: vertical;
+  }
+  .chat-settings-dialog fieldset {
+    border: 0;
+    padding: 0;
+    margin: 18px 0;
+  }
+  .chat-settings-dialog .report-reason {
+    font-size: 14px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-top: 8px;
+    transition:
+      background var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+  .chat-settings-dialog .report-reason:has(input:checked) {
+    border-color: color-mix(in oklab, var(--neon) 45%, var(--border));
+    background: color-mix(in oklab, var(--neon) 8%, var(--card));
+  }
+  .chat-settings-dialog :is(input[type="radio"], input[type="checkbox"]) {
+    width: auto;
+    accent-color: var(--neon);
+  }
+  .chat-settings-dialog .mute-options {
+    margin: 18px 0;
+    gap: 8px;
+  }
+  .chat-settings-dialog .mute-options button {
+    justify-content: flex-start;
+  }
+  .chat-settings-dialog .member-candidates {
+    max-height: min(42dvh, 360px);
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+  }
+  .chat-settings-dialog .member-candidates h3 {
+    padding: 12px 14px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+  .chat-settings-dialog .member-choice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background var(--duration-fast) var(--ease-out);
+  }
+  .chat-settings-dialog .member-choice:has(input:checked) {
+    background: color-mix(in oklab, var(--neon) 8%, var(--card));
+  }
+  .chat-settings-dialog .member-choice > span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .chat-settings-dialog .member-choice small {
+    display: block;
+    color: var(--muted-foreground);
+  }
+  .chat-settings-dialog .selected-members {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 14px;
+  }
+  .chat-settings-dialog .selected-members button {
+    max-width: 100%;
+    white-space: normal;
+    height: auto;
+    min-height: 30px;
+  }
+  .contact-profile-dialog .contact-close {
+    display: flex;
+    margin-left: auto;
+    margin-bottom: 8px;
+  }
+  .contact-profile-dialog .public-profile-card {
+    box-shadow: none;
+    border: 0;
+  }
+  .contact-profile-dialog .public-profile-content {
+    padding: 0 4px 8px;
+  }
+  .contact-profile-dialog .public-profile-identity h2 {
+    font-size: 22px;
+    line-height: 1.3;
+    letter-spacing: -0.03em;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .contact-profile-dialog .contact-actions {
+    gap: 8px;
+  }
+  .chat-options-menu-v2 {
+    padding: 6px;
+    border-radius: 16px;
+    background: var(--popover);
+    box-shadow: var(--shadow-silver);
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    animation: chat-settings-enter var(--duration-fast) var(--ease-out) both;
+  }
+  .chat-options-menu-v2[data-closing] {
+    animation: chat-settings-exit var(--duration-fast) var(--ease-out) both;
+  }
+  .chat-options-menu-v2 button > span {
+    flex: 1;
+  }
+  .chat-options-menu-v2 button > svg {
+    flex: none;
+    color: var(--muted-foreground);
+  }
+  .chat-options-menu-v2 button.danger,
+  .chat-options-menu-v2 button.danger svg {
+    color: var(--destructive);
+  }
+  .chat-options-menu-v2 button:hover,
+  .chat-options-menu-v2 button:focus-visible {
+    background: color-mix(in oklab, var(--neon) 9%, var(--popover));
+    outline: none;
+  }
+  .chat-options-menu-v2 button:active {
+    transform: scale(0.98);
+  }
+  .chat-settings-panel .shared-tabs {
+    gap: 6px;
+    padding: 5px;
+    margin: 20px 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--muted);
+  }
+  .chat-settings-panel .shared-tabs button {
+    flex: 1;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    padding: 10px 18px;
+    transition:
+      color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+  .chat-settings-panel .shared-tabs button[aria-selected="true"] {
+    color: var(--foreground);
+    border-color: color-mix(in oklab, var(--neon) 30%, var(--border));
+    background: var(--card);
+    box-shadow: var(--shadow-silver);
+  }
+  .shared-content-panel {
+    animation: chat-settings-enter var(--duration-fast) var(--ease-out) both;
+  }
+  .shared-media-tile-v2 {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--muted);
+    transition:
+      border-color var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out);
+  }
+  .shared-media-tile-v2:hover {
+    border-color: var(--neon);
+    transform: translateY(-2px);
+  }
+  .shared-media-tile-v2:active {
+    transform: scale(0.98);
+  }
+  .shared-file-row-v2 {
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 8px;
+    background: var(--card);
+    gap: 12px;
+  }
+  .chat-settings-notice-v2 {
+    background: var(--popover);
+    border-radius: 16px;
+    box-shadow: var(--shadow-silver);
+    font-size: 14px;
+    padding: 10px 12px 10px 16px;
+    animation: chat-notice-enter var(--duration-base) var(--ease-out) both;
+  }
+  @keyframes chat-settings-enter {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes chat-settings-exit {
+    to {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+  @keyframes chat-notice-enter {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 6px);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+  @media (max-width: 640px) {
+    .chat-settings-panel {
+      padding: 20px 16px 100px;
+    }
+    .chat-settings-panel .chat-info-card {
+      padding: 16px;
+    }
+    .chat-options-menu-v2 {
+      max-height: 85dvh;
+    }
+    .chat-settings-panel.community-members-panel {
+      padding: 0;
+      min-height: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-options-menu-v2,
+    .chat-options-menu-v2[data-closing],
+    .group-member-v2 .member-actions,
+    .shared-content-panel,
+    .chat-settings-notice-v2 {
+      animation: none;
+    }
+    .chat-settings-panel :is(input, textarea),
+    .chat-settings-dialog :is(textarea, .report-reason, .member-choice),
+    .chat-settings-panel .group-links a,
+    .chat-options-menu-v2 button,
+    .chat-settings-panel .shared-tabs button,
+    .shared-media-tile-v2 {
+      transition: none;
+    }
+    .chat-options-menu-v2 button:active,
+    .shared-media-tile-v2:hover,
+    .shared-media-tile-v2:active {
+      transform: none;
+    }
+  }
+}

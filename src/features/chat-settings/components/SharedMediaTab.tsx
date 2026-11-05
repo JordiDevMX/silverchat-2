@@ -1,5 +1,6 @@
 import { Play } from "lucide-react";
 import { useRef, useState } from "react";
+import { SharedMediaTileSurface } from "@/components/ui/chat-settings-surfaces";
 import { MediaLightbox } from "@/features/messages/components/MediaLightbox";
 import { useMessageText } from "@/features/messages/i18n";
 import { useMediaUrl } from "@/features/messages/lib/media";
@@ -16,7 +17,7 @@ function Tile({ message, onOpen }: { message: Message; onOpen: () => void }) {
   });
   const isOutage = !url.data && (url.isError || isStorageOutage());
   return (
-    <button
+    <SharedMediaTileSurface
       ref={ref}
       type="button"
       className={`shared-media-tile ${isOutage ? "media-outage-placeholder" : ""}`}
@@ -37,7 +38,7 @@ function Tile({ message, onOpen }: { message: Message; onOpen: () => void }) {
         </span>
       )}
       {message.type === "video" && <Play size={24} />}
-    </button>
+    </SharedMediaTileSurface>
   );
 }
 export function SharedMediaTab({ messages }: { messages: Message[] }) {

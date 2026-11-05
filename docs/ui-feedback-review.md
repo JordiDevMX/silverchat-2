@@ -292,3 +292,86 @@ For browser suites, use an installed Chromium and Playwright Core via `CHROMIUM_
 The mocked app is started separately with `VITE_SUPABASE_URL=https://supabase.test`, `VITE_SUPABASE_ANON_KEY=test-anon`, **`pnpm dev --port 5175`**. With `UI_BASE_URL=http://127.0.0.1:5175`, run `node tests/settings-browser.mjs` and `node tests/chat-settings-browser.mjs`; run `node tests/communities-browser.mjs` (default 5175), and `node tests/novedades-browser.mjs` with `TEST_BASE_URL=http://127.0.0.1:5175`. All remote boundaries are intercepted. No manual sign-in to this fake-credential server is intended.
 
 Module 4B is complete. Module 5 remains deferred pending explicit authorization.
+
+## Module 5A — chat settings & chat info
+
+### Clean standalone review (no login/backend)
+
+From the repository root, stop any old **review-only** servers (including a stale 5187 instance), leave the normal app/backend alone, then run:
+
+```powershell
+pnpm review:ui
+```
+
+Use only one review server, on **5177**. Open a fresh browser tab at **http://127.0.0.1:5177/**, then **http://127.0.0.1:5177/tests/ui-foundation.html#chat-settings-gallery**. Expect **Chat settings & info** after **Profile, account & security**. This procedure was exercised after stopping both old review processes and restarting 5177; fresh browser contexts verified the new section, redirects, and backend-guide routes without console errors or auth/remote requests. The earlier stale-dependency 504 was caused by concurrent review processes sharing the Vite review cache; no configuration change was needed. No screenshots are generated.
+
+Use the top **Light/Dark** and **Accent** controls. Review **blue, purple, red, orange, yellow, green**, in both modes at **375×844**, **768×1024**, **1280×900** (36 combinations). The two gallery columns stack on mobile. Inspect:
+
+1. **Info and members:** editable local group name/description, count/date card, three member rows, role pills and compact actions. Cards and long labels fit the viewport, with consistent 4B borders, focus and hover/press feedback.
+2. **Menu:** open the chat-options sample. Desktop menu stays within the viewport; mobile uses the bottom sheet. Arrow Up/Down, Home/End, Enter, Escape and Tab work. Dismissal restores focus; reopening during its exit remains responsive. Destructive choices are visibly separated.
+3. **Contact:** open the local contact dialog. Check the shared profile banner, avatar, identity and action hierarchy. Tab/Shift+Tab stay inside; Cancel/Escape dismiss with subtle motion and restore focus. Fixture actions only update local state.
+4. **Confirmations:** try Add members, mute, clear, leave and report samples. Select a member; Other report reason requires details. Turn on the preview pending state: buttons disable and repeated Escape keeps the dialog open; turn it off to cancel/confirm locally. The fixture does not modify accounts, chats or memberships.
+5. **Media/files:** switch tabs with pointer and arrow keys; open a local media preview. Inspect the six PDF/Word/spreadsheet/presentation/archive/text tiles. The misleading **notes.txt** example remains Word-colored because its MIME type wins. Long filenames truncate visually while retaining their full title. Gallery media are CSS placeholders, not signed remote assets.
+6. **Motion:** dialogs use the existing 200ms ease-out entry/exit; menu, tab and row feedback is 150ms. Emulate `prefers-reduced-motion: reduce`: decorative entry/exit becomes instant. No save/navigation waits for animation. Confirm no horizontal page overflow at all three widths.
+
+### Live routes — normal login and real backend
+
+**5177 is fixture-only**: `/chats/...` there intentionally displays the backend guide. Use **http://127.0.0.1:5173** with your normal authenticated backend, or your normal backend-enabled origin if different. The isolated fake-credential server on **5175** is for intercepted automated tests only and is stopped after verification.
+
+At the same viewport/theme/accent matrix:
+
+1. **`/chats/<groupId>/info`** — signed group avatar, name/description, count/date and links. Admin edits retain validation and persistence; nonadmins retain existing permissions. Avatar editing still uses its existing crop/privacy workflow.
+2. **`/chats/<groupId>/members`** — searchable/current members, roles, creator protections, Add members and allowed promote/demote/remove actions. Confirmations preserve focus and busy guards. Cancel for harmless review; confirm membership changes only when intended.
+3. **`/chats/<chatId>/media?tab=media`** and **`?tab=files`** — URL/back behavior, keyboard tabs, loading/error/empty states, paginated signed thumbnails, lightbox navigation and signed downloads. Inspect actual document-family colors and long filenames.
+4. **In-conversation settings layer:** direct/group/self chats retain available options, translations and counts. Search still reaches the existing search action. Test mute durations/unmute, pin/unpin and mark unread; successful unread navigation returns to chats. Clear/report/leave confirmations preserve their existing effects and busy guards. Review destructive dialogs with Cancel unless you intend the action.
+5. **Contact profile:** signed/privacy-filtered identity and social links; Message reuses an existing chat or creates one request/self-chat and navigates once. Calls retain their existing unavailable/coming-soon explanation. Block/report/full-profile entry points stay reachable.
+6. **Communities regression:** open `/communities`, then a community's group info and members surfaces. Confirm the same card/member presentation, role controls and shared Conversation layer; no duplicate community-only screen was introduced.
+
+### Screenshot-free verification commands
+
+Run the standard gates:
+
+```powershell
+pnpm exec tsc --noEmit -p tsconfig.app.json
+pnpm typecheck
+pnpm test
+pnpm exec vite build
+pnpm exec biome check <changed-source-and-test-paths>
+```
+
+Where Playwright Core/Chrome are not locally discoverable, this workstation uses:
+
+```powershell
+$env:PLAYWRIGHT_MODULE_PATH='file:///C:/Users/Mystic/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright-core/index.mjs'
+$env:CHROMIUM_PATH='C:/Program Files/Google/Chrome/Application/chrome.exe'
+$env:UI_REVIEW_URL='http://127.0.0.1:5177'
+$env:UI_BASE_URL='http://127.0.0.1:5177'
+node tests/ui-review-path-browser.mjs
+node tests/chat-settings-gallery-browser.mjs
+node tests/ui-foundation-browser.mjs
+node tests/primary-fill-browser.mjs
+node tests/settings-details-gallery-browser.mjs
+node tests/communities-gallery-browser.mjs
+node tests/channels-gallery-browser.mjs
+```
+
+For mocked authenticated outcomes, in a separate shell start:
+
+```powershell
+$env:VITE_SUPABASE_URL='https://supabase.test'
+$env:VITE_SUPABASE_ANON_KEY='test-anon'
+pnpm dev --port 5175
+```
+
+With the same Playwright/Chrome environment, run:
+
+```powershell
+$env:UI_BASE_URL='http://127.0.0.1:5175'
+$env:TEST_ORIGIN='http://127.0.0.1:5175'
+$env:TEST_BASE_URL='http://127.0.0.1:5175'
+node tests/chat-settings-browser.mjs
+node tests/communities-browser.mjs
+node tests/novedades-browser.mjs
+```
+
+All remote boundaries in these app suites are intercepted; no real account mutation or screenshot is required. Stop the isolated 5175 server afterward. Module 5A stops here; 5B, 5C and deferred global cosmetic work await authorization.

@@ -1,4 +1,5 @@
 import { ChannelsGallery } from "./channels-gallery";
+import { ChatSettingsGallery } from "./chat-settings-gallery";
 import { CommunitiesGallery } from "./communities-gallery";
 import { ConversationGallery } from "./conversation-gallery";
 import { InteractiveGallery } from "./interactive-gallery";
@@ -352,6 +353,7 @@ function FoundationReview() {
       <ChannelsGallery />
       <SettingsGallery />
       <SettingsDetailsGallery />
+      <ChatSettingsGallery />
       {native && (
         <Modal title="Existing modal" onClose={busy ? undefined : () => setNative(false)}>
           <label>

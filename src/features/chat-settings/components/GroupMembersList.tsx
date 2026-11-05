@@ -1,9 +1,15 @@
 import { useState } from "react";
-import { Modal } from "@/features/auth/components";
+import { Button } from "@/components/ui/button";
+import {
+  ChatSettingsDialog,
+  ChatSettingsScreenSurface,
+  MemberRowSurface,
+} from "@/components/ui/chat-settings-surfaces";
 import { useMessageText } from "@/features/messages/i18n";
 import { Avatar, NavLink, QueryState } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
 import { useGroupMembers } from "../hooks/useGroupMembers";
+import { useMemberConfirmation } from "../hooks/useMemberConfirmation";
 import { useChatUIStore } from "../stores/uiStore";
 import { ChatSettingsLayer, ChatSettingsLoading } from "./ChatSettingsLayer";
 export function GroupMembersList({
@@ -21,56 +27,54 @@ export function GroupMembersList({
   const { say } = useMessageText();
   const ui = useChatUIStore();
   const [menu, setMenu] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<{
-    action: "promote" | "demote" | "remove";
-    userId: string;
-    name: string;
-  }>();
-  const [error, setError] = useState(false);
+  const { confirm, setConfirm, error, setError, apply } = useMemberConfirmation(hook.run);
   if (!chat) return <ChatSettingsLoading query={hook.chat} />;
   if (!["group", "community_chat"].includes(chat.type)) return <ChatSettingsLoading />;
   const admin = chat.own?.role === "admin";
   return (
-    <section id={context === "group" ? "main" : undefined} className="chat-settings-screen">
-      <header>
-        {onBack ? (
-          <button type="button" className="button secondary" onClick={onBack}>
-            {say("Back", "Volver")}
-          </button>
-        ) : (
-          <NavLink href={`/chats/${chatId}/info`}>
-            ← {say("Group info", "Información del grupo")}
-          </NavLink>
-        )}
-        <h1>
-          {hook.members.length} {say("members", "miembros")}
-        </h1>
-        {admin && (
-          <button
-            type="button"
-            className="button primary"
-            onClick={() => ui.open(chatId, { kind: "add" })}
-          >
-            + {say("Add", "Añadir")}
-          </button>
-        )}
-      </header>
+    <ChatSettingsScreenSurface
+      as="section"
+      id={context === "group" ? "main" : ""}
+      className={context === "community" ? "community-members-panel" : ""}
+      header={
+        <>
+          {onBack ? (
+            <Button type="button" variant="outline" onClick={onBack}>
+              {say("Back", "Volver")}
+            </Button>
+          ) : (
+            <NavLink href={`/chats/${chatId}/info`}>
+              ← {say("Group info", "Información del grupo")}
+            </NavLink>
+          )}
+          <h1>
+            {hook.members.length} {say("members", "miembros")}
+          </h1>
+          {admin && (
+            <Button type="button" onClick={() => ui.open(chatId, { kind: "add" })}>
+              + {say("Add", "Añadir")}
+            </Button>
+          )}
+        </>
+      }
+    >
       <QueryState
         loading={hook.membersQuery.isPending}
         error={hook.membersQuery.error}
         retry={() => void hook.membersQuery.refetch()}
       />
       {(["admin", "member"] as const).map((role) => (
-        <section key={role}>
+        <section className="chat-member-section" key={role}>
           <h2>
             {role === "admin" ? say("Admins", "Administradores") : say("Members", "Miembros")}
           </h2>
           {hook.members
             .filter((m) => m.role === role)
             .map((member) => (
-              <div className="group-member" key={member.user_id}>
-                <button
+              <MemberRowSurface key={member.user_id}>
+                <Button
                   type="button"
+                  variant="ghost"
                   className="member-identity"
                   onClick={() => ui.open(chatId, { kind: "contact", userId: member.user_id })}
                 >
@@ -86,18 +90,19 @@ export function GroupMembersList({
                       {role === "admin" && ` · ${say("Admin", "Administrador")}`}
                     </small>
                   </span>
-                </button>
+                </Button>
                 {admin && (
                   <div>
-                    <button
+                    <Button
                       type="button"
-                      className="message-icon"
+                      variant="ghost"
+                      size="icon"
                       aria-label={`${say("Member actions", "Acciones del miembro")}: ${member.profile?.display_name ?? member.user_id}`}
                       aria-expanded={menu === member.user_id}
                       onClick={() => setMenu(menu === member.user_id ? null : member.user_id)}
                     >
                       ⋮
-                    </button>
+                    </Button>
                     {menu === member.user_id && (
                       <div className="member-actions">
                         {(member.role === "member"
@@ -112,7 +117,8 @@ export function GroupMembersList({
                               : [],
                           )
                           .map((action) => (
-                            <button
+                            <Button
+                              variant="ghost"
                               type="button"
                               key={action}
                               onClick={() => {
@@ -132,57 +138,45 @@ export function GroupMembersList({
                                   : context === "community"
                                     ? say("Remove from community", "Eliminar de la comunidad")
                                     : say("Remove from group", "Eliminar del grupo")}
-                            </button>
+                            </Button>
                           ))}
                       </div>
                     )}
                   </div>
                 )}
-              </div>
+              </MemberRowSurface>
             ))}
         </section>
       ))}
       {confirm && (
-        <Modal
+        <ChatSettingsDialog
           title={`${confirm.action === "remove" ? say("Remove", "Eliminar") : confirm.action === "promote" ? say("Promote", "Ascender") : say("Demote", "Degradar")} ${confirm.name}?`}
-          onClose={hook.busy ? undefined : () => setConfirm(undefined)}
+          onClose={() => setConfirm(undefined)}
+          canClose={!hook.busy}
         >
-          {error && (
-            <p role="alert">
-              {say(
-                "Unable to update this member. Your permissions may have changed.",
-                "No se pudo actualizar este miembro. Tus permisos pueden haber cambiado.",
+          {(dismiss) => (
+            <>
+              {error && (
+                <p role="alert">
+                  {say(
+                    "Unable to update this member. Your permissions may have changed.",
+                    "No se pudo actualizar este miembro. Tus permisos pueden haber cambiado.",
+                  )}
+                </p>
               )}
-            </p>
+              <div className="modal-actions">
+                <Button type="button" variant="outline" disabled={hook.busy} onClick={dismiss}>
+                  {say("Cancel", "Cancelar")}
+                </Button>
+                <Button type="button" disabled={hook.busy} onClick={apply}>
+                  {say("Confirm", "Confirmar")}
+                </Button>
+              </div>
+            </>
           )}
-          <div className="modal-actions">
-            <button
-              type="button"
-              className="button secondary"
-              disabled={hook.busy}
-              onClick={() => setConfirm(undefined)}
-            >
-              {say("Cancel", "Cancelar")}
-            </button>
-            <button
-              type="button"
-              className="button primary"
-              disabled={hook.busy}
-              onClick={async () => {
-                try {
-                  await hook.run(confirm);
-                  setConfirm(undefined);
-                } catch {
-                  setError(true);
-                }
-              }}
-            >
-              {say("Confirm", "Confirmar")}
-            </button>
-          </div>
-        </Modal>
+        </ChatSettingsDialog>
       )}
       <ChatSettingsLayer chat={chat} context={context} />
-    </section>
+    </ChatSettingsScreenSurface>
   );
 }

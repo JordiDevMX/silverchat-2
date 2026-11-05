@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 export function PublicProfileSurface({
+  headingAs: Heading = "h1",
   gradient,
   avatar,
   name,
@@ -7,6 +8,7 @@ export function PublicProfileSurface({
   bio,
   children,
 }: {
+  headingAs?: "h1" | "h2";
   gradient?: string;
   avatar: ReactNode;
   name: string;
@@ -25,7 +27,7 @@ export function PublicProfileSurface({
         <div className="public-profile-identity">
           {avatar}
           <div>
-            <h1>{name}</h1>
+            <Heading>{name}</Heading>
             <p className="profile-handle">@{username}</p>
           </div>
         </div>

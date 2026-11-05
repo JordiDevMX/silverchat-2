@@ -64,6 +64,13 @@ let groupMembers = [
 const hidden = new Set(),
   sharedQueries = [];
 let failSettings = false;
+let manuallyUnread = false;
+let contactChatAvailable = true;
+let createGate = null;
+let failMemberPatch = false;
+let memberPatchGate = null;
+let addGate = null;
+const workflowCalls = [];
 const jwt = `${Buffer.from('{"alg":"HS256"}').toString("base64url")}.${Buffer.from(JSON.stringify({ sub: me, aal: "aal2", exp: Math.floor(Date.now() / 1000) + 3600 })).toString("base64url")}.signature`;
 const ago = (n) => new Date(Date.now() - n * 60000).toISOString();
 const chat = (id = chatId, type = "direct") => ({
@@ -85,7 +92,7 @@ const member = (id = chatId, who = me) => ({
   muted_until: mutedUntil,
   pinned_at: pinnedAt,
   joined_at: "2020-01-01T00:00:00Z",
-  manually_unread: false,
+  manually_unread: manuallyUnread,
 });
 const message = (n, patch = {}) => ({
   id: uid(1000 + n),
@@ -163,6 +170,7 @@ async function setup(context) {
     }
     if (p.endsWith("/user_blocks") || p.endsWith("/profiles_blocked")) return result([]);
     if (p.endsWith("/chats")) {
+      if (s.has("direct_pair_key") && !contactChatAvailable) return result([]);
       const id = s.get("id")?.slice(3) ?? chatId;
       return result(
         (id === pendingId && !accepted) || removedMember
@@ -174,6 +182,9 @@ async function setup(context) {
       const id = s.get("chat_id")?.slice(3) ?? chatId;
       if (method === "PATCH") {
         const patch = req.postDataJSON();
+        workflowCalls.push({ kind: "member-patch", id, user: s.get("user_id"), patch });
+        if (memberPatchGate) await memberPatchGate;
+        if (failMemberPatch) return response(route, { message: "offline" }, 503);
         if ("muted_until" in patch) mutedUntil = patch.muted_until;
         if ("pinned_at" in patch) pinnedAt = patch.pinned_at;
         return result([{ chat_id: id }]);
@@ -326,6 +337,8 @@ async function setup(context) {
         return response(route, null);
       }
       if (p.endsWith("/add_chat_members")) {
+        workflowCalls.push({ kind: "add", ...body });
+        if (addGate) await addGate;
         let added = 0;
         for (const id of body.p_user_ids) {
           if (!groupMembers.some((m) => m.user_id === id)) {
@@ -336,6 +349,7 @@ async function setup(context) {
         return response(route, added);
       }
       if (p.endsWith("/clear_chat_for_me")) {
+        workflowCalls.push({ kind: "clear", ...body });
         for (const m of rows) hidden.add(m.id);
         return response(route, rows.length);
       }
@@ -355,7 +369,18 @@ async function setup(context) {
           .slice(0, 50);
         return response(route, data);
       }
+      if (p.endsWith("/mark_chat_as_unread")) {
+        manuallyUnread = true;
+        workflowCalls.push({ kind: "unread", ...body });
+        return response(route, null);
+      }
+      if (p.endsWith("/create_self_chat") || p.endsWith("/create_direct_chat_request")) {
+        workflowCalls.push({ kind: p.endsWith("/create_self_chat") ? "self" : "direct", ...body });
+        if (createGate) await createGate;
+        return response(route, p.endsWith("/create_self_chat") ? selfId : chatId);
+      }
       if (p.endsWith("/mark_chat_as_read")) {
+        manuallyUnread = false;
         firstUnread = null;
         receipts = receipts.map((r) => ({ ...r, read_at: new Date().toISOString() }));
         return response(route, null);
@@ -487,6 +512,22 @@ try {
   assert.equal(reports[0].reason, "other");
   assert.equal(reports[0].reporter_id, me);
   await options("Mute");
+  let releasePatch;
+  failMemberPatch = true;
+  memberPatchGate = new Promise((resolve) => {
+    releasePatch = resolve;
+  });
+  await page.getByRole("button", { name: "1 hour", exact: true }).click();
+  const muteDialog = page.getByRole("dialog", { name: "Mute notifications", exact: true });
+  assert.ok(await muteDialog.getByRole("button", { name: "Cancel", exact: true }).isDisabled());
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  assert.ok(await muteDialog.evaluate((el) => el.open));
+  memberPatchGate = null;
+  releasePatch();
+  await page.getByRole("status").filter({ hasText: "Unable to update chat" }).waitFor();
+  assert.equal(mutedUntil, null);
+  failMemberPatch = false;
   await page.getByRole("button", { name: "8 hours", exact: true }).click();
   await settle();
   assert.ok(Date.parse(mutedUntil) > Date.now() + 7.9 * 3600000);
@@ -499,6 +540,23 @@ try {
   await options("Unpin");
   await settle();
   assert.equal(pinnedAt, null);
+  assert.ok(
+    workflowCalls
+      .filter((c) => c.kind === "member-patch")
+      .every((c) => c.id === chatId && c.user === `eq.${me}`),
+  );
+  await options("Mark as unread");
+  await page.waitForURL("**/chats");
+  await settle();
+  assert.equal(manuallyUnread, true);
+  assert.deepEqual(
+    workflowCalls.find((c) => c.kind === "unread"),
+    { kind: "unread", p_chat_id: chatId },
+  );
+  await goto();
+  console.log(
+    "PASS scoped mute/pin refresh, failure/busy protection and unread RPC → list navigation",
+  );
   await page.getByRole("button", { name: "Chat options", exact: true }).click();
   assert.equal(await page.getByRole("menuitem").count(), 8);
   await page.keyboard.press("Escape");
@@ -507,6 +565,10 @@ try {
   await settle();
   assert.equal(await page.locator("[data-message-id]").count(), 0);
   assert.equal(rows.length, 80);
+  assert.deepEqual(
+    workflowCalls.find((c) => c.kind === "clear"),
+    { kind: "clear", p_chat_id: chatId },
+  );
   await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats`);
   await page.locator(".chat-list-item").first().waitFor();
   await settle();
@@ -559,6 +621,56 @@ try {
   assert.equal(uploadBytes.at(-1).type, "image/webp");
   await page.getByRole("link", { name: "View members →" }).click();
   await page.getByRole("heading", { name: "3 members", exact: true }).waitFor();
+  contactChatAvailable = false;
+  await page.getByRole("button", { name: /Alice Rivera.*Creator/ }).click();
+  await page.getByRole("button", { name: "Message", exact: true }).click();
+  await page.waitForURL(`**/chats/${selfId}`);
+  assert.equal(workflowCalls.filter((c) => c.kind === "self").length, 1);
+  await goto(groupId, "/members");
+  await page
+    .getByRole("button", { name: /Sofia Reyes/ })
+    .first()
+    .click();
+  let releaseCreate;
+  createGate = new Promise((resolve) => {
+    releaseCreate = resolve;
+  });
+  const messageButton = page.getByRole("button", { name: "Message", exact: true });
+  const creating = page.waitForRequest((r) => r.url().includes("/create_direct_chat_request"));
+  await messageButton.evaluate((el) => {
+    el.click();
+    el.click();
+  });
+  await creating;
+  assert.ok(await messageButton.isDisabled());
+  await page.keyboard.press("Escape");
+  assert.ok(await page.getByRole("dialog", { name: "Contact profile" }).evaluate((el) => el.open));
+  createGate = null;
+  releaseCreate();
+  await page.waitForURL(`**/chats/${chatId}`);
+  assert.equal(workflowCalls.filter((c) => c.kind === "direct").length, 1);
+  assert.deepEqual(
+    workflowCalls.find((c) => c.kind === "direct"),
+    { kind: "direct", p_target_user_id: other, p_initial_content: "👋" },
+  );
+  contactChatAvailable = true;
+  await goto(groupId, "/members");
+  await page
+    .getByRole("button", { name: /Sofia Reyes/ })
+    .first()
+    .click();
+  await page.getByRole("button", { name: "Message", exact: true }).click();
+  await page.waitForURL(`**/chats/${chatId}`);
+  assert.equal(
+    workflowCalls.filter((c) => c.kind === "direct").length,
+    1,
+    "Existing active chat is reused",
+  );
+  await goto(groupId, "/members");
+  console.log(
+    "PASS self/direct contact creation, in-flight deduplication, busy focus lock and existing-chat reuse",
+  );
+
   await page.getByRole("button", { name: "Member actions: Sofia Reyes" }).click();
   await page.getByRole("button", { name: "Promote to admin", exact: true }).click();
   await page.getByRole("button", { name: "Confirm", exact: true }).click();
@@ -584,9 +696,24 @@ try {
   await page.getByRole("searchbox").fill("dave");
   await settle();
   await page.getByRole("checkbox", { name: /Dave Park/ }).check();
+  let releaseAdd;
+  addGate = new Promise((resolve) => {
+    releaseAdd = resolve;
+  });
   await page.getByRole("button", { name: "Add 1 members", exact: true }).click();
+  await page.keyboard.press("Escape");
+  assert.ok(
+    await page.getByRole("dialog", { name: "Add members", exact: true }).evaluate((el) => el.open),
+  );
+  assert.ok(await page.getByRole("button", { name: "Cancel", exact: true }).isDisabled());
+  addGate = null;
+  releaseAdd();
   await settle();
   assert.ok(groupMembers.some((m) => m.user_id === uid(4)));
+  assert.deepEqual(
+    workflowCalls.find((c) => c.kind === "add"),
+    { kind: "add", p_chat_id: groupId, p_user_ids: [uid(4)] },
+  );
   await goto(groupId, "/media?tab=media");
   await page.getByRole("button", { name: "Open image", exact: true }).first().waitFor();
   assert.equal(await page.getByRole("button", { name: "Open image", exact: true }).count(), 29);
@@ -600,6 +727,16 @@ try {
   await page.getByRole("tab", { name: "Files", exact: true }).click();
   await page.getByText("weekend-plans.pdf", { exact: true }).waitFor();
   assert.match(page.url(), /tab=files/);
+  await page.getByRole("tab", { name: "Files", exact: true }).press("ArrowLeft");
+  await page.waitForURL("**/media?tab=media");
+  assert.ok(
+    await page
+      .getByRole("tab", { name: "Media", exact: true })
+      .evaluate((el) => el === document.activeElement),
+  );
+  await page.getByRole("tab", { name: "Media", exact: true }).press("ArrowRight");
+  await page.waitForURL("**/media?tab=files");
+  await page.getByText("weekend-plans.pdf", { exact: true }).waitFor();
   assert.equal(await page.locator('.shared-file-row [data-file-family="pdf"]').count(), 1);
   assert.match(await page.locator(".shared-file-row small").textContent(), /PDF Document/);
   const popupPromise = page.waitForEvent("popup");
@@ -620,6 +757,21 @@ try {
   assert.equal(await page.getByRole("menuitem", { name: "Add members", exact: true }).count(), 0);
   await page.keyboard.press("Escape");
   memberMode = false;
+  await goto(groupId, "/info");
+  for (const [width, height] of [
+    [375, 844],
+    [768, 1024],
+    [1280, 900],
+  ]) {
+    await page.setViewportSize({ width, height });
+    for (const suffix of ["/info", "/members", "/media?tab=files"]) {
+      await goto(groupId, suffix);
+      assert.ok(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        suffix,
+      );
+    }
+  }
   await goto(groupId, "/info");
   await page.getByRole("button", { name: "Leave group", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Leave group", exact: true }).click();

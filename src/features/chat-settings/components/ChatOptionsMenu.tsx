@@ -1,5 +1,24 @@
-import { type CSSProperties, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import {
+  Ban,
+  Bell,
+  BellOff,
+  ChevronRight,
+  Flag,
+  Info,
+  Link,
+  LogOut,
+  Mail,
+  Minus,
+  Pin,
+  PinOff,
+  Plus,
+  Search,
+  Trash2,
+  UserPlus,
+  UserRound,
+  Users,
+} from "lucide-react";
+import { ChatMenuSurface } from "@/components/ui/chat-menu-surface";
 import { useMessageText } from "@/features/messages/i18n";
 import type { ChatDetails } from "@/features/messages/types";
 import {
@@ -39,7 +58,6 @@ export function ChatOptionsMenu(props: MenuProps) {
           choose: () => props.onChoose(action),
         }));
   const { say } = useMessageText();
-  const ref = useRef<HTMLDivElement>(null);
   const labels: Record<ChatAction | ChannelAction, string> = {
     view_channel_info: say("Channel info", "Información del canal"),
     follow: say("Follow", "Seguir"),
@@ -61,73 +79,53 @@ export function ChatOptionsMenu(props: MenuProps) {
     add_members: say("Add members", "Añadir miembros"),
     leave_group: say("Leave group", "Salir del grupo"),
   };
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector("button")?.focus();
-    const outside = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Tab") onClose();
-      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
-        e.preventDefault();
-        const buttons = [...(ref.current?.querySelectorAll("button") ?? [])];
-        const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
-        buttons[
-          e.key === "Home"
-            ? 0
-            : e.key === "End"
-              ? buttons.length - 1
-              : (index + (e.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length
-        ]?.focus();
-      }
-    };
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("keydown", key);
-      previous?.isConnected && previous.focus();
-    };
-  }, [onClose]);
-  return createPortal(
-    <div
-      ref={ref}
-      role="menu"
-      aria-label={
+  const icons = {
+    view_channel_info: Info,
+    follow: Plus,
+    unfollow: Minus,
+    copy_channel_link: Link,
+    view_profile: UserRound,
+    view_group_info: Info,
+    view_community_info: Info,
+    search_in_chat: Search,
+    mute: BellOff,
+    unmute: Bell,
+    mark_unread: Mail,
+    pin: Pin,
+    unpin: PinOff,
+    clear_chat: Trash2,
+    block: Ban,
+    report: Flag,
+    view_members: Users,
+    add_members: UserPlus,
+    leave_group: LogOut,
+  };
+  return (
+    <ChatMenuSurface
+      label={
         props.contextType === "channel"
           ? say("Channel options", "Opciones del canal")
           : say("Chat options", "Opciones del chat")
       }
-      className="chat-options-menu"
-      style={
-        {
-          "--menu-left": `${Math.max(8, Math.min(point.x, innerWidth - 248))}px`,
-          "--menu-top": `${Math.max(8, Math.min(point.y, innerHeight - 440))}px`,
-        } as CSSProperties
-      }
-    >
-      {actions.map(({ action, choose }) => (
-        <div key={action}>
-          {["block", "view_members", "leave_group"].includes(action) ||
-          (props.contextType !== "channel" &&
-            props.chat.type === "self" &&
-            action === "clear_chat") ? (
-            <hr />
-          ) : null}
-          <button
-            role="menuitem"
-            type="button"
-            disabled={busy}
-            className={["block", "leave_group", "clear_chat"].includes(action) ? "danger" : ""}
-            onClick={choose}
-          >
-            {labels[action]}
-            {action === "mute" ? <span aria-hidden="true"> ›</span> : null}
-          </button>
-        </div>
-      ))}
-    </div>,
-    document.body,
+      point={point}
+      onClose={onClose}
+      items={actions.map(({ action, choose }) => {
+        const Icon = icons[action];
+        return {
+          key: action,
+          label: labels[action],
+          icon: <Icon size={17} aria-hidden="true" />,
+          trailing: action === "mute" ? <ChevronRight size={15} aria-hidden="true" /> : undefined,
+          destructive: ["block", "leave_group", "clear_chat"].includes(action),
+          disabled: busy,
+          separator:
+            ["block", "view_members", "leave_group"].includes(action) ||
+            (props.contextType !== "channel" &&
+              props.chat.type === "self" &&
+              action === "clear_chat"),
+          onSelect: choose,
+        };
+      })}
+    />
   );
 }

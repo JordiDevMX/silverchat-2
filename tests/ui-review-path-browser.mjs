@@ -16,6 +16,9 @@ try {
     "/ui-foundation.html",
     "/ui-review",
     "/chats",
+    "/chats/preview/info",
+    "/chats/preview/media",
+    "/chats/preview/members",
     "/communities",
     "/novedades",
     "/novedades/explore",
@@ -70,6 +73,10 @@ try {
       await page
         .locator("#settings-details-gallery")
         .getByRole("heading", { name: "Profile, account & security", exact: true })
+        .waitFor();
+      await page
+        .locator("#chat-settings-gallery")
+        .getByRole("heading", { name: "Chat settings & info", exact: true })
         .waitFor();
       assert.equal(new URL(page.url()).pathname, fixture);
       assert.equal(await page.locator('[data-slot="brand-lockup"]').count(), 2);

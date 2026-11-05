@@ -1,4 +1,5 @@
-import { Modal } from "@/features/auth/components";
+import { Button } from "@/components/ui/button";
+import { ChatSettingsDialog } from "@/components/ui/chat-settings-surfaces";
 import { useMessageText } from "@/features/messages/i18n";
 import type { ChatDetails } from "@/features/messages/types";
 import { useLeaveGroup } from "../hooks/useLeaveGroup";
@@ -10,46 +11,46 @@ export function LeaveGroupModal({ chat }: { chat: ChatDetails }) {
   const lastAdmin =
     chat.own?.role === "admin" && chat.members.filter((m) => m.role === "admin").length === 1;
   return (
-    <Modal
+    <ChatSettingsDialog
       title={`${say("Leave", "Salir de")} ${chat.name}?`}
-      onClose={mutation.isPending ? undefined : ui.close}
+      onClose={ui.close}
+      canClose={!mutation.isPending}
     >
-      <p>
-        {chat.members.length === 1
-          ? say("This group will be deleted.", "Este grupo se eliminará.")
-          : lastAdmin
-            ? say(
-                "You’re the last admin. The oldest member will be promoted automatically.",
-                "Eres el último administrador. El miembro más antiguo será ascendido automáticamente.",
-              )
-            : say(
-                "You won’t receive messages from this group anymore.",
-                "Ya no recibirás mensajes de este grupo.",
-              )}
-      </p>
-      {mutation.isError && (
-        <p role="alert">
-          {say("Unable to leave. Try again.", "No se pudo salir. Inténtalo de nuevo.")}
-        </p>
+      {(dismiss) => (
+        <>
+          <p>
+            {chat.members.length === 1
+              ? say("This group will be deleted.", "Este grupo se eliminará.")
+              : lastAdmin
+                ? say(
+                    "You’re the last admin. The oldest member will be promoted automatically.",
+                    "Eres el último administrador. El miembro más antiguo será ascendido automáticamente.",
+                  )
+                : say(
+                    "You won’t receive messages from this group anymore.",
+                    "Ya no recibirás mensajes de este grupo.",
+                  )}
+          </p>
+          {mutation.isError && (
+            <p role="alert">
+              {say("Unable to leave. Try again.", "No se pudo salir. Inténtalo de nuevo.")}
+            </p>
+          )}
+          <div className="modal-actions">
+            <Button type="button" variant="outline" disabled={mutation.isPending} onClick={dismiss}>
+              {say("Cancel", "Cancelar")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate()}
+            >
+              {say("Leave group", "Salir del grupo")}
+            </Button>
+          </div>
+        </>
       )}
-      <div className="modal-actions">
-        <button
-          type="button"
-          className="button secondary"
-          disabled={mutation.isPending}
-          onClick={ui.close}
-        >
-          {say("Cancel", "Cancelar")}
-        </button>
-        <button
-          type="button"
-          className="button danger"
-          disabled={mutation.isPending}
-          onClick={() => mutation.mutate()}
-        >
-          {say("Leave group", "Salir del grupo")}
-        </button>
-      </div>
-    </Modal>
+    </ChatSettingsDialog>
   );
 }

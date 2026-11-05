@@ -391,6 +391,11 @@ try {
   await page.getByLabel("Community name", { exact: true }).fill("Renamed friends");
   await page.getByRole("textbox", { name: /^Description/ }).click();
   await page.getByRole("heading", { name: "Renamed friends", exact: true }).waitFor();
+  assert.equal(
+    await page.locator(".chat-settings-panel .chat-info-card").count(),
+    1,
+    "Shared GroupSettingsScreen card is used for communities",
+  );
   await page.getByRole("button", { name: "Add members", exact: true }).click();
   await page
     .getByRole("dialog", { name: "Add members", exact: true })
@@ -404,6 +409,11 @@ try {
   assert.ok(calls.some((c) => c.rpc === "join_community" && c.body.p_user_id === third));
   await page.getByRole("button", { name: "View members", exact: true }).click();
   const membersDialog = page.getByRole("dialog", { name: "Community members", exact: true });
+  await membersDialog.locator(".chat-settings-panel").waitFor();
+  assert.ok(
+    (await membersDialog.locator(".group-member-v2").count()) > 0,
+    "Communities use the same migrated member surface",
+  );
   await membersDialog.getByRole("button", { name: "Member actions: Carol" }).click();
   await membersDialog.getByRole("button", { name: "Promote to admin", exact: true }).click();
   await page

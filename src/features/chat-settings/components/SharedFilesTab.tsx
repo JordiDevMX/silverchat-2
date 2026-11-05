@@ -1,4 +1,6 @@
 import { Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { SharedFileRowSurface } from "@/components/ui/chat-settings-surfaces";
 import { FileIconTile } from "@/components/ui/file-icon-tile";
 import { useMessageText } from "@/features/messages/i18n";
 import type { Message } from "@/features/messages/types";
@@ -13,36 +15,40 @@ function FileRow({ message }: { message: Message }) {
   const name = upload?.original_filename ?? say("File unavailable", "Archivo no disponible");
   const fileType = resolveFileType({ filename: name, mimeType: upload?.mime_type });
   return (
-    <div className="shared-file-row">
-      <FileIconTile family={fileType.family} />
-      <span>
-        <strong title={name}>{name.length > 40 ? `${name.slice(0, 37)}…` : name}</strong>
-        <small>
+    <SharedFileRowSurface
+      name={name}
+      icon={<FileIconTile family={fileType.family} />}
+      details={
+        <>
           {upload && `${formatBytes(upload.size_bytes, language)} · `}
           {say(fileType.label[0], fileType.label[1])} ·{" "}
           {new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(
             new Date(message.created_at),
           )}
-        </small>
-      </span>
-      <button
-        type="button"
-        className="message-icon"
-        disabled={!upload || busy}
-        aria-label={say("Download file", "Descargar archivo")}
-        onClick={download}
-      >
-        <Download />
-      </button>
-      {error && (
-        <p role="alert">
-          {say(
-            "Download failed. Allow pop-ups and try again.",
-            "La descarga falló. Permite ventanas emergentes e inténtalo de nuevo.",
-          )}
-        </p>
-      )}
-    </div>
+        </>
+      }
+      action={
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={!upload || busy}
+          aria-label={say("Download file", "Descargar archivo")}
+          onClick={download}
+        >
+          <Download />
+        </Button>
+      }
+      error={
+        error && (
+          <p role="alert">
+            {say(
+              "Download failed. Allow pop-ups and try again.",
+              "La descarga falló. Permite ventanas emergentes e inténtalo de nuevo.",
+            )}
+          </p>
+        )
+      }
+    />
   );
 }
 export function SharedFilesTab({ messages }: { messages: Message[] }) {
