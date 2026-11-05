@@ -1,4 +1,4 @@
-/* Stories are migrated; channel presentation remains unchanged until Module 3B. */
+/* Novedades: approved stories and broadcast-channel surfaces. */
 @layer components {
   .novedades-page {
     width: 100%;
@@ -841,5 +841,204 @@
   }
   to {
     opacity: 0;
+  }
+}
+
+/* Module 3B: broadcast surfaces share the silver shell and primary-fill tokens. */
+@layer components {
+  .novedades-search {
+    position: relative;
+    display: block;
+  }
+  .novedades-search > svg {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted-foreground);
+  }
+  .novedades-search input {
+    padding-left: 42px;
+    background: color-mix(in oklab, var(--card) 70%, transparent);
+  }
+  .novedades-bottom {
+    background: color-mix(in oklab, var(--card) 88%, transparent);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-silver);
+    padding: 12px;
+    gap: 8px;
+  }
+  .channels-section > h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+  .channel-list-item,
+  .discover-channel {
+    gap: 12px;
+    padding: 14px 12px;
+    border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+    border-radius: 16px;
+    margin-bottom: 8px;
+    background: color-mix(in oklab, var(--card) 65%, transparent);
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+  .channel-list-item:hover,
+  .discover-channel:hover {
+    background: var(--accent);
+    border-color: var(--border);
+  }
+  .channel-list-item:focus-visible,
+  .channel-discovery-link:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+    border-radius: 12px;
+  }
+  .channel-row-copy strong {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  .channel-row-copy strong svg {
+    flex: none;
+  }
+  .channel-row-copy small {
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  .channel-row-description {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    margin-top: 5px;
+  }
+  .channel-follow-button {
+    flex: none;
+    border-radius: 12px;
+    gap: 5px;
+    padding-inline: 12px;
+    min-height: 40px;
+  }
+  .channel-follow-label {
+    animation: channel-reveal var(--duration-fast) var(--ease-out) both;
+  }
+  .channel-row-reveal {
+    animation: channel-reveal var(--duration-base) var(--ease-out) both;
+  }
+  .channel-header {
+    flex: none;
+  }
+  .channel-header-identity strong {
+    font-size: 14px;
+  }
+  .channel-profile {
+    margin-top: 24px;
+    animation: channel-reveal var(--duration-base) var(--ease-out) both;
+  }
+  .channel-profile-identity {
+    padding: 28px 20px;
+    text-align: center;
+  }
+  .channel-profile-identity .group-photo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    margin: 0;
+  }
+  .channel-profile-identity h1 {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 24px;
+    margin: 20px 0 8px;
+    overflow-wrap: anywhere;
+  }
+  .channel-profile-identity h1 svg {
+    width: 20px;
+    flex: none;
+  }
+  .channel-profile-identity > p:not(.channel-description),
+  .channel-profile-identity > small {
+    color: var(--muted-foreground);
+    font-size: 13px;
+  }
+  .channel-profile-actions {
+    padding: 12px;
+  }
+  .channel-profile-actions > .channel-follow-button {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  .channel-read-retry {
+    margin: 10px;
+    align-self: flex-start;
+  }
+  .auth-modal.channel-overlay {
+    width: min(480px, calc(100vw - 24px));
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    background: var(--card);
+    box-shadow: var(--shadow-silver);
+  }
+  .channel-form .field {
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .channel-form input:focus-visible,
+  .channel-form textarea:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .channel-form textarea {
+    resize: vertical;
+    min-height: 100px;
+  }
+  @keyframes channel-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @media (max-width: 480px) {
+    .novedades-bottom {
+      flex-wrap: wrap;
+    }
+    .novedades-bottom > * {
+      flex-basis: 140px;
+    }
+    .discover-channel {
+      gap: 8px;
+      padding: 12px 10px;
+    }
+    .channel-discovery-link {
+      gap: 8px;
+    }
+    .channel-follow-button {
+      padding-inline: 10px;
+      font-size: 12px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .channel-row-reveal,
+    .channel-follow-label,
+    .channel-profile {
+      animation: none;
+    }
+    .channel-list-item,
+    .discover-channel {
+      transition: none;
+    }
   }
 }

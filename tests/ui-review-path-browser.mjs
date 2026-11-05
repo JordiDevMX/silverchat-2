@@ -17,6 +17,9 @@ try {
     "/ui-review",
     "/chats",
     "/communities",
+    "/novedades",
+    "/novedades/explore",
+    "/channels/preview",
     "/settings/appearance",
   ]) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -49,6 +52,10 @@ try {
     if (isFixture) {
       await page.getByRole("heading", { name: "SilverChat", exact: true }).waitFor();
       await page.evaluate(() => document.fonts.ready);
+      await page
+        .locator("#channels-gallery")
+        .getByRole("heading", { name: "Broadcast channels", exact: true })
+        .waitFor();
       assert.equal(new URL(page.url()).pathname, fixture);
       assert.equal(await page.locator('[data-slot="brand-lockup"]').count(), 2);
       assert.equal(

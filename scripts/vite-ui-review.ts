@@ -6,9 +6,9 @@ const appGuide = `<!doctype html>
 <link rel="icon" href="/favicon.svg"><title>SilverChat UI review server</title>
 <style>body{font:16px/1.6 system-ui,sans-serif;max-width:44rem;margin:12vh auto;padding:1.5rem;color:#e6edf3;background:#101820}a{color:#62cfff}code{font-size:1em}</style></head>
 <body><main><h1>This is the UI review server</h1>
-<p>Review bubbles, the brand header, search, requests and tab actions without signing in.</p>
+<p>Review the shared UI, conversations, communities, stories and broadcast channels without signing in.</p>
 <p><a href="${fixture}">Open the SilverChat review fixture</a></p>
-<p>Live chats and communities require the app's auth backend and a real session. Plain Vite does not serve <code>/api/auth/*</code>. This server does not bypass authentication or create a mock account.</p>
+<p>Live chats, communities, stories and channels require the app's auth backend and a real session. Plain Vite does not serve <code>/api/auth/*</code>. This server does not bypass authentication or create a mock account.</p>
 <p>See <code>docs/ui-feedback-review.md</code> for the separate application setup.</p></main></body></html>`;
 
 /** Development-only routing/discovery; production routes and auth guards are untouched. */
@@ -29,7 +29,10 @@ export function uiReviewLinks(reviewOnly: boolean): Plugin {
           response.end();
           return;
         }
-        if (reviewOnly && /^\/(chats|communities|settings|auth)(\/|$)/.test(pathname)) {
+        if (
+          reviewOnly &&
+          /^\/(chats|communities|novedades|channels|settings|auth)(\/|$)/.test(pathname)
+        ) {
           response.writeHead(200, {
             "Content-Type": "text/html; charset=utf-8",
             "Cache-Control": "no-store",

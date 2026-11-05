@@ -179,3 +179,31 @@
     color: #ffffffb0;
   }
 }
+
+@source "./channels-gallery.tsx";
+@layer components {
+  .channels-gallery {
+    margin-top: 48px;
+    min-width: 0;
+  }
+  .channels-gallery > p {
+    color: var(--muted-foreground);
+    margin: 12px 0 24px;
+  }
+  .channels-gallery h3 {
+    font-size: 14px;
+    color: var(--muted-foreground);
+    margin: 24px 0 12px;
+  }
+  .channels-gallery a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .channel-preview-frame {
+    margin: 24px 0;
+    min-width: 0;
+  }
+  .channel-preview-frame > button {
+    margin-top: 16px;
+  }
+}

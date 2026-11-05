@@ -9,7 +9,7 @@ export function ChannelsSection({ search = "" }: { search?: string }) {
     `${c.name} ${c.slug}`.toLowerCase().includes(search.toLowerCase()),
   );
   return (
-    <section>
+    <section className="channels-section">
       <h2>{say("Channels", "Canales")}</h2>
       <QueryState loading={q.isPending} error={q.error} retry={() => void q.refetch()} />
       {data?.map((c) => (

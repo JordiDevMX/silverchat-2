@@ -1,4 +1,4 @@
-import { BadgeCheck } from "lucide-react";
+import { ChannelFollowButton, ChannelRowContent } from "@/components/ui/channel-surfaces";
 import { useMessageText } from "@/features/messages/i18n";
 import { Avatar, NavLink, QueryState } from "@/features/settings/components/shared";
 import { useDiscoverChannels } from "../../hooks/channels/useDiscoverChannels";
@@ -11,44 +11,38 @@ export function DiscoverChannelsSection({ search = "" }: { search?: string }) {
     `${c.name} ${c.slug}`.toLowerCase().includes(search.toLowerCase()),
   );
   return (
-    <section>
+    <section className="channels-section">
       <h2>{say("Find channels to follow", "Encuentra canales para seguir")}</h2>
       <QueryState loading={q.isPending} error={q.error} retry={() => void q.refetch()} />
       {follow.isError && (
         <p role="alert">{say("Unable to follow. Try again.", "No se pudo seguir. Reinténtalo.")}</p>
       )}
       {data?.map((c) => (
-        <div className="discover-channel" key={c.id}>
+        <div className="discover-channel channel-row-reveal" key={c.id}>
           <NavLink href={`/channels/${c.id}`} className="channel-discovery-link">
-            <Avatar
-              profile={{ id: c.id, display_name: c.name, avatar_url: c.avatar_url }}
-              size="small"
+            <ChannelRowContent
+              avatar={
+                <Avatar
+                  profile={{ id: c.id, display_name: c.name, avatar_url: c.avatar_url }}
+                  size="small"
+                />
+              }
+              name={c.name}
+              verified={c.is_verified}
+              verifiedLabel={say("Verified", "Verificado")}
+              detail={
+                <>
+                  {c.follower_count} {say("followers", "seguidores")}
+                </>
+              }
+              description={c.description}
             />
-            <span>
-              <strong>
-                {c.name}
-                {c.is_verified && (
-                  <BadgeCheck
-                    className="text-primary"
-                    size={16}
-                    aria-label={say("Verified", "Verificado")}
-                  />
-                )}
-              </strong>
-              <small>
-                {c.follower_count} {say("followers", "seguidores")}
-              </small>
-              <p>{c.description}</p>
-            </span>
           </NavLink>
-          <button
-            type="button"
-            className="button secondary"
-            disabled={follow.isPending}
+          <ChannelFollowButton
+            busy={follow.isPending}
+            label={say("Follow", "Seguir")}
             onClick={() => follow.mutate(c.id)}
-          >
-            {say("Follow", "Seguir")}
-          </button>
+          />
         </div>
       ))}
       {data?.length === 0 && (

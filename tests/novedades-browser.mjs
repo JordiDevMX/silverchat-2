@@ -73,6 +73,10 @@ let stories = [story(300), story(301)],
   views = [],
   posts = [],
   uploads = [];
+let failChannelRead = false,
+  failChannelSlug = false,
+  failChannelAvatar = false,
+  channelCreates = 0;
 const channels = Array.from({ length: 25 }, (_, n) => ({
   id: uid(100 + n),
   owner_id: n === 0 ? me : other,
@@ -201,7 +205,10 @@ async function setup(ctx) {
     }
     if (p.includes("/storage/v1/object/")) return respond(r, { Key: "story-media/test" });
     if (p.endsWith("/channels")) {
+      if (failChannelSlug && s.has("slug"))
+        return respond(r, { message: "Availability unavailable" }, 500);
       if (method === "DELETE") {
+        assert.equal(s.get("owner_id"), `eq.${me}`);
         const i = channels.findIndex((x) => x.id === s.get("id").slice(3));
         const [removed] = channels.splice(i, 1);
         follows = follows.filter((f) => f.channel_id !== removed.id);
@@ -219,6 +226,9 @@ async function setup(ctx) {
     }
     if (p.endsWith("/channel_followers")) {
       if (method === "PATCH") {
+        assert.equal(s.get("user_id"), `eq.${me}`);
+        if (failChannelRead && body.last_read_at)
+          return respond(r, { message: "Cursor unavailable" }, 500);
         for (const f of filter(follows)) Object.assign(f, body);
         return result(filter(follows));
       }
@@ -322,6 +332,7 @@ async function setup(ctx) {
         return respond(r, null);
       }
       if (fn === "create_channel") {
+        channelCreates++;
         const c = {
           ...channels[0],
           id: uid(999),
@@ -334,6 +345,8 @@ async function setup(ctx) {
         return respond(r, c.id);
       }
       if (fn === "update_channel_info") {
+        if (failChannelAvatar && body.p_avatar_url)
+          return respond(r, { message: "Avatar update unavailable" }, 500);
         const c = channels.find((x) => x.id === body.p_channel_id);
         for (const k of ["name", "slug", "description", "avatar_url"])
           if (body[`p_${k}`] != null) c[k] = body[`p_${k}`];
@@ -537,7 +550,14 @@ try {
   const discoveredName = await discovered.locator("strong").textContent();
   await discovered.getByRole("button", { name: "Follow", exact: true }).click();
   await page.locator(".channel-list-item").filter({ hasText: discoveredName }).waitFor();
+  failChannelRead = true;
   await goto(`/channels/${followed}`);
+  await page.getByRole("button", { name: /Retry marking channel read/ }).waitFor();
+  failChannelRead = false;
+  await page.getByRole("button", { name: /Retry marking channel read/ }).click();
+  await page
+    .getByRole("button", { name: /Retry marking channel read/ })
+    .waitFor({ state: "detached" });
   await page.getByText("Broadcast 64", { exact: true }).waitFor();
   assert.equal(await page.locator(".conversation-composer").count(), 0);
   const live = { ...posts[0], id: uid(1900), content: "Realtime broadcast", created_at: now() };
@@ -629,6 +649,9 @@ try {
     Date.parse(channels.find((x) => x.id === followed).last_message_at) - 1,
   );
   await goto(`/channels/${followed}/info`);
+  await page.locator(".channel-profile").waitFor();
+  assert.equal(await page.getByRole("button", { name: "Edit channel", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "Delete channel", exact: true }).count(), 0);
   await page.getByRole("button", { name: "Channel options" }).click();
   await page.getByRole("menuitem", { name: "Search in chat", exact: true }).click();
   await page.getByRole("searchbox", { name: "Search in conversation" }).waitFor();
@@ -654,13 +677,17 @@ try {
   const createDialog = page.getByRole("dialog", { name: "Create channel", exact: true });
   await cycleFocus(createDialog);
   await page.keyboard.press("Escape");
+  await createDialog.waitFor({ state: "detached" });
   assert.ok(
     await page
       .getByRole("button", { name: "Create channel", exact: true })
       .evaluate((el) => el === document.activeElement),
   );
   await page.getByRole("button", { name: "Create channel", exact: true }).click();
+  failChannelSlug = true;
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Café Announcements");
+  await createDialog.getByRole("status").filter({ hasText: "Availability check failed" }).waitFor();
+  failChannelSlug = false;
   assert.equal(
     await page.getByRole("textbox", { name: "Slug", exact: true }).inputValue(),
     "cafe-announcements",
@@ -687,12 +714,23 @@ try {
   );
   await createDialog.locator(".avatar-preview").waitFor();
   await cycleFocus(createDialog);
+  failChannelAvatar = true;
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Create channel", exact: true })
     .click();
+  await createDialog
+    .getByText("Channel created. Retry the photo upload or continue without a photo.", {
+      exact: true,
+    })
+    .waitFor();
+  assert.equal(channelCreates, 1);
+  assert.ok(await createDialog.getByRole("textbox", { name: "Name", exact: true }).isDisabled());
+  failChannelAvatar = false;
+  await createDialog.getByRole("button", { name: "Finish", exact: true }).click();
   await page.waitForURL(`**/channels/${uid(999)}/info`);
-  const avatar = uploads.find(
+  assert.equal(channelCreates, 1);
+  const avatar = uploads.findLast(
     (x) => x.bucket === "avatars" && x.path.startsWith(`chat-${uid(999)}/channel-`),
   );
   assert.ok(avatar);
@@ -707,6 +745,13 @@ try {
     .getByRole("button", { name: "Delete channel", exact: true })
     .click();
   await page.waitForURL("**/novedades");
+  await goto("/channels");
+  await page.waitForURL("**/novedades");
+  await goto("/channels/new");
+  await page.waitForURL("**/novedades?create=true");
+  const redirectedCreate = page.getByRole("dialog", { name: "Create channel", exact: true });
+  await redirectedCreate.getByRole("button", { name: "Cancel", exact: true }).click();
+  await redirectedCreate.waitFor({ state: "detached" });
   await page.getByRole("link", { name: /Explore more/ }).click();
   await page.waitForURL("**/novedades/explore");
   for (let i = 0; i < 8; i++) {
@@ -788,7 +833,7 @@ try {
   await mobile.close();
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: stories text/image/video uploads, duration rejection/playback, ordering/timer/hold/navigation/reply/idempotent creation/viewers/delete; discover top20/follow; channel Realtime/paging/read-only/react8/mute/owner composer/edit/create/delete; explore; mobile layout.",
+    "PASS: stories text/image/video uploads, duration rejection/playback, ordering/timer/hold/navigation/reply/idempotent creation/viewers/delete; discover top20/follow; channel Realtime/paging/read-only/react8/mute/owner composer/edit/create/delete, cursor retry, availability failure, one create after avatar retry, route redirects; explore; mobile layout.",
   );
 } catch (e) {
   console.error(await page.locator("body").textContent());

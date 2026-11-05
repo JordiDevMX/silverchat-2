@@ -1,5 +1,8 @@
 import { useRouter, useSearch } from "@tanstack/react-router";
+import { Compass, Megaphone, Search } from "lucide-react";
 import { useState } from "react";
+import { BrandLockup } from "@/components/ui/brand-lockup";
+import { Button } from "@/components/ui/button";
 import { useMessageText } from "@/features/messages/i18n";
 import { ChannelsSection } from "@/features/novedades/components/channels/ChannelsSection";
 import { CreateChannelModal } from "@/features/novedades/components/channels/CreateChannelModal";
@@ -19,30 +22,37 @@ export function NovedadesPage() {
   return (
     <main id="main" className="novedades-page">
       <header className="novedades-header">
-        <p className="eyebrow">SILVERCHAT</p>
+        <BrandLockup />
         <h1>{say("Updates", "Novedades")}</h1>
-        <input
-          type="search"
-          aria-label={say("Search stories and channels", "Buscar historias y canales")}
-          placeholder={say("Search stories and channels…", "Buscar historias y canales…")}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
+        <label className="novedades-search">
+          <Search aria-hidden="true" size={18} />
+          <input
+            type="search"
+            aria-label={say("Search stories and channels", "Buscar historias y canales")}
+            placeholder={say("Search stories and channels…", "Buscar historias y canales…")}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+        </label>
       </header>
       <StoriesRow search={text} onOpen={setViewer} onCreate={() => setCreator(true)} />
       <ChannelsSection search={text} />
       <DiscoverChannelsSection search={text} />
       <footer className="novedades-bottom">
-        <NavLink href="/novedades/explore" className="button secondary">
-          {say("Explore more", "Explorar más")}
-        </NavLink>
-        <button
+        <Button asChild variant="outline">
+          <NavLink href="/novedades/explore">
+            <Compass size={17} />
+            {say("Explore more", "Explorar más")}
+          </NavLink>
+        </Button>
+        <Button
           type="button"
-          className="button primary"
+          variant="neon-outline"
           onClick={() => void router.navigate({ to: "/novedades", search: { create: true } })}
         >
+          <Megaphone size={17} />
           {say("Create channel", "Crear canal")}
-        </button>
+        </Button>
       </footer>
       {creator && <StoryCreator onClose={() => setCreator(false)} />}{" "}
       {viewer && <StoryViewer userId={viewer} onClose={() => setViewer(undefined)} />}{" "}
@@ -60,7 +70,9 @@ export function ExploreChannelsPage() {
   const { say } = useMessageText();
   return (
     <main id="main" className="novedades-page">
-      <NavLink href="/novedades">← {say("Back", "Volver")}</NavLink>
+      <Button asChild variant="ghost">
+        <NavLink href="/novedades">← {say("Back", "Volver")}</NavLink>
+      </Button>
       <h1>{say("Explore channels", "Explorar canales")}</h1>
       <DiscoverChannelsSection />
     </main>
