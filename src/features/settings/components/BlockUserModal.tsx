@@ -1,9 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { useI18n } from "@/app/providers/i18n-provider";
-import { Modal } from "@/features/auth/components";
-import { useAuth } from "@/lib/auth-provider";
-import { blockUser } from "../hooks";
-import { useAction } from "./shared";
+import { Button } from "@/components/ui/button";
+import { SettingsDialog } from "@/components/ui/settings-surfaces";
+import { useBlockUser } from "../hooks/useBlockUser";
 export function BlockUserModal({
   target,
   onClose,
@@ -11,45 +8,36 @@ export function BlockUserModal({
   target: { id: string; display_name: string };
   onClose: () => void;
 }) {
-  const { user } = useAuth();
-  const cache = useQueryClient();
-  const action = useAction();
-  const { language, t } = useI18n();
+  const { user, action, t, language, block } = useBlockUser(target.id, onClose);
   return (
-    <Modal
+    <SettingsDialog
       title={`${t("Block")} ${target.display_name}?`}
-      onClose={action.busy ? undefined : onClose}
+      onClose={onClose}
+      canClose={!action.busy}
     >
-      <p>
-        {language === "es"
-          ? "No podrán enviarte mensajes y no verás sus mensajes."
-          : "They won’t be able to message you, and you won’t see their messages."}
-      </p>
-      {action.feedback}
-      <div className="modal-actions">
-        <button className="button secondary" type="button" disabled={action.busy} onClick={onClose}>
-          {t("Cancel")}
-        </button>
-        <button
-          className="button danger"
-          type="button"
-          disabled={action.busy || !user}
-          onClick={() =>
-            void action.run(async () => {
-              if (!user) return;
-              await blockUser(target.id, user.id);
-              await Promise.all(
-                ["blocked", "contacts", "public-profile", "avatar-url", "chats"].map((key) =>
-                  cache.invalidateQueries({ queryKey: [key] }),
-                ),
-              );
-              onClose();
-            })
-          }
-        >
-          {t("Block")}
-        </button>
-      </div>
-    </Modal>
+      {(close) => (
+        <>
+          <p>
+            {language === "es"
+              ? "No podrán enviarte mensajes y no verás sus mensajes."
+              : "They won’t be able to message you, and you won’t see their messages."}
+          </p>
+          {action.feedback}
+          <div className="modal-actions">
+            <Button variant="outline" type="button" disabled={action.busy} onClick={close}>
+              {t("Cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              type="button"
+              disabled={action.busy || !user}
+              onClick={() => void block()}
+            >
+              {t("Block")}
+            </Button>
+          </div>
+        </>
+      )}
+    </SettingsDialog>
   );
 }

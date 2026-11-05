@@ -252,4 +252,43 @@ Port **5177 is a review-only server**; settings paths there explain the backend 
 7. **`/settings/storage`** — actual total/category values, gradient usage indicator and the existing soft-indicator disclaimer. No prototype quota or invented storage data.
 8. **`/settings/about`** — current package/build version, existing Terms/Privacy availability, expandable real license links and logout confirmation. Verify Cancel/focus restoration; only confirm logout if you intend to sign out. The all-other-devices checkbox retains its existing meaning.
 
-The shell now frames deferred settings routes, but their page bodies/workflows are not migrated in this slice. Profile/social/avatar, blocked/account/deletion, security/MFA and public profile remain for 4B-2 through 4B-5. Automated mocked-backend outcomes verify behavior without changing accounts; normal-login manual acceptance remains the final visual/backend review.
+At the 4B-1 boundary, profile/social/avatar, blocked/account/deletion, security/MFA and public profile were deferred. Those bodies and workflows are now covered by the Module 4B remainder checklist below. Automated mocked-backend outcomes verify behavior without changing accounts; normal-login manual acceptance remains the final visual/backend review.
+
+## Module 4B remainder — profile, account, security and public profile
+
+### Clean standalone review procedure
+
+From the repository root, stop an existing **review-only** server if it occupies 5177, then run **`pnpm review:ui`**. Leave the normal app/backend alone. Open a fresh browser tab at **http://127.0.0.1:5177/**; it redirects to **http://127.0.0.1:5177/tests/ui-foundation.html**. Jump directly to **http://127.0.0.1:5177/tests/ui-foundation.html#settings-details-gallery**. Expect **Profile, account & security** below **Settings shell & preferences**. No login, environment file or backend is required. This path was exercised after restarting the review server, using fresh browser contexts, with no auth/remote requests or screenshots.
+
+Use the top **Light/Dark** and **Accent** controls (or the preceding settings gallery preview controls). Check **blue, purple, red, orange, yellow, green**, each in both modes at **375×844**, **768×1024**, **1280×900**. At narrow widths the two gallery columns stack. Cards, public identity/bio, forms and dialogs must stay within the viewport.
+
+- **Profile/social:** edit the local name/bio and Portfolio field; Save preview profile/links shows a local notice. Username is read-only with a 30-day cooldown example. Focus rings, card borders and primary glow follow the selected theme/accent.
+- **Avatar:** Preview photo picker opens the same SettingsDialog frame used by the app. Camera/upload preview shows a local crop frame and Zoom slider (no camera/file access). Preview save with cleanup warning closes and displays the pending-cleanup notice. Cancel/Escape restore focus after the subtle exit. Test Tab/Shift+Tab confinement and reduced-motion instant dismissal.
+- **Blocked/rollback:** Preview unblock temporarily removes the anonymized contact. Simulate unblock failure restores User 22222222 and exposes an error. This is a deterministic fixture state, not a backend request.
+- **Account/deletion:** inspect the scheduled-deletion banner and destructive card. Preview delete confirmation keeps Schedule preview deletion disabled until exact **DELETE**. Cancel/Escape animate; backdrop clicks retain the dialog. Preview email/cancel-deletion actions only update local text.
+- **Security:** Preview backup codes shows ten clearly marked DEMO codes and the same BackupCodesSurface. Copy/download preview only acknowledge locally. Escape/backdrop cannot dismiss; Done stays disabled until **I’ve saved these demo codes** is checked. The real navigation blocker is verified in the authenticated mocked harness; the fixture demonstrates the mandatory dialog without a router.
+- **Public profile:** inspect the soft accent banner, overlapping avatar, name/handle, bio, social pills and glowing message action. Preview message request only shows a notice. No invented status/role/verification data appears.
+- **Motion:** existing settings entry/exit is 200ms ease-out; controls 150ms. Emulate `prefers-reduced-motion: reduce`: decorative motion is instant. No save, auth or MFA timing depends on animation.
+
+### Live routes — normal authenticated backend required
+
+**5177 serves the fixture, not the app.** Visiting /settings/* or /profile/* there intentionally shows the backend guide. The existing app frontend is **http://127.0.0.1:5173**; log in through your normal backend-enabled origin (use that origin instead if your backend prints a different one). The isolated fake-credential server on **5175** is only used with automated request interception and is stopped after verification.
+
+At the same viewport/theme/accent matrix, review:
+
+1. **http://127.0.0.1:5173/settings/profile** — existing name/bio/first/last fields and signed photo. Validation, disabled/dirty Save and reload persistence; a recent username change stays read-only until its existing 30-day date. Change photo: view, choose/crop/zoom/save, remove and Cancel/Escape. An old-object cleanup failure reports a warning while retaining the saved new photo. Camera availability remains device-dependent.
+2. **http://127.0.0.1:5173/settings/profile/social** — fixed fields and bounded custom labels/values, removal, saved values after reload. Unsafe schemes remain text when rendered on the public card.
+3. **http://127.0.0.1:5173/settings/privacy/blocked** — anonymized identities, counts, empty state and Unblock. Automated checks hold/fail the request to verify optimistic removal and rollback; normal successful unblock persists.
+4. **http://127.0.0.1:5173/settings/account** — current email, security link, account-switch explanation, typed DELETE confirmation and cancellation banner. Email change still requires the delivered confirmation link. Cancel dialogs to review harmlessly; confirming email, logout or deletion intentionally performs the existing account operation. Deletion remains scheduled for 30 days and cancellation remains unavailable after the deadline.
+5. **http://127.0.0.1:5173/settings/security** — existing authenticator enrollment QR/setup key and six-digit verification, enabled state, regeneration/disable confirmations. If deliberately testing enrollment, save the displayed backup codes; Escape/backdrop/navigation/reload stay blocked until acknowledgment **and Done**. Copy reports success or download fallback; Download produces the existing .txt. Partial hash-write failure explicitly reports enabled 2FA and offers regeneration. Automated checks cover this without modifying remote accounts. Existing security body copy remains English as before; translated page heading/description remain intact.
+6. **http://127.0.0.1:5173/profile/<username>** — use your own username for Edit profile and a visible other profile for Send message. Safe social links open separately; unsafe values remain inert. A request navigates to its returned chat. Hidden/unavailable profiles retain the existing privacy-aware empty view.
+
+### Verification commands for this slice
+
+`pnpm exec tsc --noEmit -p tsconfig.app.json`, `pnpm typecheck`, `pnpm test`, `pnpm exec vite build`, and `pnpm exec biome check <changed-source-and-test-paths>`.
+
+For browser suites, use an installed Chromium and Playwright Core via `CHROMIUM_PATH` / `PLAYWRIGHT_MODULE_PATH` where required. Review suites use `UI_REVIEW_URL=http://127.0.0.1:5177`; foundation uses `UI_BASE_URL=http://127.0.0.1:5177`. Run `node tests/ui-review-path-browser.mjs`, `node tests/ui-foundation-browser.mjs`, `node tests/primary-fill-browser.mjs`, `node tests/settings-gallery-browser.mjs`, `node tests/settings-details-gallery-browser.mjs`, plus communities/stories/channels gallery suites. These are screenshot-free.
+
+The mocked app is started separately with `VITE_SUPABASE_URL=https://supabase.test`, `VITE_SUPABASE_ANON_KEY=test-anon`, **`pnpm dev --port 5175`**. With `UI_BASE_URL=http://127.0.0.1:5175`, run `node tests/settings-browser.mjs` and `node tests/chat-settings-browser.mjs`; run `node tests/communities-browser.mjs` (default 5175), and `node tests/novedades-browser.mjs` with `TEST_BASE_URL=http://127.0.0.1:5175`. All remote boundaries are intercepted. No manual sign-in to this fake-credential server is intended.
+
+Module 4B is complete. Module 5 remains deferred pending explicit authorization.

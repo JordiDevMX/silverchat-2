@@ -22,6 +22,12 @@ try {
     "/channels/preview",
     "/settings/appearance",
     "/settings/privacy/visibility",
+    "/settings/profile",
+    "/settings/profile/social",
+    "/settings/privacy/blocked",
+    "/settings/account",
+    "/settings/security",
+    "/profile/preview",
   ]) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
@@ -60,6 +66,10 @@ try {
       await page
         .locator("#channels-gallery")
         .getByRole("heading", { name: "Broadcast channels", exact: true })
+        .waitFor();
+      await page
+        .locator("#settings-details-gallery")
+        .getByRole("heading", { name: "Profile, account & security", exact: true })
         .waitFor();
       assert.equal(new URL(page.url()).pathname, fixture);
       assert.equal(await page.locator('[data-slot="brand-lockup"]').count(), 2);

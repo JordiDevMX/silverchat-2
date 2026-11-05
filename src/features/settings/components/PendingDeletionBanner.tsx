@@ -1,12 +1,7 @@
-import { useI18n } from "@/app/providers/i18n-provider";
-import { supabase } from "@/lib/supabase";
-import { useProfile, useProfileRefresh } from "../hooks";
-import { useAction } from "./shared";
+import { Button } from "@/components/ui/button";
+import { useDeletionCancellation } from "../hooks/useAccountActions";
 export function PendingDeletionBanner() {
-  const profile = useProfile();
-  const refresh = useProfileRefresh();
-  const action = useAction();
-  const { language, t } = useI18n();
+  const { profile, action, t, language, cancelDeletion } = useDeletionCancellation();
   if (!profile.data?.scheduled_deletion_at) return null;
   const expired = new Date(profile.data.scheduled_deletion_at).getTime() <= Date.now();
   const date = new Date(profile.data.scheduled_deletion_at).toLocaleDateString(language, {
@@ -19,23 +14,18 @@ export function PendingDeletionBanner() {
           ? `Tu cuenta se eliminará el ${date}.`
           : `Your account will be deleted on ${date}.`}
       </span>
-      <button
+      <Button
+        variant="outline"
         type="button"
         disabled={action.busy || expired}
-        onClick={() =>
-          void action.run(async () => {
-            const r = await supabase.rpc("cancel_account_deletion");
-            if (r.error) throw r.error;
-            await refresh();
-          })
-        }
+        onClick={() => void cancelDeletion()}
       >
         {expired
           ? language === "es"
             ? "Eliminación en curso"
             : "Deletion in progress"
           : t("Cancel deletion")}
-      </button>
+      </Button>
       {action.feedback}
     </aside>
   );
