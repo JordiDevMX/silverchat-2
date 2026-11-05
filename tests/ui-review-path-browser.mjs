@@ -15,6 +15,15 @@ try {
     fixture,
     "/ui-foundation.html",
     "/ui-review",
+    "/auth/login",
+    "/auth/signup",
+    "/auth/2fa-verify",
+    "/auth/check-email",
+    "/auth/error",
+    "/auth/post-login",
+    "/onboarding/pick-username",
+    "/onboarding/welcome",
+    "/calls",
     "/chats",
     "/chats/preview/info",
     "/chats/preview/media",
@@ -77,6 +86,10 @@ try {
       await page
         .locator("#chat-settings-gallery")
         .getByRole("heading", { name: "Chat settings & info", exact: true })
+        .waitFor();
+      await page
+        .locator("#auth-gallery")
+        .getByRole("heading", { name: "Auth, onboarding & infrastructure", exact: true })
         .waitFor();
       assert.equal(new URL(page.url()).pathname, fixture);
       assert.equal(await page.locator('[data-slot="brand-lockup"]').count(), 2);

@@ -1,6 +1,8 @@
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { InfrastructureNotice } from "@/components/ui/auth-surfaces";
+import { Button } from "@/components/ui/button";
 import { AppSkeleton, AuthFrame } from "@/features/auth/components";
 import { PreferencesProvider } from "@/features/settings/preferences-provider";
 import { AuthProvider, useAuth } from "@/lib/auth-provider";
@@ -38,10 +40,10 @@ function AuthenticatedRouter() {
   if (auth.error)
     return (
       <AuthFrame title="Let’s reconnect">
-        <p>{auth.error}</p>
-        <button className="button primary" type="button" onClick={() => window.location.reload()}>
+        <InfrastructureNotice role="alert">{auth.error}</InfrastructureNotice>
+        <Button type="button" onClick={() => window.location.reload()}>
           Try again
-        </button>
+        </Button>
       </AuthFrame>
     );
   if (auth.isLoading || (auth.user && !auth.mfaRequired && !auth.profile)) return <AppSkeleton />;

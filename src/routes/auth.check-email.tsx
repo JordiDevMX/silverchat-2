@@ -1,33 +1,10 @@
 import { Mail } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { AuthFrame, InlineError } from "@/features/auth/components";
-import { safeRedirect, searchParams } from "@/features/auth/navigation";
-import { useAuth } from "@/lib/auth-provider";
+import { useCheckEmail } from "@/features/auth/hooks/useCheckEmail";
+import { safeRedirect } from "@/features/auth/navigation";
 export function CheckEmailPage() {
-  const auth = useAuth();
-  const params = searchParams();
-  const email = params.get("email") ?? "";
-  const [remaining, setRemaining] = useState(60);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  useEffect(() => {
-    const interval = setInterval(() => setRemaining((n) => Math.max(0, n - 1)), 1000);
-    return () => clearInterval(interval);
-  }, []);
-  const resend = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      await auth.signIn(email, "resend", safeRedirect(params.get("redirect")));
-      setRemaining(60);
-      setMessage("Email sent again. Check your inbox.");
-    } catch {
-      setError("We couldn’t send a link. Please try again in a moment.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { params, email, remaining, busy, message, error, resend } = useCheckEmail();
   return (
     <AuthFrame title="Check your email">
       <Mail className="feature-icon" size={40} strokeWidth={1.75} aria-hidden="true" />
@@ -36,14 +13,9 @@ export function CheckEmailPage() {
         link expires in 10 minutes.
       </p>
       <p className="quiet-note">Open the link in this browser to finish signing in.</p>
-      <button
-        className="button primary"
-        type="button"
-        disabled={remaining > 0 || busy || !email}
-        onClick={resend}
-      >
+      <Button type="button" disabled={remaining > 0 || busy || !email} onClick={resend}>
         {busy ? "Sending…" : remaining > 0 ? `Resend in ${remaining}s` : "Resend email"}
-      </button>
+      </Button>
       <p role="status">{message}</p>
       <InlineError>{error}</InlineError>
       <a

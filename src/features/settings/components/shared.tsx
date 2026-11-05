@@ -2,9 +2,11 @@ import { useRouter } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import { type PropsWithChildren, type ReactNode, useRef } from "react";
 import { useI18n } from "@/app/providers/i18n-provider";
+import { InfrastructureNotice } from "@/components/ui/auth-surfaces";
 import { Avatar as AvatarPrimitive } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { SettingsRowContent, settingsRowClassName } from "@/components/ui/settings-row";
-import { InlineError } from "@/features/auth/components";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useInView } from "@/hooks/useInView";
 import { getInitials } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
@@ -129,16 +131,19 @@ export function QueryState({
 }) {
   const { t } = useI18n();
   return loading ? (
-    <p role="status">{t("Loading…")}</p>
-  ) : error ? (
-    <div>
-      <InlineError>{t("Something went wrong. Please try again.")}</InlineError>
-      {retry && (
-        <button className="button secondary" type="button" onClick={retry}>
-          {t("Try again")}
-        </button>
-      )}
+    <div role="status" aria-busy="true" className="query-state-loading">
+      <span>{t("Loading…")}</span>
+      <Skeleton className="h-3 w-32 mt-3" />
     </div>
+  ) : error ? (
+    <InfrastructureNotice role="alert">
+      <p className="form-error">{t("Something went wrong. Please try again.")}</p>
+      {retry && (
+        <Button variant="outline" type="button" onClick={retry}>
+          {t("Try again")}
+        </Button>
+      )}
+    </InfrastructureNotice>
   ) : null;
 }
 

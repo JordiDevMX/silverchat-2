@@ -1,3 +1,4 @@
+import { InfrastructureNotice } from "@/components/ui/auth-surfaces";
 import { Button } from "@/components/ui/button";
 import { PublicProfileSurface } from "@/components/ui/public-profile-surface";
 import { Avatar, NavLink, QueryState } from "@/features/settings/components/shared";
@@ -17,10 +18,10 @@ export function PublicProfilePage() {
         retry={() => void profile.refetch()}
       />
       {!profile.isLoading && !profile.error && !p && (
-        <section>
+        <InfrastructureNotice>
           <h1>{t("Profile unavailable")}</h1>
           <p>{t("This profile is unavailable or hidden by privacy settings.")}</p>
-        </section>
+        </InfrastructureNotice>
       )}
       {p && (
         <PublicProfileSurface

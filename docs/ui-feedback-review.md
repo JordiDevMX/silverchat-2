@@ -12,7 +12,7 @@ pnpm review:ui
 3. Wait for Vite to print `http://127.0.0.1:5177/` and its UI review link. Keep that terminal open.
 4. Open **http://127.0.0.1:5177/** in your browser. It redirects to **http://127.0.0.1:5177/tests/ui-foundation.html**.
 
-You should see the SilverChat brand, Light/Dark buttons, an Accent selector, the neon action examples, two message-bubble samples, a Chats header with metallic search, a closed Message requests section, four tab-action tiles, and the **Conversation timeline**, **Interactive messaging**, **Communities**, **Stories**, **Broadcast channels** and **Settings shell & preferences** galleries. This uses the real migrated components. It does not mount the app/auth providers, load .env files, require Supabase credentials, or contact the auth backend.
+You should see the SilverChat brand, Light/Dark buttons, an Accent selector, the neon action examples, two message-bubble samples, a Chats header with metallic search, a closed Message requests section, four tab-action tiles, and the **Conversation timeline**, **Interactive messaging**, **Communities**, **Stories**, **Broadcast channels** and **Settings shell & preferences** galleries. This uses the real migrated components. It does not mount the app/auth providers, load .env files, require Supabase credentials, or contact the auth backend. The latest sections are **Chat settings & info** and **Auth, onboarding & infrastructure**.
 
 **Do not double-click the HTML file or open a file:// URL.** Browsers cannot run this TypeScript/ESM fixture directly from disk. The HTML now displays the command and working HTTP link if its module cannot load.
 
@@ -375,3 +375,80 @@ node tests/novedades-browser.mjs
 ```
 
 All remote boundaries in these app suites are intercepted; no real account mutation or screenshot is required. Stop the isolated 5175 server afterward. Module 5A stops here; 5B, 5C and deferred global cosmetic work await authorization.
+
+## Module 5B — auth, onboarding, landing and infrastructure
+
+### Clean standalone review
+
+Leave the normal app/backend running. Stop any existing **review-only** server, then from the repository root run **`pnpm review:ui`**. Open a fresh tab at **http://127.0.0.1:5177/**, which redirects to the fixture, then visit **http://127.0.0.1:5177/tests/ui-foundation.html#auth-gallery**. Expect **Auth, onboarding & infrastructure** after **Chat settings & info**: a landing hero and ten auth/onboarding/state cards. This procedure was exercised with a restarted review server and fresh browser contexts. No login, credentials, providers or remote requests are needed; no screenshots are produced.
+
+Review **375×844**, **768×1024**, **1280×900**, each in **Light/Dark** and **blue, purple, red, orange, yellow, green** using the top fixture controls. Gallery preference controls are local demonstrations and do not persist or replace the top theme controls.
+
+- **Landing:** glowing S with white glyph, silver/accent wordmark, original headline/copy and conversation illustration. Links remain within the gallery in preview mode. Inspect the stacked mobile layout and desktop two-column balance.
+- **Login/signup:** email label/icon/input alignment, visible focus, primary glow, wrapping and disabled state. Preview send/create only updates a local notice; no email or account is created. The signup sample explicitly identifies the real CAPTCHA requirement.
+- **MFA:** enter or paste six digits, including pasted separators; Backspace from an empty cell moves focus backward. Toggle code error, switch to backup code and back (OTP clears). Preview pending request disables verification and mode switching.
+- **Email/recovery:** check-email sample shows disabled cooldown; expired-link sample provides recovery. Real timers and requests are tested separately in the mocked app journey.
+- **Onboarding:** edit Preview username and inspect the live handle. Select local appearance/accent, then Preview get started or skip. Pending state disables completion controls. Inspect long headings and all six selected accent states.
+- **Infrastructure:** loading skeleton, outage alert, privacy-empty text, retry, not-found and existing account-destination samples. Preview session expired opens the native nondismissible dialog: Escape/backdrop cannot close it, Tab/Shift+Tab remain inside, and Preview return to login closes it and restores focus.
+- **Motion:** card/section/session-dialog entry is 200ms ease-out; control and outage feedback is 150ms. Emulate reduced motion: decorative movement becomes instant. Functional login/resend/navigation timing never waits for animation.
+
+### Live public/auth routes — normal backend required
+
+**5177 is exclusively for fixtures.** `/auth/*`, `/onboarding/*`, `/calls` and other app routes on 5177 show the backend guide; they never create a session. Plain Vite does not implement `/api/auth/*`. Use your existing Netlify-BFF-enabled development or deployed origin. If that setup uses the existing frontend on **http://127.0.0.1:5173**, use that origin; otherwise substitute the backend-enabled origin it prints. Do not sign in to the intercepted test server on 5175.
+
+At the same viewport/theme/accent matrix:
+
+1. **`/` logged out:** original landing copy, login/signup destinations, header and illustration. Logged-in navigation still sends you through the existing MFA/username/chat destination logic.
+2. **`/auth/login`:** empty/invalid email errors and associated label; successful magic-link request, busy state and recovery from request failure. A protected URL retains its local query/hash return path; external redirects are sanitized. Real email delivery needs the existing BFF configuration.
+3. **`/auth/signup`:** the same card/control language, actual Turnstile challenge and required token. With no site key, the unavailable message and disabled Create account remain intentional. Verify a real signup only with an account you intend to create.
+4. **`/auth/check-email`:** displayed email, 60-second resend cooldown, resend feedback/failure and Change email. Open the delivered link in the same browser. **`/auth/post-login`** preserves callback cleanup, skeleton and safe onward navigation.
+5. **`/auth/2fa-verify` for an MFA-required session:** six-digit keyboard/paste/backspace, invalid-code recovery, automatic verification, backup-code toggle/reset and busy controls. Completing MFA retains AAL2 on reload. Backup recovery retains the re-enrollment reminder. CodeInput props/behavior are unchanged.
+6. **`/onboarding/pick-username` for an eligible account:** invalid/taken/racing usernames, username error text and live handle, save/refresh then welcome. This is not a username-change bypass; existing guards and cooldown semantics remain. **`/onboarding/welcome`:** saved theme/accent hydration, six accent choices, language, save failure/retry and Skip for now. Get started saves the existing preference payload and safely redirects; skip preserves its original meaning.
+7. **`/auth/error?code=expired_token`**, **`?code=rate_limited`** and an unknown path such as **`/missing-route`**: recovery cards, Request a new link, Go back and Return home. A lazy-load failure shows a generic error card with retry/home actions instead of internal error details.
+8. **Session/startup/outage:** session expiry keeps its nondismissible login dialog and return URL. Startup failure shows Let’s reconnect/Try again. Service outages retain the translated alert and existing half-open probe/focus-refetch behavior. These failures are exercised automatically; no live outage is required for review.
+9. **`/calls` and `/profile` after login:** existing account-ready placeholders with Settings and Sign out. No calling backend or new profile capability is introduced. An unavailable **`/profile/<username>`** retains privacy-filtered content; loading/error/retry use the shared skeleton/notice treatment.
+
+### Verification commands and boundaries
+
+```powershell
+pnpm exec tsc --noEmit -p tsconfig.app.json
+pnpm typecheck
+pnpm test
+pnpm test:auth
+pnpm exec vite build
+pnpm exec biome check <changed-source-and-test-paths>
+```
+
+On this workstation, set browser paths when they are not otherwise discoverable:
+
+```powershell
+$env:PLAYWRIGHT_MODULE_PATH='file:///C:/Users/Mystic/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright-core/index.mjs'
+$env:CHROMIUM_PATH='C:/Program Files/Google/Chrome/Application/chrome.exe'
+$env:UI_REVIEW_URL='http://127.0.0.1:5177'
+$env:UI_BASE_URL='http://127.0.0.1:5177'
+node tests/ui-review-path-browser.mjs
+node tests/auth-gallery-browser.mjs
+node tests/ui-foundation-browser.mjs
+```
+
+For intercepted auth/infrastructure/shared-state outcomes, start the separate test frontend in another shell:
+
+```powershell
+$env:VITE_SUPABASE_URL='https://supabase.test'
+$env:VITE_SUPABASE_ANON_KEY='test-anon'
+$env:VITE_TURNSTILE_SITE_KEY=''
+pnpm dev --port 5175
+```
+
+Then, with the browser paths above:
+
+```powershell
+$env:UI_BASE_URL='http://127.0.0.1:5175'
+node tests/auth-browser.mjs
+node tests/auth-infrastructure-browser.mjs
+node tests/settings-browser.mjs
+```
+
+All auth/data calls in those suites are intercepted; they do not create real accounts or send email. The infrastructure suite deliberately aborts one lazy module to verify the error boundary. The browser signup check verifies the missing-CAPTCHA gate; the 33 auth-BFF unit cases cover actual CAPTCHA validation, cookie/session and callback boundaries. Stop the isolated 5175 server afterward. Keep at most one review server on 5177.
+
+Module 5B stops here. Module 5C cleanup, legacy CSS removal, reference removal and a final global regression pass require separate authorization.

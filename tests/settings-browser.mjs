@@ -13,6 +13,7 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1000
 const page = await context.newPage();
 page.setDefaultTimeout(10000);
 const errors = [];
+let failPublicProfile = true;
 page.on("pageerror", (e) => errors.push(e.message));
 const id = "11111111-1111-4111-8111-111111111111";
 const otherId = "22222222-2222-4222-8222-222222222222";
@@ -155,6 +156,9 @@ await page.route("https://supabase.test/**", async (route) => {
     return fulfill(route, settings);
   }
   if (path.endsWith("/profiles_visible")) {
+    if (url.searchParams.get("username") === "eq.hidden") return fulfill(route, []);
+    if (url.searchParams.get("username") === "eq.retry_profile" && failPublicProfile)
+      return fulfill(route, { code: "42501", message: "not available" }, 403);
     if (url.searchParams.has("neq") || url.searchParams.get("id")?.startsWith("neq."))
       return fulfill(route, []);
     if (url.searchParams.get("username") === "eq.bob") return fulfill(route, [other]);
@@ -368,6 +372,18 @@ try {
     "noopener noreferrer",
   );
   console.log("PASS social normalization, persistence and inert unsafe schemes on public profile");
+  await visit("/profile/hidden", "Profile unavailable");
+  await page.getByText("This profile is unavailable or hidden by privacy settings.").waitFor();
+  assert.ok(await page.locator(".infrastructure-notice").isVisible());
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/profile/retry_profile`);
+  await page
+    .getByRole("alert")
+    .filter({ hasText: "Something went wrong. Please try again." })
+    .waitFor();
+  failPublicProfile = false;
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await page.getByRole("heading", { name: "Alice Updated", exact: true }).waitFor();
+  console.log("PASS permission-empty profile and shared query error/retry recovery");
   await visit("/profile/bob", "Bob Stone");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await page.waitForURL("**/chats/33333333-3333-4333-8333-333333333333");

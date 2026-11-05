@@ -1,4 +1,5 @@
 @import "../src/styles/globals.css";
+@source "./auth-gallery.tsx";
 @source "./ui-foundation.tsx";
 
 @source "./conversation-gallery.tsx";
@@ -339,5 +340,46 @@
     .chat-settings-gallery-columns {
       grid-template-columns: minmax(0, 1fr);
     }
+  }
+}
+
+.auth-gallery {
+  margin-top: 3rem;
+  min-width: 0;
+}
+.auth-gallery > h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+.auth-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  align-items: start;
+}
+.auth-gallery-grid .auth-card-v2 {
+  max-width: none;
+}
+.auth-landing-preview {
+  margin-block: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-3xl);
+  overflow: hidden;
+}
+.auth-landing-preview .public-surface {
+  min-height: 0;
+}
+.auth-landing-preview .landing-main {
+  padding-block: 3rem;
+}
+.auth-preview-notice {
+  min-height: 1.5rem;
+  color: var(--muted-foreground);
+}
+@media (max-width: 760px) {
+  .auth-gallery-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

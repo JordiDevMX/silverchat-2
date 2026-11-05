@@ -77,9 +77,16 @@ try {
     await page.getByRole("switch", { name: "Message notifications" }).getAttribute("aria-checked"),
     "false",
   );
-  await page.getByLabel("Digit 1", { exact: true }).fill("123456");
+  await page.locator(".code-field").first().getByLabel("Digit 1", { exact: true }).fill("123456");
   for (let i = 1; i <= 6; i++)
-    assert.equal(await page.getByLabel(`Digit ${i}`, { exact: true }).inputValue(), String(i));
+    assert.equal(
+      await page
+        .locator(".code-field")
+        .first()
+        .getByLabel(`Digit ${i}`, { exact: true })
+        .inputValue(),
+      String(i),
+    );
   await page.getByLabel("Photo fallback").getByText("FP").waitFor();
   await page.getByRole("button", { name: "Replace photo" }).click();
   await page.getByLabel("Photo fallback").locator("img").waitFor();
@@ -222,6 +229,7 @@ try {
     parseFloat(
       await page
         .locator('[data-slot="skeleton"]')
+        .first()
         .evaluate((el) => getComputedStyle(el).animationDuration),
     ) <= 0.00001,
   );
