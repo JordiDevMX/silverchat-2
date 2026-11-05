@@ -156,6 +156,17 @@ Repeat live routes in both themes, all six accents and the three sizes above; ch
 
 Module 3A checks ran with a clean review-server start and fresh browser contexts on **5177**. Mocked community/shared-settings tests used **5175** to leave the existing **5173** app untouched. No screenshots or image artifacts were generated. **Stop at Module 3A; Module 3B remains deferred.**
 
+### Fluid card disclosure feedback (F04/T036)
+
+Start with **pnpm review:ui** and **http://127.0.0.1:5177/tests/ui-foundation.html#communities-gallery**. The fresh-server/fresh-browser procedure above applies; wait for any initial Vite dependency reload to settle.
+
+- At **375 × 844**, **768 × 1024**, **1280 × 900**, in **Light/Dark** with **blue, orange, green, purple, red, yellow**, click Weekend friends repeatedly. Its chat list should smoothly grow/shrink and fade over **200ms** with the existing ease-out curve. The card divider disappears completely when closed; there is no trailing gap or snapped-away content. Rapidly reverse direction and check that it follows your input without a delayed replay. Other approved card colors/layout remain unchanged.
+- Focus the heading and use **Enter/Space**. The disclosure state updates immediately. When closed, **Tab** must skip its chat rows and See all button; when open they remain reachable. Focus stays on the heading when toggling it.
+- In DevTools Rendering, emulate **prefers-reduced-motion: reduce**. Both directions must become instant, without fade or height motion. Return to no-preference to restore animation.
+- On **/communities on your authenticated app origin**, repeat the same checks with a populated card. Reload once expanded and once collapsed: the saved state must return. Expand an initially unloaded card and confirm its normal loading/error/retry behavior, chat counts/badges and See all navigation. The existing backend is required here; the review server on 5177 has no account data.
+
+No screenshot artifacts are produced. The fixture demonstrates the shared transition; the mocked community browser suite also checks production row retention, persistence and focus. Module 3B remains deferred.
+
 ## Live application review is a separate setup
 
 For actual accounts, use the existing Netlify/auth setup in [authentication.md](authentication.md#dependencies-and-local-workflow), including its HTTPS/cookie and callback requirements. Plain pnpm dev and pnpm review:ui are not substitutes for that backend. This turn verified protected routes with mocked auth/data boundaries; it did not certify a live-account login deployment.

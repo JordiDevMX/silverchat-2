@@ -47,24 +47,21 @@ export function CommunityCard({ community }: { community: Community }) {
         }
       }}
     >
-      {expanded && (
-        <>
-          <QueryState
-            loading={chats.isPending}
-            error={chats.error}
-            retry={() => void chats.refetch()}
-          />
-          {chats.data?.slice(0, 3).map((chat) => (
-            <CommunityChatListItem key={chat.id} chat={chat} />
-          ))}
-          <NavLink className="community-view-all" href={`/communities/${community.id}`}>
-            {say(
-              `See all ${chats.data?.length ?? ""} chats →`,
-              `Ver los ${chats.data?.length ?? ""} chats →`,
-            )}
-          </NavLink>
-        </>
-      )}
+      {/* Keep rows mounted for the closing transition; fetching still follows expanded. */}
+      <QueryState
+        loading={chats.isPending}
+        error={chats.error}
+        retry={() => void chats.refetch()}
+      />
+      {chats.data?.slice(0, 3).map((chat) => (
+        <CommunityChatListItem key={chat.id} chat={chat} />
+      ))}
+      <NavLink className="community-view-all" href={`/communities/${community.id}`}>
+        {say(
+          `See all ${chats.data?.length ?? ""} chats →`,
+          `Ver los ${chats.data?.length ?? ""} chats →`,
+        )}
+      </NavLink>
     </CommunityCardSurface>
   );
 }

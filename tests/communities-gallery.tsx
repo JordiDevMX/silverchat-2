@@ -54,7 +54,8 @@ export function CommunitiesGallery() {
       <h2>Communities</h2>
       <p>
         Real community presentation with local sample state. No membership, network requests or
-        backend mutations.
+        backend mutations. Toggle Weekend friends to preview the smooth reveal; reduced motion makes
+        it instant.
       </p>
       <CommunityCardSurface
         name="Weekend friends"

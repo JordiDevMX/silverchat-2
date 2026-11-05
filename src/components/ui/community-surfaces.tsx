@@ -38,8 +38,16 @@ export function CommunityCardSurface({
         </span>
         {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
       </button>
-      <div id={panelId} className="community-card-chats" hidden={!expanded}>
-        {children}
+      <div
+        id={panelId}
+        className="community-card-chats"
+        data-state={expanded ? "open" : "closed"}
+        aria-hidden={!expanded}
+        inert={!expanded}
+      >
+        <div className="community-card-chats-clip">
+          <div className="community-card-chats-content">{children}</div>
+        </div>
       </div>
     </article>
   );
