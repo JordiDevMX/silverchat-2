@@ -207,3 +207,36 @@
     margin-top: 16px;
   }
 }
+
+@source "./settings-gallery.tsx";
+@layer components {
+  .settings-gallery {
+    margin-top: 48px;
+    min-width: 0;
+  }
+  .settings-gallery > p {
+    color: var(--muted-foreground);
+    margin: 12px 0 24px;
+  }
+  .settings-gallery .settings-shell {
+    min-height: 0;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    overflow: clip;
+  }
+  .settings-gallery .settings-workspace {
+    padding: 24px;
+    gap: 24px;
+  }
+  .settings-gallery .settings-sidebar {
+    position: static;
+  }
+  .settings-gallery .settings-topbar {
+    padding-inline: 24px;
+  }
+  @media (max-width: 800px) {
+    .settings-gallery .settings-workspace {
+      padding: 16px;
+    }
+  }
+}

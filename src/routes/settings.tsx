@@ -12,7 +12,10 @@ import {
   UserRound,
 } from "lucide-react";
 import { useI18n } from "@/app/providers/i18n-provider";
-import { Avatar, NavLink, SettingRow } from "@/features/settings/components/shared";
+import { BrandLockup } from "@/components/ui/brand-lockup";
+import { SettingsRowContent, settingsRowClassName } from "@/components/ui/settings-row";
+import { SettingsShellSurface } from "@/components/ui/settings-surfaces";
+import { Avatar, NavLink } from "@/features/settings/components/shared";
 import { useProfile } from "@/features/settings/hooks";
 import { usePreferences } from "@/features/settings/preferences-provider";
 import "@/styles/settings.css";
@@ -40,21 +43,23 @@ export function SettingsLayout() {
           ? "/settings/profile"
           : "/settings";
   return (
-    <div className="settings-shell">
-      <header className="settings-topbar">
-        <NavLink href="/chats" className="settings-brand">
-          <span className="brand-mark">S</span>SilverChat
-        </NavLink>
-        <NavLink
-          href={profile.data ? `/profile/${profile.data.username}` : "/settings"}
-          className="settings-top-profile"
-        >
-          {profile.data && <Avatar profile={profile.data} size="small" />}
-          <span>{profile.data?.display_name}</span>
-        </NavLink>
-      </header>
-      <div className="settings-workspace">
-        <aside className="settings-sidebar">
+    <SettingsShellSurface
+      header={
+        <>
+          <NavLink href="/chats" className="settings-brand">
+            <BrandLockup />
+          </NavLink>
+          <NavLink
+            href={profile.data ? `/profile/${profile.data.username}` : "/settings"}
+            className="settings-top-profile"
+          >
+            {profile.data && <Avatar profile={profile.data} size="small" />}
+            <span>{profile.data?.display_name}</span>
+          </NavLink>
+        </>
+      }
+      sidebar={
+        <>
           <NavLink href="/settings" className="settings-sidebar-title">
             <Settings2 size={20} />
             {t("Settings")}
@@ -62,28 +67,37 @@ export function SettingsLayout() {
           <nav aria-label={t("Settings")}>
             {SETTINGS_NAV.map(({ path, label, icon: Icon }) => (
               <div key={path} data-active={location.pathname.startsWith(`/settings/${path}`)}>
-                <SettingRow href={`/settings/${path}`} label={label} icon={<Icon size={19} />} />
+                <NavLink
+                  href={`/settings/${path}`}
+                  className={`setting-row ${settingsRowClassName}`}
+                  aria-current={
+                    location.pathname.startsWith(`/settings/${path}`) ? "page" : undefined
+                  }
+                >
+                  <SettingsRowContent label={t(label)} icon={<Icon size={19} />} />
+                </NavLink>
               </div>
             ))}
           </nav>
           <p className="sidebar-foot">SilverChat · {import.meta.env.VITE_APP_VERSION}</p>
-        </aside>
-        <main id="main" className="settings-main">
-          <NavLink href={back} className="settings-back">
-            <ArrowLeft size={17} />
-            {t("Back")}
-          </NavLink>
-          {preferences.error && (
-            <div className="settings-error" role="alert">
-              {preferences.error}
-              <button type="button" onClick={preferences.retry}>
-                {t("Try again")}
-              </button>
-            </div>
-          )}
-          <Outlet />
-        </main>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <main id="main">
+        <NavLink href={back} className="settings-back">
+          <ArrowLeft size={17} />
+          {t("Back")}
+        </NavLink>
+        {preferences.error && (
+          <div className="settings-error" role="alert">
+            {preferences.error}
+            <button type="button" onClick={preferences.retry}>
+              {t("Try again")}
+            </button>
+          </div>
+        )}
+        <Outlet />
+      </main>
+    </SettingsShellSurface>
   );
 }

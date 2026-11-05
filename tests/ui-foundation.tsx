@@ -2,6 +2,7 @@ import { ChannelsGallery } from "./channels-gallery";
 import { CommunitiesGallery } from "./communities-gallery";
 import { ConversationGallery } from "./conversation-gallery";
 import { InteractiveGallery } from "./interactive-gallery";
+import { SettingsGallery } from "./settings-gallery";
 import { StoriesGallery } from "./stories-gallery";
 // Development-only review fixture. No app routes, auth, or remote services.
 import "@fontsource-variable/inter";
@@ -348,6 +349,7 @@ function FoundationReview() {
       <CommunitiesGallery />
       <StoriesGallery />
       <ChannelsGallery />
+      <SettingsGallery />
       {native && (
         <Modal title="Existing modal" onClose={busy ? undefined : () => setNative(false)}>
           <label>

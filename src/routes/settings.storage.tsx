@@ -1,5 +1,6 @@
 import { useI18n } from "@/app/providers/i18n-provider";
-import { QueryState, SettingsPage } from "@/features/settings/components/shared";
+import { SettingsPage } from "@/features/settings/components/presentation";
+import { QueryState } from "@/features/settings/components/shared";
 import { useStorageUsage } from "@/features/settings/hooks";
 export function StoragePage() {
   const usage = useStorageUsage();

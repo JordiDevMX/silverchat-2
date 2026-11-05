@@ -1,12 +1,13 @@
-import { useState } from "react";
 import { useI18n } from "@/app/providers/i18n-provider";
-import { QueryState, SettingsPage, Toggle, useAction } from "@/features/settings/components/shared";
-import { inAppNotification, playNotificationSound } from "@/features/settings/notifications";
+import { Button } from "@/components/ui/button";
+import { SettingsPage, Toggle } from "@/features/settings/components/presentation";
+import { QueryState, useAction } from "@/features/settings/components/shared";
+import { useNotificationPreview } from "@/features/settings/hooks/useNotificationPreview";
 import { usePreferences } from "@/features/settings/preferences-provider";
 export function NotificationsPage() {
   const { settings, loading, save } = usePreferences();
   const action = useAction();
-  const [preview, setPreview] = useState("");
+  const { preview, setPreview, showPreview } = useNotificationPreview();
   const { t } = useI18n();
   return (
     <SettingsPage title="Notifications">
@@ -45,24 +46,14 @@ export function NotificationsPage() {
             )}{" "}
             {t("Web push is coming in a later release.")}
           </p>
-          <button
-            className="button secondary"
+          <Button
+            variant="outline"
             type="button"
             disabled={!settings.notifications_enabled}
-            onClick={() => {
-              const result = inAppNotification(
-                settings,
-                t("This is how your message previews look."),
-                t("New message"),
-              );
-              if (result) {
-                setPreview(result.text);
-                if (result.sound) void playNotificationSound().catch(() => undefined);
-              }
-            }}
+            onClick={() => showPreview(settings)}
           >
             {t("Preview notification")}
-          </button>
+          </Button>
           {preview && (
             <p className="settings-notice" role="status">
               {preview}

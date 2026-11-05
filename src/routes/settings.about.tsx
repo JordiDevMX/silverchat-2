@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useI18n } from "@/app/providers/i18n-provider";
+import { BrandMark } from "@/components/ui/brand-lockup";
+import { Button } from "@/components/ui/button";
 import { LogoutConfirmModal } from "@/features/settings/components/LogoutConfirmModal";
-import { SettingsPage } from "@/features/settings/components/shared";
+import { SettingsPage } from "@/features/settings/components/presentation";
 export function AboutPage() {
   const [logout, setLogout] = useState(false);
   const { t } = useI18n();
   return (
     <SettingsPage title="About">
       <div className="about-identity">
-        <span className="brand-mark">S</span>
+        <BrandMark className="size-16 rounded-2xl text-3xl" />
         <h2>SilverChat</h2>
         <p>
           {t("Version")} {import.meta.env.VITE_APP_VERSION}
@@ -44,9 +46,9 @@ export function AboutPage() {
           ))}
         </ul>
       </details>
-      <button className="button danger" type="button" onClick={() => setLogout(true)}>
+      <Button variant="destructive" type="button" onClick={() => setLogout(true)}>
         {t("Log out")}
-      </button>
+      </Button>
       {logout && <LogoutConfirmModal onClose={() => setLogout(false)} />}
     </SettingsPage>
   );

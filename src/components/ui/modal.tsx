@@ -1,4 +1,7 @@
 import { type PropsWithChildren, useEffect, useRef } from "react";
+
+const modalStack: HTMLDialogElement[] = [];
+
 export function Modal({
   title,
   children,
@@ -6,11 +9,31 @@ export function Modal({
   className = "",
 }: PropsWithChildren<{ title: string; onClose?: () => void; className?: string }>) {
   const ref = useRef<HTMLDialogElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const dialog = ref.current;
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialog?.showModal();
+    if (dialog) modalStack.push(dialog);
+    // Disabling the focused action can move focus to body. Keep repeated Escape
+    // controlled even then, and let only the top native dialog handle it.
+    const escapeFromBody = (event: KeyboardEvent) => {
+      if (
+        event.key !== "Escape" ||
+        event.defaultPrevented ||
+        modalStack.at(-1) !== dialog ||
+        (event.target !== document.body && event.target !== document.documentElement)
+      )
+        return;
+      event.preventDefault();
+      closeRef.current?.();
+    };
+    document.addEventListener("keydown", escapeFromBody);
     return () => {
+      document.removeEventListener("keydown", escapeFromBody);
+      const index = dialog ? modalStack.indexOf(dialog) : -1;
+      if (index >= 0) modalStack.splice(index, 1);
       dialog?.close();
       if (trigger?.isConnected) trigger.focus();
     };
@@ -22,6 +45,18 @@ export function Modal({
       tabIndex={-1}
       aria-label={title}
       onKeyDown={(event) => {
+        // Handle Escape before the browser's native close action, including repeated
+        // presses while busy. The owning dialog controls dismissal and exit presence.
+        if (
+          event.key === "Escape" &&
+          !event.defaultPrevented &&
+          (event.target as Element).closest("dialog") === event.currentTarget
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose?.();
+          return;
+        }
         // Nested dialogs own their focus loop; hidden/disabled controls are skipped.
         if (
           event.key !== "Tab" ||

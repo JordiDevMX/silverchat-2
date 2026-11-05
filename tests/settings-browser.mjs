@@ -1,5 +1,6 @@
 // Real Chromium interaction with mocked Supabase/BFF boundaries; never changes remote accounts.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
 const browser = await chromium.launch({
@@ -72,6 +73,7 @@ const uploads = [];
 const removed = [];
 const patches = [];
 let fileUrl = "";
+let settingsGate = null;
 const fulfill = (route, body, status = 200) =>
   route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 await page.route("**/api/auth/**", async (route) => {
@@ -114,6 +116,7 @@ await page.route("https://supabase.test/**", async (route) => {
   }
   if (path.endsWith("/user_settings")) {
     if (method === "PATCH") {
+      if (settingsGate) await settingsGate;
       if (failSettings) return fulfill(route, { message: "offline" }, 503);
       Object.assign(settings, request.postDataJSON());
       patches.push(request.postDataJSON());
@@ -219,7 +222,18 @@ try {
   await visit("/settings", "Settings");
   await page.getByRole("heading", { name: "Alice Rivera" }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  console.log("PASS settings index, identity and desktop layout");
+  await page
+    .locator(".settings-sidebar")
+    .getByRole("link", { name: "Appearance", exact: true })
+    .click();
+  await page.getByRole("heading", { name: "Appearance", exact: true }).waitFor();
+  assert.equal(
+    await page.locator('.settings-sidebar a[aria-current="page"]').textContent(),
+    "Appearance",
+  );
+  await page.goBack();
+  await page.getByRole("heading", { name: "Settings", exact: true }).waitFor();
+  console.log("PASS settings index, identity, URL navigation/history and desktop layout");
   await visit("/settings/profile", "Edit profile");
   await page.getByLabel("Display name", { exact: true }).fill("Alice Updated");
   await page.getByLabel("Bio", { exact: true }).fill("Updated bio");
@@ -314,7 +328,23 @@ try {
   await page.getByRole("button", { name: "Keep enabled" }).click();
   assert.equal(settings.read_receipts_enabled, true);
   await page.getByRole("switch", { name: /Send read receipts/ }).click();
+  let releaseSettings;
+  settingsGate = new Promise((resolve) => {
+    releaseSettings = resolve;
+  });
   await page.getByRole("button", { name: "Turn off", exact: true }).click();
+  const receiptDialog = page.getByRole("dialog", { name: "Turn off read receipts?", exact: true });
+  assert.ok(
+    await receiptDialog.getByRole("button", { name: "Keep enabled", exact: true }).isDisabled(),
+  );
+  await receiptDialog.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  });
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  assert.equal(await receiptDialog.evaluate((el) => el.open), true);
+  settingsGate = null;
+  releaseSettings();
   await page.getByRole("dialog").waitFor({ state: "hidden" });
   assert.equal(settings.read_receipts_enabled, false);
   await visit("/settings/privacy/visibility#photo", "Privacy");
@@ -392,9 +422,34 @@ try {
   await visit("/settings/storage", "Storage");
   await page.getByText(/MB used/).waitFor();
   await visit("/settings/about", "About");
-  await page.getByText("Version 0.0.1").waitFor();
+  const version = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ).version;
+  await page.getByText(`Version ${version}`, { exact: true }).waitFor();
+  await page.getByText("Open-source licenses", { exact: true }).click();
+  assert.equal(
+    await page.getByRole("link", { name: "React", exact: true }).getAttribute("href"),
+    "https://github.com/facebook/react/blob/main/LICENSE",
+  );
+  const logoutTrigger = page.getByRole("button", { name: "Log out", exact: true });
+  await logoutTrigger.click();
+  const logoutDialog = page.getByRole("dialog", { name: "Log out of SilverChat?", exact: true });
+  await logoutDialog.getByRole("button", { name: "Log out", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  assert.equal(await logoutDialog.locator(":focus").count(), 1);
+  await page.mouse.click(2, 2);
+  assert.equal(await logoutDialog.evaluate((el) => el.open), true);
+  await page.keyboard.press("Escape");
+  await page.locator("dialog.settings-dialog").waitFor({ state: "detached" });
+  assert.ok(await logoutTrigger.evaluate((el) => el === document.activeElement));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await logoutTrigger.click();
+  await logoutDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  assert.equal(await page.locator("dialog.settings-dialog").count(), 0);
   assert.deepEqual(errors, []);
-  console.log("PASS mobile layout, storage/about and no browser runtime errors");
+  console.log(
+    "PASS mobile layout, real version/license links, logout focus/backdrop/Escape/cancel, reduced motion and no browser runtime errors",
+  );
 } finally {
   await browser.close();
 }

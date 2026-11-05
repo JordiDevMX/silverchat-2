@@ -21,6 +21,7 @@ try {
     "/novedades/explore",
     "/channels/preview",
     "/settings/appearance",
+    "/settings/privacy/visibility",
   ]) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
@@ -52,6 +53,10 @@ try {
     if (isFixture) {
       await page.getByRole("heading", { name: "SilverChat", exact: true }).waitFor();
       await page.evaluate(() => document.fonts.ready);
+      await page
+        .locator("#settings-gallery")
+        .getByRole("heading", { name: "Settings shell & preferences", exact: true })
+        .waitFor();
       await page
         .locator("#channels-gallery")
         .getByRole("heading", { name: "Broadcast channels", exact: true })

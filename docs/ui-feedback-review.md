@@ -12,7 +12,7 @@ pnpm review:ui
 3. Wait for Vite to print `http://127.0.0.1:5177/` and its UI review link. Keep that terminal open.
 4. Open **http://127.0.0.1:5177/** in your browser. It redirects to **http://127.0.0.1:5177/tests/ui-foundation.html**.
 
-You should see the SilverChat brand, Light/Dark buttons, an Accent selector, the neon action examples, two message-bubble samples, a Chats header with metallic search, a closed Message requests section, four tab-action tiles, and the **Conversation timeline**, **Interactive messaging**, **Communities**, **Stories** and **Broadcast channels** galleries. This uses the real migrated components. It does not mount the app/auth providers, load .env files, require Supabase credentials, or contact the auth backend.
+You should see the SilverChat brand, Light/Dark buttons, an Accent selector, the neon action examples, two message-bubble samples, a Chats header with metallic search, a closed Message requests section, four tab-action tiles, and the **Conversation timeline**, **Interactive messaging**, **Communities**, **Stories**, **Broadcast channels** and **Settings shell & preferences** galleries. This uses the real migrated components. It does not mount the app/auth providers, load .env files, require Supabase credentials, or contact the auth backend.
 
 **Do not double-click the HTML file or open a file:// URL.** Browsers cannot run this TypeScript/ESM fixture directly from disk. The HTML now displays the command and working HTTP link if its module cannot load.
 
@@ -226,3 +226,30 @@ The standalone server on **5177 is not the authenticated app**. Paths such as `/
 6. **Creation:** Create channel (or **`/channels/new`**) opens `/novedades?create=true`. Name generates slug until manually edited; taken slugs disable create, and failed availability checks can be retried through submission. Crop an optional avatar; Escape closes only the top dialog. After partial avatar failure, the created channel ID is reused and locked fields remain locked; Finish retries without duplication. Success opens its info route. **`/channels`** still redirects to `/novedades`.
 
 Automated evidence: screenshot-free channel gallery covers all 36 combinations, focus/containment/reduced motion and local state with zero remote requests. Mocked Novedades tests cover owner/follower outcomes, failed cursor/availability/avatar paths, one create on retry, channel-mode sends, mute/read-unread, realtime, paging and existing stories. This verifies behavior with intercepted data; real account/storage/backend behavior still belongs to the manual live review above. Stop after Module 3B; Module 4B remains deferred.
+
+## Module 4B-1 — settings shell & low-risk pages
+
+Stop any previous standalone review instance in its terminal with Ctrl+C, run **`pnpm review:ui`**, then open a fresh tab at **http://127.0.0.1:5177/**. It redirects to the fixture. Open **http://127.0.0.1:5177/tests/ui-foundation.html#settings-gallery** for **Settings shell & preferences**, below Broadcast channels. This section uses the real pure settings surfaces with fixture-local state; it has no auth, backend, provider or remote-media requirement.
+
+Review **375 × 844**, **768 × 1024**, **1280 × 900**, each in **Light/Dark** and **blue, orange, green, purple, red, yellow**. The gallery's Preview light/dark/system and Preview accent controls change the fixture tokens without saving. The top global fixture controls remain available. No screenshots are generated.
+
+- **Shell/navigation:** silver top bar, framed sidebar and compact cards; sidebar appears above the existing 800px breakpoint and hides below it. The gallery links stay inside the fixture. The real app continues using URL navigation and browser history.
+- **Appearance:** inspect the three theme miniatures, selected glow and six gradient swatches. Each selected swatch and checked switch should use the same fill as the foundation Follow button for that accent in either mode; no light-only muted fill. Tab focus is distinct from selection.
+- **Rows/toggles:** Preview notifications disables Preview sound when off; reenabling restores control. Preview devices updates a local notice. Check compact text, wrapping, card borders and hover/press feedback without horizontal overflow.
+- **Confirmation:** Preview read receipt confirmation opens a rounded native dialog. Tab/Shift+Tab stay inside. Escape/Cancel animate dismissal and restore focus; clicking the backdrop does not dismiss (existing contract). Turn on Preview pending save: actions disable and repeated Escape stays inside. Turn it off to cancel or confirm locally.
+- **Motion:** page/section/dialog reveals use 200ms ease-out, row/control feedback 150ms. Emulate reduced motion: reveals and dismissal become instant. No decorative delay is added to preference saves or successful completion.
+
+### Live settings routes — normal login and real backend required
+
+Port **5177 is a review-only server**; settings paths there explain the backend requirement. Use your normal authenticated app/backend. With the existing frontend on **5173**, open **http://127.0.0.1:5173** plus the routes below; use your backend-served origin instead if your normal setup prints another origin. The fake-credential server on **5175** is only for intercepted automated tests and is stopped after verification.
+
+1. **`/settings`** — your signed avatar/identity, Edit profile link, all current settings links and Log out. Desktop sidebar indicates the active page; mobile keeps index navigation. Open Appearance, use browser Back/Forward, then the page Back link. Existing deep links and deferred pages remain reachable.
+2. **`/settings/appearance`** — Light/Dark/System, six accents and English/Español remain functional. Changes apply immediately and persist after the existing debounce and reload. Verify System follows the device setting. Theme preview, swatches, focus and glow should agree across modes.
+3. **`/settings/notifications`** — master switch controls Sound, Message previews and preview availability. Preview respects sound and text privacy. These remain in-app controls; existing push-installation/coming-later text stays accurate.
+4. **`/settings/privacy`** — existing blocked/photo/presence/stories links; disabling read receipts opens the warning. Keep enabled cancels without saving; Turn off saves and closes. Busy save blocks Escape/actions. Reenable directly as before.
+5. **`/settings/privacy/visibility`**, including **`#photo`**, **`#stories`**, **`#presence`** — privacy radios, exception counts, searchable Hide from… contact selection and presence switch. Cancel preserves prior selection; Save persists. Verify contact-query error/retry behavior remains reachable.
+6. **`/settings/devices`** — actual device name/activity and This device badge. Sign out all other devices opens confirmation; Cancel/Back/Escape preserve the session. Confirm deliberately signs out other sessions while keeping this one.
+7. **`/settings/storage`** — actual total/category values, gradient usage indicator and the existing soft-indicator disclaimer. No prototype quota or invented storage data.
+8. **`/settings/about`** — current package/build version, existing Terms/Privacy availability, expandable real license links and logout confirmation. Verify Cancel/focus restoration; only confirm logout if you intend to sign out. The all-other-devices checkbox retains its existing meaning.
+
+The shell now frames deferred settings routes, but their page bodies/workflows are not migrated in this slice. Profile/social/avatar, blocked/account/deletion, security/MFA and public profile remain for 4B-2 through 4B-5. Automated mocked-backend outcomes verify behavior without changing accounts; normal-login manual acceptance remains the final visual/backend review.
