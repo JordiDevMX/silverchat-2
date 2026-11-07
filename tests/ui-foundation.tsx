@@ -1,5 +1,6 @@
 import { AuthGallery } from "./auth-gallery";
 import { ChannelsGallery } from "./channels-gallery";
+import { ChatListGallery } from "./chat-list-gallery";
 import { ChatSettingsGallery } from "./chat-settings-gallery";
 import { CommunitiesGallery } from "./communities-gallery";
 import { ConversationGallery } from "./conversation-gallery";
@@ -347,6 +348,7 @@ function FoundationReview() {
           </div>
         </CardSurface>
       </div>
+      <ChatListGallery />
       <ConversationGallery />
       <InteractiveGallery />
       <CommunitiesGallery />

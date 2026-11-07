@@ -1,14 +1,15 @@
 # Verified UI review procedure
 
-**Current state (2026-11-06): the UI migration is closed through Module 5C / TASK-006.** The reference directory has been removed. Earlier module-specific notes below retain their original acceptance context; statements that another module was deferred are historical, not current scope. See the [closeout report](ui-migration-closeout.md) for cleanup counts, every gate/suite result, preserved user state and exact automation commands. The two Docker-dependent database suites were unavailable on this host; all screenshot-free browser suites passed.
+**Current state (2026-11-06): Module 6A is implemented and verified; final acceptance is pending.** See the [Module 6A evidence](ui-module-6a.md) and [remaining CSS consumer index](ui-css-consumers.md). The [5C closeout](ui-migration-closeout.md) is historical. All screenshot-free browser suites pass; DB concurrency assertions remain environment-blocked, with explicit skip code 77.
 
 ## Final manual acceptance checklist
 
-Start from a clean review-server terminal with `pnpm review:ui`, then open **http://127.0.0.1:5177/tests/ui-foundation.html** (or **http://127.0.0.1:5177/**). No login/backend is needed. Review all ten sections at **375 × 844**, **768 × 1024**, **1280 × 900**, with **Light/Dark × blue, purple, red, orange, yellow, green**: 36 combinations per section. Use live devtools inspection only; no screenshots.
+Start from a clean review-server terminal with `pnpm review:ui`, then open **http://127.0.0.1:5177/tests/ui-foundation.html** (or **http://127.0.0.1:5177/**). No login/backend is needed. Review all eleven sections at **375 × 844**, **768 × 1024**, **1280 × 900**, with **Light/Dark × blue, purple, red, orange, yellow, green**: 36 combinations per section. Use live devtools inspection only; no screenshots.
 
 | Section / URL fragment | Expected states to inspect |
 |---|---|
 | Foundation (page top) | Neon fills unchanged between modes; white S; mode-dependent control glyphs; working focus, switch, modal and OTP samples |
+| `#chat-list-gallery` | Chat list & creation: real row/filter/picker/selection/dialog surfaces; follow the 6A checklist below |
 | `#conversation-gallery` | Own/other bubbles, nine message types, wrapping, dates/unread/pin/search/header states |
 | `#interactive-gallery` | Composer, reply/edit previews, emoji, actions, search/forward/pins and audio control states |
 | `#communities-gallery` | Cards, sidebar/info/settings/creation; expand/collapse feels fluid; counts and focus retained |
@@ -22,6 +23,15 @@ Start from a clean review-server terminal with `pnpm review:ui`, then open **htt
 At every width, check clipping/overflow and long text, Tab/Enter/Space/Escape, focus return and overlay containment. Emulate reduced motion: decorative transitions become instant while story/auth timing remains functional. Existing gallery fixtures use local demonstration state; they do not simulate authenticated service outcomes.
 
 For live acceptance use the **normal backend-enabled app**, typically **http://127.0.0.1:5173/** after normal sign-in (and its configured BFF/backend), not the standalone 5177 server. Visit `/chats`, `/chats/<chatId>`, `/communities`, `/communities/<communityId>/chats/<chatId>`, `/novedades`, `/settings`, and the chat-info/settings routes linked from a conversation; repeat the same viewport/theme/accent matrix. Inspect list filters/creation/requests, send/retry/drafts/search/media, shared community/channel conversations, settings persistence and signed downloads. In a separate signed-out session inspect `/`, `/auth/login`, `/auth/signup` and the normal MFA/onboarding flow. Service-dependent mail/CAPTCHA and account actions remain live manual checks. The detailed module checklists below specify the existing route shapes and expected behaviors.
+
+## Module 6A: final manual review
+
+Run **`pnpm review:ui`** and open **http://127.0.0.1:5177/tests/ui-foundation.html#chat-list-gallery**. The root **http://127.0.0.1:5177/** should start at the foundation header, not scroll down to the filters. The gallery uses real production surfaces with fixture-local state; it makes no account, database, media or auth requests.
+
+1. At **375×844**, **768×1024**, **1280×900**, select **Light/Dark × blue, purple, red, orange, yellow, green** (36 combinations). Check the aligned avatar, name, preview, timestamp and status column. The unread 128 sample shows **99+** with a neon fill identical to the primary control; muted + pinned has a file preview and no numeric badge. Draft, read receipt, manual-unread dot and long names remain distinct without horizontal overflow.
+2. Try all filter pills. **Archived** reveals the archived sample; **Blocked** shows its empty state. **Preview selection** exposes the toolbar; select one/all and try a bulk action. Check the group checkbox, skeleton, search/empty states and keyboard focus. With a coarse touch pointer, swipe a row and activate a rail action; the feedback stays local.
+3. Open **Preview new chat** and **Preview deletion** using the keyboard. Check the dialog choices, group/admin copy, Escape/Cancel, focus return, and a bottom-aligned chooser on mobile. Emulate reduced motion: list/row/overlay effects become instant. With motion enabled, reveals are 200ms and row/filter feedback is 150ms; gestures and navigation do not wait for decoration.
+4. On the **normal backend-enabled app** after login (typically **http://127.0.0.1:5173/**), visit **/chats**, **/chats?filter=archived**, **/chats?filter=unread**, **/chats/new** and **/chats/new-group**. Verify search/filter history, closed requests, pinned/muted/manual-unread rows, drafts, range selection/bulk actions and context-menu/swipe actions. Check existing-chat reuse, direct requests, self chat, group name/member validation, chip removal, busy/retry and destination navigation. Use expendable test chats for destructive checks. The 5177 review server does not host these authenticated workflows.
 
 ## Start here — no account or backend needed
 

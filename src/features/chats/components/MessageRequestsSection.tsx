@@ -1,6 +1,7 @@
 import { useRouter } from "@tanstack/react-router";
 import { Check, X } from "lucide-react";
-import { Modal } from "@/features/auth/components";
+import { Button } from "@/components/ui/button";
+import { SettingsDialog } from "@/components/ui/settings-surfaces";
 import { Avatar } from "@/features/settings/components/shared";
 import { useMessageRequestActions } from "../hooks/useMessageRequestActions";
 import { useChatText } from "../i18n";
@@ -58,36 +59,36 @@ export function MessageRequestsSection({ requests }: { requests: MessageRequest[
       {notice && <p role="status">{notice}</p>}
       {error && <p role="alert">{t("Could not update chats. Please try again.")}</p>}
       {decline && (
-        <Modal
+        <SettingsDialog
           title={t("Decline this chat request?")}
-          onClose={mutation.busy ? undefined : () => setDecline(null)}
+          onClose={() => setDecline(null)}
+          canClose={!mutation.busy}
         >
-          <p>
-            {t(
-              `${decline.name} won’t be able to message you again for 7 days.`,
-              `${decline.name} no podrá enviarte mensajes durante 7 días.`,
-            )}
-          </p>
-          {error && <p role="alert">{t("Could not update chats. Please try again.")}</p>}
-          <div className="modal-actions">
-            <button
-              type="button"
-              className="button secondary"
-              disabled={mutation.busy}
-              onClick={() => setDecline(null)}
-            >
-              {t("Cancel")}
-            </button>
-            <button
-              type="button"
-              className="button danger"
-              disabled={mutation.busy}
-              onClick={() => void run(decline, false)}
-            >
-              {t("Decline")}
-            </button>
-          </div>
-        </Modal>
+          {(close) => (
+            <>
+              <p>
+                {t(
+                  `${decline.name} won’t be able to message you again for 7 days.`,
+                  `${decline.name} no podrá enviarte mensajes durante 7 días.`,
+                )}
+              </p>
+              {error && <p role="alert">{t("Could not update chats. Please try again.")}</p>}
+              <div className="modal-actions">
+                <Button type="button" variant="outline" disabled={mutation.busy} onClick={close}>
+                  {t("Cancel")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={mutation.busy}
+                  onClick={() => void run(decline, false)}
+                >
+                  {t("Decline")}
+                </Button>
+              </div>
+            </>
+          )}
+        </SettingsDialog>
       )}
     </section>
   );

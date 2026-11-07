@@ -1,4 +1,6 @@
-# UI migration closeout — Module 5C / TASK-006
+# Historical UI migration closeout — Module 5C / TASK-006
+
+**Superseded boundary:** the subsequently authorized [Module 6A](ui-module-6a.md) completes the chat-list family. Counts and evidence below describe the 5C baseline, not the current chat-list or DB harness status.
 
 Completed 2026-11-06 against the approved `83ccc36` baseline on `feat/ui-transplant`. This is cleanup only. The accepted UI and business/data contracts remain intact; no further module or cosmetic work is included. Two separate database concurrency suites could not run because Docker is absent; this is an explicit verification limitation, not a green result.
 

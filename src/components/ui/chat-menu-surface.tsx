@@ -21,16 +21,21 @@ export type ChatMenuItem = {
 /** Coordinate-based menu shared by header/context-menu adapters; selection never waits for motion. */
 export function ChatMenuSurface({
   label,
+  heading,
   point,
   items,
   onClose,
 }: {
   label: string;
+  heading?: string;
   point: { x: number; y: number };
   items: ChatMenuItem[];
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // A long press can reveal the mobile sheet under the releasing finger.
+  // Require a pointer press on an item; keyboard/assistive clicks stay available.
+  const pressedItem = useRef<string | null>(null);
   const callback = useRef(onClose);
   callback.current = onClose;
   const closingRef = useRef(false);
@@ -134,6 +139,9 @@ export function ChatMenuSurface({
       inert={closing}
       style={{ "--menu-left": `${point.x}px`, "--menu-top": `${point.y}px` } as CSSProperties}
     >
+      {heading && (
+        <p className="truncate px-3 py-2 text-xs font-medium text-muted-foreground">{heading}</p>
+      )}
       {items.map((item) => (
         <div key={item.key} role="none">
           {item.separator && <hr />}
@@ -142,7 +150,17 @@ export function ChatMenuSurface({
             type="button"
             disabled={item.disabled}
             className={item.destructive ? "danger" : ""}
-            onClick={item.onSelect}
+            onPointerDown={() => {
+              pressedItem.current = item.key;
+            }}
+            onPointerCancel={() => {
+              pressedItem.current = null;
+            }}
+            onClick={(event) => {
+              const deliberate = event.detail === 0 || pressedItem.current === item.key;
+              pressedItem.current = null;
+              if (deliberate) item.onSelect();
+            }}
           >
             {item.icon}
             <span>{item.label}</span>

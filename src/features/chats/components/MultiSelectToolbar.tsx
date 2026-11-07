@@ -1,7 +1,10 @@
 import { Archive, Check, Trash2, VolumeX, X } from "lucide-react";
+import type { ComponentProps } from "react";
+import { Button } from "@/components/ui/button";
 import { useChatText } from "../i18n";
 import type { ChatAction } from "../types";
-export function MultiSelectToolbar({
+export function MultiSelectToolbarSurface({
+  t,
   count,
   all,
   busy,
@@ -10,6 +13,7 @@ export function MultiSelectToolbar({
   onAction,
   canDelete = true,
 }: {
+  t: (value: string, spanish?: string) => string;
   count: number;
   all: boolean;
   busy: boolean;
@@ -18,19 +22,18 @@ export function MultiSelectToolbar({
   onAction: (action: ChatAction) => void;
   canDelete?: boolean;
 }) {
-  const t = useChatText();
   return (
     <>
       <header className="chat-selection-header">
-        <button type="button" aria-label={t("Exit selection")} onClick={onClose}>
+        <Button variant="ghost" type="button" aria-label={t("Exit selection")} onClick={onClose}>
           <X />
-        </button>
+        </Button>
         <strong aria-live="polite">
           {count} {t("selected")}
         </strong>
-        <button type="button" onClick={onAll}>
+        <Button variant="ghost" type="button" onClick={onAll}>
           {t(all ? "Deselect all" : "Select all")}
-        </button>
+        </Button>
       </header>
       <div className="chat-selection-bar" role="toolbar" aria-label={t("Chat actions")}>
         {(
@@ -41,7 +44,8 @@ export function MultiSelectToolbar({
             [Trash2, "Delete", "delete"],
           ] as const
         ).map(([Icon, label, action]) => (
-          <button
+          <Button
+            variant="ghost"
             type="button"
             key={action}
             disabled={!count || busy || (action === "delete" && !canDelete)}
@@ -58,9 +62,16 @@ export function MultiSelectToolbar({
           >
             <Icon size={21} />
             <span>{t(label)}</span>
-          </button>
+          </Button>
         ))}
       </div>
     </>
   );
+}
+
+export function MultiSelectToolbar(
+  props: Omit<ComponentProps<typeof MultiSelectToolbarSurface>, "t">,
+) {
+  const t = useChatText();
+  return <MultiSelectToolbarSurface {...props} t={t} />;
 }

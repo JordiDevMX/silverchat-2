@@ -80,6 +80,8 @@ const membership = (i, name, type = "direct", preview = "See you soon!") => ({
     },
   },
 });
+const creationCalls = [];
+let failGroupCreation = false;
 let memberships = [
   membership(1, null, "direct", "Coffee tomorrow? I found a lovely spot."),
   membership(2, null, "direct", "Perfect, I’ll send the details."),
@@ -171,6 +173,13 @@ async function mockContext(browserContext) {
       }
       if (s.get("chat_id")?.startsWith("eq.") && s.get("select") === "*")
         return fulfill(route, [{ chat_id: id, user_id: me, role: "member", joined_at: ago(200) }]);
+      if (s.get("chat.type") === "eq.direct") {
+        assert.equal(s.get("chat.status"), "eq.active");
+        return fulfill(
+          route,
+          memberships.filter((m) => m.chat.type === "direct"),
+        );
+      }
       if (s.get("select")?.includes("chat:chats")) {
         mainReads++;
         assert.equal(s.get("limit"), "200");
@@ -248,6 +257,20 @@ async function mockContext(browserContext) {
             chat_id: r.chat_id,
             chat: { ...membership(7, null).chat, id: r.chat_id },
           });
+      }
+      if (action === "create_group_chat" || action === "create_direct_chat_request") {
+        creationCalls.push({ action, body });
+        if (action === "create_group_chat" && failGroupCreation)
+          return fulfill(route, { message: "Creation offline" }, 503);
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        const created =
+          action === "create_group_chat"
+            ? membership(40, body.p_name, "group")
+            : membership(30, null, "direct");
+        if (action === "create_direct_chat_request")
+          created.chat.direct_pair_key = `${me}::${body.p_target_user_id}`;
+        memberships.push(created);
+        return fulfill(route, created.chat_id);
       }
       if (action === "create_self_chat") {
         const own = membership(20, "Notes", "self");
@@ -570,6 +593,51 @@ try {
   assert.equal(memberships.find((m) => m.chat_id === uid(120)).pinned_at, null);
   assert.deepEqual(errors, []);
   console.log("PASS self-chat creation remains unpinned and opens the conversation composer");
+  // Creation screens use the same production hooks after the Step A extraction.
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats/new`);
+  await page.locator(".new-chat-user-row").filter({ hasText: "Sofia Reyes" }).click();
+  await page.waitForURL((url) => url.pathname === `/chats/${uid(101)}`);
+  assert.equal(creationCalls.length, 0, "existing contacts do not create duplicate chats");
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats/new`);
+  await page.getByRole("searchbox").fill("samuel");
+  await page
+    .getByRole("region", { name: "Search results" })
+    .locator(".new-chat-user-row")
+    .filter({ hasText: "Samuel Green" })
+    .click();
+  await page.waitForURL((url) => url.pathname === `/chats/${uid(130)}`);
+  assert.deepEqual(creationCalls.at(-1), {
+    action: "create_direct_chat_request",
+    body: { p_target_user_id: uid(8), p_initial_content: "👋" },
+  });
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats/new-group`);
+  const create = page.getByRole("button", { name: "Create", exact: true });
+  assert.equal(await create.isDisabled(), true);
+  await page.getByRole("textbox", { name: /Group name/ }).fill("  Review group  ");
+  await page.getByRole("checkbox", { name: /Sofia Reyes/ }).check();
+  await page.getByRole("button", { name: "Remove Sofia Reyes", exact: true }).click();
+  assert.equal(await create.isDisabled(), true);
+  await page.getByRole("checkbox", { name: /Sofia Reyes/ }).check();
+  failGroupCreation = true;
+  await create.click();
+  await page.locator(".new-chat-alert").getByText("Creation offline", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("checkbox", { name: /Sofia Reyes/ }).isChecked(), true);
+  await page
+    .locator(".new-chat-alert")
+    .getByRole("button", { name: "Dismiss", exact: true })
+    .click();
+  failGroupCreation = false;
+  await create.click();
+  await page.waitForURL((url) => url.pathname === `/chats/${uid(140)}`);
+  assert.deepEqual(creationCalls.at(-1), {
+    action: "create_group_chat",
+    body: { p_name: "Review group", p_member_ids: [uid(1)] },
+  });
+  assert.equal(creationCalls.filter((c) => c.action === "create_group_chat").length, 2);
+  assert.deepEqual(errors, []);
+  console.log(
+    "PASS direct reuse/request and group validation, chip removal, failure/retry, exact RPC arguments and navigation",
+  );
   // A separate mobile browser context uses native touch media and input.
   await page.close();
   const mobileContext = await browser.newContext({

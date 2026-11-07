@@ -1,6 +1,8 @@
+import { Button } from "@/components/ui/button";
 import { ChatContextMenu } from "@/features/chats/components/ChatContextMenu";
 import { ChatFilters } from "@/features/chats/components/ChatFilters";
 import { ChatListItem } from "@/features/chats/components/ChatListItem";
+import { ChatListSkeleton } from "@/features/chats/components/ChatPickerSurfaces";
 import { ChatSearchBar } from "@/features/chats/components/ChatSearchBar";
 import { ChatsEmptyState } from "@/features/chats/components/ChatsEmptyState";
 import { ChatsHeader } from "@/features/chats/components/ChatsHeader";
@@ -111,20 +113,13 @@ export function ChatsPage() {
         {(query.error || (showRequests && requests.error)) && (
           <div className="chats-error" role="alert">
             <p>{t("Could not load chats.")}</p>
-            <button type="button" className="button secondary" onClick={() => void refresh()}>
+            <Button type="button" variant="outline" onClick={() => void refresh()}>
               {t("Try again")}
-            </button>
+            </Button>
           </div>
         )}
         {query.isPending ? (
-          <div className="chat-skeleton" role="status" aria-label={t("Loading chats…")}>
-            {[0, 1, 2, 3, 4].map((n) => (
-              <div key={n}>
-                <span />
-                <i />
-              </div>
-            ))}
-          </div>
+          <ChatListSkeleton label={t("Loading chats…")} count={5} />
         ) : visible.length ? (
           <ul className="chat-list">
             {visible.map((chat) => (
