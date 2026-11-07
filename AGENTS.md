@@ -6,3 +6,9 @@
 - **CON-010 — Publish the branch:** after the single final commit, push the current working branch to its remote (set upstream when needed). Push only: never open a pull request, merge, rebase or force-push published history, or touch other branches unless explicitly requested. Report the commit hash and pushed remote branch.
 
 - **CON-011 — Living UI:** every migrated surface should use tasteful, responsive micro-animations for overlays, hover/press, reveals and state changes. Choose techniques and easing to suit the surface; the community-card 200ms ease-out is an example, not a fixed rule. Reduced motion makes decorative motion instant. Never block interaction or harm scroll/send performance; keep functional timing, including story autoplay, independent of decorative motion.
+
+- **CON-012 — Quality evidence:** report an explicit green/red evidence table for every requested gate and suite, including unavailable prerequisites; never label an unrun suite green.
+
+## UI migration closeout
+
+The UI migration is complete through Module 5C / TASK-006 (2026-11-06). `_ui_reference/` was removed with explicit user authorization and no longer exists. Donor paths in `UI_MIGRATION_MAP.md` are historical provenance, not live dependencies. Preserve the established business/data contracts and use `docs/ui-feedback-review.md` for standing review. See `docs/ui-migration-closeout.md` for cleanup scope, retained surfaces and final verification limitations. Further feature or cosmetic work requires its own scope.

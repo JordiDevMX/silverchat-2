@@ -1,4 +1,4 @@
-/* Legacy presentation remains active; utilities win for transplanted primitives. */
+/* Active chat-list and creation-screen presentation, composed with shared UI utilities. */
 @layer components {
   /* Prompt 07: restrained, dense rows on the existing SilverChat theme. */
   .chats-page {

@@ -1,4 +1,4 @@
-/* Module 5B public surfaces. Legacy rules remain until the authorized cleanup. */
+/* Public auth/onboarding surfaces; shared base rules remain where they have live consumers. */
 .public-surface {
   width: 100%;
   max-width: 1440px;

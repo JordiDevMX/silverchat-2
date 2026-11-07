@@ -1,4 +1,4 @@
-/* Legacy presentation remains active; utilities win for transplanted primitives. */
+/* Active feature presentation; confirmed obsolete selectors removed in TASK-006. */
 @layer components {
   .settings-shell {
     min-height: 100dvh;
@@ -23,18 +23,6 @@
     letter-spacing: -0.04em;
     color: var(--foreground);
     text-decoration: none;
-  }
-  .brand-mark {
-    display: grid;
-    place-items: center;
-    width: 37px;
-    height: 37px;
-    border-radius: 12px;
-    background: var(--foreground);
-    color: var(--background);
-    font-weight: 800;
-    font-size: 1.25rem;
-    box-shadow: 0 3px 12px color-mix(in oklab, var(--foreground) 15%, transparent);
   }
   .settings-top-profile {
     display: flex;
@@ -165,25 +153,6 @@
   }
   .setting-row:hover {
     background: var(--muted);
-  }
-  .setting-row-icon {
-    color: var(--muted-foreground);
-    display: flex;
-  }
-  .setting-row-icon:empty {
-    display: none;
-  }
-  .setting-row-text {
-    flex: 1;
-    min-width: 0;
-  }
-  .setting-row-text strong {
-    font-size: 0.9rem;
-    font-weight: 550;
-  }
-  .setting-row-text small {
-    display: block;
-    color: var(--muted-foreground);
   }
   .setting-row > svg:last-child {
     color: var(--muted-foreground);
@@ -359,12 +328,6 @@
   }
   .custom-link-row input {
     margin-top: 8px;
-  }
-  .icon-button {
-    padding: 12px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    cursor: pointer;
   }
   .device-row,
   .contact-row,
@@ -611,12 +574,6 @@
     gap: 8px;
     padding: 10px 0 35px;
   }
-  .about-identity .brand-mark {
-    width: 76px;
-    height: 76px;
-    border-radius: 24px;
-    font-size: 2.5rem;
-  }
   .about-identity h2 {
     font-size: 1.5rem;
     margin: 8px 0 0;
@@ -841,7 +798,7 @@
   }
 }
 
-/* Module 4B-1: opt-in page surfaces; deferred pages keep their content styling. */
+/* Settings page surfaces and their shared content styles. */
 @layer components {
   .settings-shell-v2 {
     background:

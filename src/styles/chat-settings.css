@@ -1,4 +1,4 @@
-/* Legacy presentation remains active; utilities win for transplanted primitives. */
+/* Active feature presentation; confirmed obsolete selectors removed in TASK-006. */
 @layer components {
   .chat-settings-screen {
     max-width: 900px;
@@ -47,38 +47,16 @@
     width: min(540px, calc(100vw - 32px));
     position: relative;
   }
-  .contact-modal {
-    max-width: 460px;
-  }
   .modal-close {
     position: absolute;
     right: 10px;
     top: 10px;
-  }
-  .contact-banner {
-    height: 92px;
-    border-radius: 14px;
-    margin-top: 16px;
-  }
-  .contact-modal .avatar {
-    margin-top: -34px;
-    margin-left: 20px;
-    border: 4px solid var(--background);
-  }
-  .contact-bio {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
   }
   .contact-actions {
     display: flex;
     gap: 8px;
     margin: 14px 0;
     flex-wrap: wrap;
-  }
-  .contact-modal small {
-    color: var(--muted-foreground);
   }
   button.conversation-identity {
     border: 0;

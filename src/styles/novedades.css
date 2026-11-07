@@ -250,20 +250,6 @@
   .channel-header a {
     color: inherit;
   }
-  .channel-menu {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    padding: 16px;
-    border-bottom: 1px solid var(--border);
-    background: var(--card);
-  }
-  .channel-menu button {
-    background: none;
-    border: 0;
-    color: var(--foreground);
-    cursor: pointer;
-  }
   .channel-info .conversation-header {
     margin-top: 20px;
     border-radius: 18px;

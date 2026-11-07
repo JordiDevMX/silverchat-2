@@ -1,4 +1,4 @@
-/* Module 2A timeline presentation; composer, actions and audio remain legacy until 2B. */
+/* Shared timeline, composer, actions and audio presentation. */
 @layer components {
   @media (max-width: 767px) {
     .conversation-header .conversation-search-trigger {
@@ -362,7 +362,6 @@
     backdrop-filter: blur(12px);
   }
   .message-file,
-  .message-audio,
   .message-contact {
     display: flex;
     align-items: center;
@@ -386,27 +385,6 @@
     font-size: 10px;
     opacity: 0.7;
     margin-top: 4px;
-  }
-  .message-audio > div {
-    min-width: 0;
-    width: 160px;
-  }
-  .message-audio span {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-  }
-  .message-audio input {
-    width: 100%;
-    accent-color: var(--primary);
-    height: 4px;
-    display: block;
-    margin: 10px 0;
-  }
-  .message-audio small {
-    font-size: 10px;
   }
   .message-sticker {
     width: 128px;
@@ -1350,13 +1328,6 @@
   }
   .voice-track rect.played {
     opacity: 1;
-  }
-  .message-audio > .voice-player {
-    width: min(260px, 100%);
-    flex: 1;
-  }
-  .message-audio .voice-track {
-    min-width: 56px;
   }
   .voice-recorder {
     max-width: 1000px;

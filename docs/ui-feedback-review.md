@@ -1,5 +1,28 @@
 # Verified UI review procedure
 
+**Current state (2026-11-06): the UI migration is closed through Module 5C / TASK-006.** The reference directory has been removed. Earlier module-specific notes below retain their original acceptance context; statements that another module was deferred are historical, not current scope. See the [closeout report](ui-migration-closeout.md) for cleanup counts, every gate/suite result, preserved user state and exact automation commands. The two Docker-dependent database suites were unavailable on this host; all screenshot-free browser suites passed.
+
+## Final manual acceptance checklist
+
+Start from a clean review-server terminal with `pnpm review:ui`, then open **http://127.0.0.1:5177/tests/ui-foundation.html** (or **http://127.0.0.1:5177/**). No login/backend is needed. Review all ten sections at **375 × 844**, **768 × 1024**, **1280 × 900**, with **Light/Dark × blue, purple, red, orange, yellow, green**: 36 combinations per section. Use live devtools inspection only; no screenshots.
+
+| Section / URL fragment | Expected states to inspect |
+|---|---|
+| Foundation (page top) | Neon fills unchanged between modes; white S; mode-dependent control glyphs; working focus, switch, modal and OTP samples |
+| `#conversation-gallery` | Own/other bubbles, nine message types, wrapping, dates/unread/pin/search/header states |
+| `#interactive-gallery` | Composer, reply/edit previews, emoji, actions, search/forward/pins and audio control states |
+| `#communities-gallery` | Cards, sidebar/info/settings/creation; expand/collapse feels fluid; counts and focus retained |
+| `#stories-gallery` | Story cards, creator/viewer/replies; containment and functional controls |
+| `#channels-gallery` | Discovery/follow/create/info; channel header, menus and shared conversation |
+| `#settings-gallery` | Shell/sidebar and preferences; theme/accent controls, rows and cards |
+| `#settings-details-gallery` | Profile/social/public card, crop, privacy/security/device/deletion/recovery states |
+| `#chat-settings-gallery` | Info/member/contact/media/file states, menus, confirmations and keyboard tabs |
+| `#auth-gallery` | Landing/login/signup/MFA/onboarding and infrastructure cards; mandatory dialog and form wrapping |
+
+At every width, check clipping/overflow and long text, Tab/Enter/Space/Escape, focus return and overlay containment. Emulate reduced motion: decorative transitions become instant while story/auth timing remains functional. Existing gallery fixtures use local demonstration state; they do not simulate authenticated service outcomes.
+
+For live acceptance use the **normal backend-enabled app**, typically **http://127.0.0.1:5173/** after normal sign-in (and its configured BFF/backend), not the standalone 5177 server. Visit `/chats`, `/chats/<chatId>`, `/communities`, `/communities/<communityId>/chats/<chatId>`, `/novedades`, `/settings`, and the chat-info/settings routes linked from a conversation; repeat the same viewport/theme/accent matrix. Inspect list filters/creation/requests, send/retry/drafts/search/media, shared community/channel conversations, settings persistence and signed downloads. In a separate signed-out session inspect `/`, `/auth/login`, `/auth/signup` and the normal MFA/onboarding flow. Service-dependent mail/CAPTCHA and account actions remain live manual checks. The detailed module checklists below specify the existing route shapes and expected behaviors.
+
 ## Start here — no account or backend needed
 
 1. Open a terminal in the SilverChat repository. Stop any previous review server in its own terminal with Ctrl+C.
