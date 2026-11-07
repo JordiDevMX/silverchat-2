@@ -1,10 +1,12 @@
 import { Laptop } from "lucide-react";
 import { useState } from "react";
 import { useI18n } from "@/app/providers/i18n-provider";
-import { Modal } from "@/features/auth/components";
-import { QueryState, SettingsPage, useAction } from "@/features/settings/components/shared";
+import { Button } from "@/components/ui/button";
+import { SettingsDialog } from "@/components/ui/settings-surfaces";
+import { SettingsPage } from "@/features/settings/components/presentation";
+import { QueryState } from "@/features/settings/components/shared";
 import { useDeviceList } from "@/features/settings/hooks";
-import { signOutOtherDevices } from "@/lib/auth";
+import { useOtherDevicesConfirmation } from "@/features/settings/hooks/useSettingsDialogActions";
 import { getOrCreateDeviceFingerprint } from "@/lib/devices";
 
 function relativeTime(value: string, language: string) {
@@ -18,14 +20,14 @@ function relativeTime(value: string, language: string) {
 export function DevicesPage() {
   const devices = useDeviceList();
   const [confirm, setConfirm] = useState(false);
-  const action = useAction();
+  const action = useOtherDevicesConfirmation(() => setConfirm(false));
   const { t, language } = useI18n();
   const fingerprint = getOrCreateDeviceFingerprint();
   return (
     <SettingsPage title="Devices">
-      <button className="button secondary" type="button" onClick={() => setConfirm(true)}>
+      <Button variant="outline" type="button" onClick={() => setConfirm(true)}>
         {t("Sign out all other devices")}
-      </button>
+      </Button>
       <QueryState
         loading={devices.isLoading}
         error={devices.error}
@@ -51,36 +53,31 @@ export function DevicesPage() {
       {devices.data?.length === 0 && <p>{t("No devices recorded yet.")}</p>}
       {action.feedback}
       {confirm && (
-        <Modal
+        <SettingsDialog
           title={t("Sign out all other devices")}
-          onClose={action.busy ? undefined : () => setConfirm(false)}
+          onClose={() => setConfirm(false)}
+          canClose={!action.busy}
         >
-          <p>{t("Your current session will stay signed in.")}</p>
-          {action.feedback}
-          <div className="modal-actions">
-            <button
-              className="button secondary"
-              type="button"
-              disabled={action.busy}
-              onClick={() => setConfirm(false)}
-            >
-              {t("Cancel")}
-            </button>
-            <button
-              className="button danger"
-              type="button"
-              disabled={action.busy}
-              onClick={() =>
-                void action.run(async () => {
-                  await signOutOtherDevices();
-                  setConfirm(false);
-                }, "Other devices signed out")
-              }
-            >
-              {t("Confirm")}
-            </button>
-          </div>
-        </Modal>
+          {(close) => (
+            <>
+              <p>{t("Your current session will stay signed in.")}</p>
+              {action.feedback}
+              <div className="modal-actions">
+                <Button variant="outline" type="button" disabled={action.busy} onClick={close}>
+                  {t("Cancel")}
+                </Button>
+                <Button
+                  variant="destructive"
+                  type="button"
+                  disabled={action.busy}
+                  onClick={() => void action.confirm()}
+                >
+                  {t("Confirm")}
+                </Button>
+              </div>
+            </>
+          )}
+        </SettingsDialog>
       )}
     </SettingsPage>
   );

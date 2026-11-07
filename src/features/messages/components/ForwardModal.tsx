@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Modal } from "@/features/auth/components";
-import { useChats } from "@/features/chats/hooks/useChats";
-import { useMessageText } from "../i18n";
+import { useForwardDialog } from "../hooks/useForwardDialog";
 export function ForwardModal({
   onForward,
   onClose,
@@ -11,26 +11,17 @@ export function ForwardModal({
   onClose: () => void;
   busy: boolean;
 }) {
-  const chats = useChats();
-  const { say } = useMessageText();
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [error, setError] = useState("");
-  const identifiers = useRef(new Map<string, string>());
-  const options = (chats.data ?? []).filter(
-    (c) =>
-      !c.archivedAt &&
-      !c.isBlocked &&
-      c.displayName.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
-  );
+  const { chats, say, search, setSearch, selected, error, options, toggle, forward } =
+    useForwardDialog(onForward, onClose);
   return (
     <Modal
+      className="messaging-dialog"
       title={say("Forward message", "Reenviar mensaje")}
       onClose={() => {
         if (!busy) onClose();
       }}
     >
-      <input
+      <Input
         type="search"
         className="input"
         aria-label={say("Search chats", "Buscar chats")}
@@ -48,17 +39,7 @@ export function ForwardModal({
               type="checkbox"
               checked={selected.includes(chat.id)}
               disabled={busy}
-              onChange={() => {
-                if (selected.includes(chat.id))
-                  setSelected(selected.filter((id) => id !== chat.id));
-                else if (selected.length < 5) {
-                  setSelected([...selected, chat.id]);
-                  setError("");
-                } else
-                  setError(
-                    say("You can select at most 5 chats.", "Puedes seleccionar hasta 5 chats."),
-                  );
-              }}
+              onChange={() => toggle(chat.id)}
             />
             {chat.displayName}
           </label>
@@ -66,46 +47,37 @@ export function ForwardModal({
       </div>
       {chats.isPending && <p role="status">{say("Loading…", "Cargando…")}</p>}
       {chats.isError && (
-        <button type="button" className="button secondary" onClick={() => void chats.refetch()}>
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-xl"
+          onClick={() => void chats.refetch()}
+        >
           {say("Reload chats", "Recargar chats")}
-        </button>
+        </Button>
       )}
       {!chats.isPending && !chats.isError && !options.length && (
         <p>{say("No available chats", "No hay chats disponibles")}</p>
       )}
       {error && <p role="alert">{error}</p>}
       <div className="modal-actions">
-        <button type="button" className="button secondary" disabled={busy} onClick={onClose}>
-          {say("Cancel", "Cancelar")}
-        </button>
-        <button
+        <Button
           type="button"
-          className="button primary"
+          variant="outline"
+          className="rounded-xl"
+          disabled={busy}
+          onClick={onClose}
+        >
+          {say("Cancel", "Cancelar")}
+        </Button>
+        <Button
+          type="button"
+          className="rounded-xl"
           disabled={busy || !selected.length}
-          onClick={async () => {
-            setError("");
-            try {
-              await onForward(
-                selected,
-                selected.map((id) => {
-                  if (!identifiers.current.has(id))
-                    identifiers.current.set(id, crypto.randomUUID());
-                  return identifiers.current.get(id) as string;
-                }),
-              );
-              onClose();
-            } catch {
-              setError(
-                say(
-                  "Forward failed. Try again; confirmed copies will not be duplicated.",
-                  "No se pudo reenviar. Reintenta; las copias confirmadas no se duplicarán.",
-                ),
-              );
-            }
-          }}
+          onClick={forward}
         >
           {say("Forward", "Reenviar")}
-        </button>
+        </Button>
       </div>
     </Modal>
   );

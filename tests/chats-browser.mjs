@@ -80,6 +80,8 @@ const membership = (i, name, type = "direct", preview = "See you soon!") => ({
     },
   },
 });
+const creationCalls = [];
+let failGroupCreation = false;
 let memberships = [
   membership(1, null, "direct", "Coffee tomorrow? I found a lovely spot."),
   membership(2, null, "direct", "Perfect, I’ll send the details."),
@@ -171,6 +173,13 @@ async function mockContext(browserContext) {
       }
       if (s.get("chat_id")?.startsWith("eq.") && s.get("select") === "*")
         return fulfill(route, [{ chat_id: id, user_id: me, role: "member", joined_at: ago(200) }]);
+      if (s.get("chat.type") === "eq.direct") {
+        assert.equal(s.get("chat.status"), "eq.active");
+        return fulfill(
+          route,
+          memberships.filter((m) => m.chat.type === "direct"),
+        );
+      }
       if (s.get("select")?.includes("chat:chats")) {
         mainReads++;
         assert.equal(s.get("limit"), "200");
@@ -249,6 +258,20 @@ async function mockContext(browserContext) {
             chat: { ...membership(7, null).chat, id: r.chat_id },
           });
       }
+      if (action === "create_group_chat" || action === "create_direct_chat_request") {
+        creationCalls.push({ action, body });
+        if (action === "create_group_chat" && failGroupCreation)
+          return fulfill(route, { message: "Creation offline" }, 503);
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        const created =
+          action === "create_group_chat"
+            ? membership(40, body.p_name, "group")
+            : membership(30, null, "direct");
+        if (action === "create_direct_chat_request")
+          created.chat.direct_pair_key = `${me}::${body.p_target_user_id}`;
+        memberships.push(created);
+        return fulfill(route, created.chat_id);
+      }
       if (action === "create_self_chat") {
         const own = membership(20, "Notes", "self");
         memberships.push(own);
@@ -322,18 +345,82 @@ const menu = async (id, label) => {
   await page.getByRole("menuitem", { name: label, exact: true }).click();
 };
 const waitRefresh = async () => {
-  await page.getByRole("button", { name: "Refresh", exact: true }).waitFor({ state: "visible" });
-  await page.waitForFunction(() => !document.querySelector(".chat-refresh")?.disabled);
+  await page.waitForFunction(
+    () => document.querySelector(".chats-page")?.getAttribute("aria-busy") === "false",
+  );
 };
 try {
-  await page.goto("http://127.0.0.1:5173/chats");
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats`);
   await row(101).waitFor();
   assert.equal(await page.locator(".chat-filters button").count(), 7);
   assert.equal(await page.locator(".chat-list-item").count(), 5);
   assert.equal(await row(101).locator(".chat-badge").textContent(), "99+");
   assert.equal(await row(106).locator(".chat-badge").count(), 0);
-  assert.equal(await page.locator(".request-row").count(), 3);
-  await page.screenshot({ path: "/tmp/silverchat-chats-desktop.png", fullPage: true });
+  assert.equal(await page.locator(".request-row").count(), 0);
+  assert.equal(await page.locator(".request-toggle").getAttribute("aria-expanded"), "false");
+  const navigation = page.getByRole("navigation", { name: "Main navigation" });
+  assert.equal(await navigation.count(), 1);
+  assert.deepEqual(
+    await navigation
+      .locator("a")
+      .evaluateAll((links) => links.map((link) => link.getAttribute("href"))),
+    ["/chats", "/novedades", "/communities", "/calls", "/settings"],
+  );
+  assert.equal(await navigation.locator('[aria-current="page"]').getAttribute("href"), "/chats");
+  assert.equal(await navigation.getByRole("img", { name: "1028 Unread" }).textContent(), "99+");
+  for (const width of [390, 767, 768, 1023, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    assert.equal(await page.locator(".chats-header button").count(), 0);
+    assert.equal(
+      await page.locator(".chats-header [data-slot=brand-lockup]").getAttribute("aria-label"),
+      "SilverChat",
+    );
+    assert.equal(
+      await page.getByRole("searchbox").evaluate((el) => getComputedStyle(el).borderWidth),
+      "0px",
+    );
+    const frame = await navigation.boundingBox();
+    const content = await page.locator(".authenticated-content").boundingBox();
+    assert.equal(Math.round(frame.width), width >= 1024 ? 68 : width);
+    assert.equal(Math.round(content.x), width >= 1024 ? 68 : 0);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
+    );
+    assert.equal(await navigation.locator("a").count(), 5);
+    if (width < 1024) {
+      const fab = await page.locator(".new-chat-fab").boundingBox();
+      assert.ok(fab.y + fab.height < frame.y, "Floating action clears bottom tabs");
+    }
+  }
+  const chatsLink = navigation.locator('a[href="/chats"]');
+  await chatsLink.focus();
+  assert.equal(
+    await chatsLink.locator(".app-nav-label").evaluate((el) => getComputedStyle(el).opacity),
+    "1",
+  );
+  assert.equal(await chatsLink.evaluate((el) => getComputedStyle(el).outlineStyle), "solid");
+  assert.notEqual(
+    await chatsLink.locator(".app-nav-icon").evaluate((el) => getComputedStyle(el).boxShadow),
+    "none",
+  );
+  await page.keyboard.press("Tab");
+  assert.equal(
+    await navigation
+      .locator('a[href="/novedades"]')
+      .evaluate((el) => el === document.activeElement),
+    true,
+  );
+  await page.locator(".chat-search input").focus();
+  console.log(
+    "PASS shell breakpoints, five URLs, single navigation, active state, keyboard labels, unread exclusions and floating-action clearance",
+  );
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "dark";
+  });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "light";
+  });
   console.log(
     "PASS batched unread pagination, receipt rendering, request collapse, muted/global badges",
   );
@@ -424,11 +511,16 @@ try {
   );
   await row(101).getByText("Draft: Remember the tickets").waitFor();
   assert.equal(await row(101).locator(".chat-badge").textContent(), "99+");
-  await page.getByRole("button", { name: "Select", exact: true }).click();
+  await page
+    .locator(".chat-list-item")
+    .first()
+    .locator(".chat-row-main")
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Select", exact: true }).click();
   const visible = await page
     .locator(".chat-list-item")
     .evaluateAll((rows) => rows.map((r) => r.getAttribute("data-chat-id")));
-  await page.locator(`[data-chat-id="${visible[0]}"] .chat-row-main`).click();
+
   await page
     .locator(`[data-chat-id="${visible[2]}"] .chat-row-main`)
     .click({ modifiers: ["Shift"] });
@@ -442,7 +534,7 @@ try {
   );
   await page.getByRole("button", { name: "Exit selection" }).click();
   console.log("PASS same-tab drafts preserve unread, shift range selection and bulk mute");
-  await page.getByRole("button", { name: "See all", exact: true }).click();
+  await page.locator(".request-toggle").click();
   assert.equal(await page.locator(".request-row").count(), 4);
   await page.getByRole("button", { name: "Accept Nora Bennett", exact: true }).click();
   await page.getByText("Chat request accepted", { exact: true }).waitFor();
@@ -465,8 +557,9 @@ try {
   realtime("chat_requests", { id: uid(399), recipient_id: me, sender_id: uid(8) });
   await page.getByRole("button", { name: "Accept Samuel Green", exact: true }).waitFor();
   console.log("PASS Realtime updates include previously unknown chats and empty requests");
-  await page.getByRole("button", { name: "Select", exact: true }).click();
-  await row(102).locator(".chat-row-main").click();
+  await row(102).locator(".chat-row-main").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Select", exact: true }).click();
+
   await row(108).locator(".chat-row-main").click();
   failId = uid(108);
   failAction = "delete_direct_chat_for_me";
@@ -486,11 +579,65 @@ try {
   await page.locator(".new-chat-fab").click();
   await page.getByRole("button", { name: "Message yourself", exact: true }).click();
   await page.getByRole("heading", { name: "A little space for you" }).waitFor();
+  for (const width of [390, 768, 1024]) {
+    await page.setViewportSize({ width, height: 844 });
+    const canvas = await page.locator(".conversation-page").boundingBox();
+    assert.ok(
+      Math.abs(canvas.y + canvas.height - (width < 1024 ? 776 : 844)) <= 1,
+      "Conversation canvas clears navigation at every breakpoint",
+    );
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('.app-navigation a[href="/chats"]').click();
   await row(120).waitFor();
   assert.equal(memberships.find((m) => m.chat_id === uid(120)).pinned_at, null);
   assert.deepEqual(errors, []);
   console.log("PASS self-chat creation remains unpinned and opens the conversation composer");
+  // Creation screens use the same production hooks after the Step A extraction.
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats/new`);
+  await page.locator(".new-chat-user-row").filter({ hasText: "Sofia Reyes" }).click();
+  await page.waitForURL((url) => url.pathname === `/chats/${uid(101)}`);
+  assert.equal(creationCalls.length, 0, "existing contacts do not create duplicate chats");
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats/new`);
+  await page.getByRole("searchbox").fill("samuel");
+  await page
+    .getByRole("region", { name: "Search results" })
+    .locator(".new-chat-user-row")
+    .filter({ hasText: "Samuel Green" })
+    .click();
+  await page.waitForURL((url) => url.pathname === `/chats/${uid(130)}`);
+  assert.deepEqual(creationCalls.at(-1), {
+    action: "create_direct_chat_request",
+    body: { p_target_user_id: uid(8), p_initial_content: "👋" },
+  });
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats/new-group`);
+  const create = page.getByRole("button", { name: "Create", exact: true });
+  assert.equal(await create.isDisabled(), true);
+  await page.getByRole("textbox", { name: /Group name/ }).fill("  Review group  ");
+  await page.getByRole("checkbox", { name: /Sofia Reyes/ }).check();
+  await page.getByRole("button", { name: "Remove Sofia Reyes", exact: true }).click();
+  assert.equal(await create.isDisabled(), true);
+  await page.getByRole("checkbox", { name: /Sofia Reyes/ }).check();
+  failGroupCreation = true;
+  await create.click();
+  await page.locator(".new-chat-alert").getByText("Creation offline", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("checkbox", { name: /Sofia Reyes/ }).isChecked(), true);
+  await page
+    .locator(".new-chat-alert")
+    .getByRole("button", { name: "Dismiss", exact: true })
+    .click();
+  failGroupCreation = false;
+  await create.click();
+  await page.waitForURL((url) => url.pathname === `/chats/${uid(140)}`);
+  assert.deepEqual(creationCalls.at(-1), {
+    action: "create_group_chat",
+    body: { p_name: "Review group", p_member_ids: [uid(1)] },
+  });
+  assert.equal(creationCalls.filter((c) => c.action === "create_group_chat").length, 2);
+  assert.deepEqual(errors, []);
+  console.log(
+    "PASS direct reuse/request and group validation, chip removal, failure/retry, exact RPC arguments and navigation",
+  );
   // A separate mobile browser context uses native touch media and input.
   await page.close();
   const mobileContext = await browser.newContext({
@@ -502,7 +649,7 @@ try {
   page = await mobileContext.newPage();
   page.setDefaultTimeout(10000);
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("http://127.0.0.1:5173/chats");
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats`);
   await row(103).waitFor();
   const cdp = await mobileContext.newCDPSession(page);
   assert.equal(await page.evaluate(() => matchMedia("(pointer: coarse)").matches), true);
@@ -537,7 +684,6 @@ try {
   await archive.tap();
   await row(103).waitFor({ state: "hidden" });
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: "/tmp/silverchat-chats-mobile.png", fullPage: true });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   console.log("PASS mobile long-press, swipe action, and no horizontal overflow");
   await page.locator(".new-chat-fab").click();
@@ -549,7 +695,15 @@ try {
   await page.evaluate(() => {
     document.documentElement.dataset.theme = "dark";
   });
-  await page.screenshot({ path: "/tmp/silverchat-chats-dark.png", fullPage: true });
+  assert.equal(await page.locator(".new-chat-fab").getAttribute("data-kind"), "chats");
+  assert.equal(
+    await page.locator(".new-chat-fab").evaluate((el) => getComputedStyle(el).borderWidth),
+    "0px",
+  );
+  assert.equal(
+    await page.locator(".new-chat-fab").evaluate((el) => getComputedStyle(el).outlineStyle),
+    "none",
+  );
   assert.deepEqual(errors, []);
   console.log("Chats browser checks passed; no uncaught page errors.");
 } catch (error) {

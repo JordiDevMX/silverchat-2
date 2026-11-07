@@ -1,5 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { InChatSearch } from "@/features/messages/components/InChatSearch";
 import { MessageActionsProvider } from "@/features/messages/components/MessageActionsProvider";
 import { MessageList } from "@/features/messages/components/MessageList";
@@ -8,16 +8,15 @@ import { useSendMessage } from "@/features/messages/hooks/useSendMessage";
 import { useMessageText } from "@/features/messages/i18n";
 import { NavLink, QueryState } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
-import { supabase } from "@/lib/supabase";
 import { useChannelInfo } from "../../hooks/channels/useChannelInfo";
 import { useChannelMessages } from "../../hooks/channels/useChannelMessages";
+import { useChannelReadCursor } from "../../hooks/channels/useChannelReadCursor";
 import { channelChat } from "../../lib/channelChat";
 import { ChannelComposer } from "./ChannelComposer";
 import { ChannelHeader } from "./ChannelHeader";
 import "@/styles/messages.css";
 export function ChannelView({ channelId }: { channelId: string }) {
   const { user } = useAuth();
-  const cache = useQueryClient();
   const { say } = useMessageText();
   const info = useChannelInfo(channelId);
   const channel = info.data?.channel;
@@ -36,25 +35,7 @@ export function ChannelView({ channelId }: { channelId: string }) {
     if (searchOpen && search.current) navigate(search.current);
     else if (searchOpen) setNavigation(null);
   }, [searchOpen, search.current, navigate]);
-  const [readError, setReadError] = useState(false);
-  const [readAttempt, setReadAttempt] = useState(0);
-  useEffect(() => {
-    void readAttempt;
-    if (!following || !user?.id) return;
-    let disposed = false;
-    void (async () => {
-      const r = await supabase
-        .from("channel_followers")
-        .update({ last_read_at: new Date().toISOString() })
-        .eq("channel_id", channelId)
-        .eq("user_id", user.id);
-      if (!disposed) setReadError(!!r.error);
-      if (!r.error) void cache.invalidateQueries({ queryKey: ["channels", user.id] });
-    })();
-    return () => {
-      disposed = true;
-    };
-  }, [following, user?.id, channelId, cache, readAttempt]);
+  const { readError, retryRead } = useChannelReadCursor(channelId, following);
   if (!channel)
     return (
       <main id="main" className="novedades-page">
@@ -85,9 +66,9 @@ export function ChannelView({ channelId }: { channelId: string }) {
         />
       )}
       {readError && (
-        <button type="button" onClick={() => setReadAttempt((n) => n + 1)}>
+        <Button type="button" variant="outline" className="channel-read-retry" onClick={retryRead}>
           {say("Retry marking channel read", "Reintentar marcar como leído")}
-        </button>
+        </Button>
       )}
       {following || owner ? (
         <MessageActionsProvider

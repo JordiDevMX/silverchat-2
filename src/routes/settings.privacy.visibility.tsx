@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useI18n } from "@/app/providers/i18n-provider";
+import { Button } from "@/components/ui/button";
 import { ManageExclusionsModal } from "@/features/settings/components/ManageExclusionsModal";
-import { QueryState, SettingsPage, Toggle, useAction } from "@/features/settings/components/shared";
+import { SettingsPage, Toggle } from "@/features/settings/components/presentation";
+import { QueryState, useAction } from "@/features/settings/components/shared";
 import { usePreferences } from "@/features/settings/preferences-provider";
 
 const options = [
@@ -57,13 +59,13 @@ export function VisibilityPage() {
                   </label>
                 ))}
                 {settings[section.field] === "contacts_except" && (
-                  <button
-                    className="button secondary"
+                  <Button
+                    variant="outline"
                     type="button"
                     onClick={() => setExclusions(section.excluded)}
                   >
                     {t("Manage exclusions")} ({settings[section.excluded].length})
-                  </button>
+                  </Button>
                 )}
               </fieldset>
             </section>

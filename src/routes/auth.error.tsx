@@ -1,4 +1,5 @@
 import { CircleAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { AuthFrame } from "@/features/auth/components";
 import { searchParams } from "@/features/auth/navigation";
 
@@ -15,13 +16,13 @@ export function AuthErrorPage() {
     <AuthFrame title={messages[code] ?? messages.unknown ?? "Something went wrong."}>
       <CircleAlert className="feature-icon" size={40} strokeWidth={1.75} aria-hidden="true" />
       <p>Request a new magic link to continue.</p>
-      <a className="button primary" href="/auth/login">
-        Request a new link
-      </a>
+      <Button asChild>
+        <a href="/auth/login">Request a new link</a>
+      </Button>
       {["rate_limited", "unknown"].includes(code) && (
-        <button className="button secondary" type="button" onClick={() => window.history.back()}>
+        <Button variant="outline" type="button" onClick={() => window.history.back()}>
           Go back
-        </button>
+        </Button>
       )}
     </AuthFrame>
   );

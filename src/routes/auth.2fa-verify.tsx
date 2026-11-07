@@ -1,52 +1,12 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "@tanstack/react-router";
 import { LockKeyhole } from "lucide-react";
-import { useEffect, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller } from "react-hook-form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { AuthFrame, CodeInput, InlineError } from "@/features/auth/components";
-import { nextDestination, safeRedirect, searchParams } from "@/features/auth/navigation";
-import { backupSchema, totpSchema } from "@/features/auth/schemas";
-import { useAuth } from "@/lib/auth-provider";
+import { useMfaVerification } from "@/features/auth/hooks/useMfaVerification";
 export function MfaVerifyPage() {
-  const auth = useAuth();
-  const router = useRouter();
-  const [backup, setBackup] = useState(false);
-  const {
-    register,
-    control,
-    handleSubmit,
-    setError,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm({
-    resolver: zodResolver(backup ? backupSchema : totpSchema),
-    defaultValues: { code: "" },
-  });
-  const redirect = safeRedirect(searchParams().get("redirect"));
-  useEffect(() => {
-    if (!auth.user)
-      void router.navigate({
-        href: `/auth/login?${new URLSearchParams({ redirect })}`,
-        replace: true,
-      });
-    else if (!auth.mfaRequired && auth.profile)
-      void router.navigate({
-        href: nextDestination(auth.profile.username, redirect),
-        replace: true,
-      });
-  }, [auth.user, auth.mfaRequired, auth.profile, router, redirect]);
-  const submit = handleSubmit(async ({ code }) => {
-    try {
-      if (backup) await auth.completeMfaWithBackupCode(code);
-      else await auth.completeMfa(code);
-    } catch {
-      setError("root", {
-        message: backup
-          ? "That backup code couldn’t be verified. Try another code or request a new magic link."
-          : "That code couldn’t be verified. Check your authenticator and try again.",
-      });
-    }
-  });
+  const { backup, setBackup, register, control, reset, errors, isSubmitting, submit } =
+    useMfaVerification();
   return (
     <AuthFrame
       title="Two-factor authentication"
@@ -61,7 +21,7 @@ export function MfaVerifyPage() {
         {backup ? (
           <>
             <label htmlFor="backup-code">Backup code</label>
-            <input
+            <Input
               id="backup-code"
               autoComplete="off"
               spellCheck={false}
@@ -86,13 +46,13 @@ export function MfaVerifyPage() {
           />
         )}
         <InlineError>{errors.code?.message || errors.root?.message}</InlineError>
-        <button className="button primary" type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Verifying…" : "Verify"}
-        </button>
+        </Button>
       </form>
-      <button
+      <Button
         type="button"
-        className="text-link"
+        variant="ghost"
         disabled={isSubmitting}
         onClick={() => {
           setBackup(!backup);
@@ -100,7 +60,7 @@ export function MfaVerifyPage() {
         }}
       >
         {backup ? "Use authenticator instead" : "Lost access? Use a backup code instead"}
-      </button>
+      </Button>
     </AuthFrame>
   );
 }

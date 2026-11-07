@@ -1,5 +1,5 @@
-import { Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { SearchField } from "@/components/ui/search-field";
 import { useChatText } from "../i18n";
 export function ChatSearchBar({
   query,
@@ -25,29 +25,17 @@ export function ChatSearchBar({
   };
   const label = t(archived ? "Search archived…" : "Search chats…");
   return (
-    <div className="chat-search">
-      <Search size={19} aria-hidden="true" />
-      <input
-        type="search"
-        aria-label={label}
-        placeholder={label}
-        maxLength={200}
-        value={value}
-        onChange={(e) => change(e.target.value)}
-      />
-      {value && (
-        <button
-          type="button"
-          aria-label={t("Clear search")}
-          onClick={() => {
-            clearTimeout(timer.current);
-            setValue("");
-            onChange("");
-          }}
-        >
-          <X size={18} />
-        </button>
-      )}
-    </div>
+    <SearchField
+      className="chat-search"
+      label={label}
+      clearLabel={t("Clear search")}
+      value={value}
+      onChange={change}
+      onClear={() => {
+        clearTimeout(timer.current);
+        setValue("");
+        onChange("");
+      }}
+    />
   );
 }

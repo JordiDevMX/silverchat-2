@@ -17,7 +17,8 @@ export function StoriesRow({
   const { say } = useMessageText();
   const { mine, unwatched, watched } = orderStoryGroups(query.data ?? [], user?.id ?? "");
   return (
-    <section aria-label={say("Stories", "Historias")}>
+    <section className="stories-section" aria-label={say("Stories", "Historias")}>
+      <h2 className="stories-heading">{say("Stories", "Historias")}</h2>
       <div className="stories-row">
         <StoryCard mine group={mine} onCreate={onCreate} onOpen={() => onOpen(user?.id ?? "")} />
         {[...unwatched, ...watched]

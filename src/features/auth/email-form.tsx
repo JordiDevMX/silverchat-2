@@ -1,40 +1,12 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
-import { useRouter } from "@tanstack/react-router";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { ArrowRight, Mail } from "lucide-react";
-import { useRef, useState } from "react";
-import { useForm } from "react-hook-form";
-import { useAuth } from "@/lib/auth-provider";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useEmailForm } from "@/features/auth/hooks/useEmailForm";
 import { AuthFrame, InlineError } from "./components";
-import { safeRedirect, searchParams } from "./navigation";
-import { emailSchema } from "./schemas";
 export function EmailForm({ signup = false }: { signup?: boolean }) {
-  const auth = useAuth();
-  const router = useRouter();
-  const widget = useRef<TurnstileInstance>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const {
-    register,
-    handleSubmit,
-    setError,
-    formState: { errors, isSubmitting },
-  } = useForm({ resolver: zodResolver(emailSchema), defaultValues: { email: "" } });
-  const redirect = safeRedirect(searchParams().get("redirect"));
-  const submit = handleSubmit(async ({ email }) => {
-    try {
-      await auth.signIn(email, signup ? "signup" : "login", redirect, token ?? undefined);
-      await router.navigate({
-        href: `/auth/check-email?${new URLSearchParams({ email, redirect, mode: signup ? "signup" : "login" })}`,
-      });
-    } catch {
-      setError("root", { message: "We couldn’t send a link. Please try again in a moment." });
-    } finally {
-      if (signup) {
-        setToken(null);
-        widget.current?.reset();
-      }
-    }
-  });
+  const { widget, setToken, token, register, errors, isSubmitting, redirect, submit } =
+    useEmailForm({ signup });
   return (
     <AuthFrame
       title={signup ? "Create your account" : "Welcome back"}
@@ -48,7 +20,7 @@ export function EmailForm({ signup = false }: { signup?: boolean }) {
         <label htmlFor="email">Email address</label>
         <div className="input-with-icon">
           <Mail aria-hidden="true" size={20} strokeWidth={1.75} />
-          <input
+          <Input
             id="email"
             type="email"
             autoComplete="email"
@@ -77,14 +49,10 @@ export function EmailForm({ signup = false }: { signup?: boolean }) {
             </InlineError>
           ))}
         <InlineError>{errors.root?.message}</InlineError>
-        <button
-          className="button primary"
-          disabled={isSubmitting || (signup && !token)}
-          type="submit"
-        >
+        <Button disabled={isSubmitting || (signup && !token)} type="submit">
           {isSubmitting ? "Sending your link…" : signup ? "Create account" : "Send magic link"}
           <ArrowRight aria-hidden="true" size={18} />
-        </button>
+        </Button>
       </form>
       <p className="form-footer">
         {signup ? "Already have an account?" : "Don’t have an account?"}{" "}

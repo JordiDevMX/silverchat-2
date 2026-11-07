@@ -1,15 +1,10 @@
 import { Link2, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { useI18n } from "@/app/providers/i18n-provider";
-import { QueryState, SettingsPage, useAction } from "@/features/settings/components/shared";
-import { type Profile, useProfile, useProfileRefresh } from "@/features/settings/hooks";
-import {
-  FIXED_PLATFORMS,
-  MAX_CUSTOM_LINKS,
-  MAX_FIELD_LENGTH,
-  normalizeSocialLinks,
-} from "@/lib/social-links";
-import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { SettingsPage } from "@/features/settings/components/presentation";
+import { QueryState } from "@/features/settings/components/shared";
+import { type Profile, useProfile } from "@/features/settings/hooks";
+import { useSocialLinksForm } from "@/features/settings/hooks/useSocialLinksForm";
+import { FIXED_PLATFORMS, MAX_CUSTOM_LINKS, MAX_FIELD_LENGTH } from "@/lib/social-links";
 export function SocialLinksPage() {
   const profile = useProfile();
   return (
@@ -24,32 +19,9 @@ export function SocialLinksPage() {
   );
 }
 function SocialForm({ profile }: { profile: Profile }) {
-  const [links, setLinks] = useState(() => normalizeSocialLinks(profile.social_links));
-  const [keys, setKeys] = useState(() => links.custom?.map(() => crypto.randomUUID()) ?? []);
-  const action = useAction();
-  const refresh = useProfileRefresh();
-  const { t } = useI18n();
-  const custom = links.custom ?? [];
+  const { links, setLinks, keys, setKeys, action, t, custom, submit } = useSocialLinksForm(profile);
   return (
-    <form
-      className="settings-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void action.run(async () => {
-          const normalized = normalizeSocialLinks(links);
-          const r = await supabase
-            .from("profiles")
-            .update({ social_links: { ...normalized } })
-            .eq("id", profile.id)
-            .select("id")
-            .single();
-          if (r.error) throw r.error;
-          setLinks(normalized);
-          setKeys(normalized.custom?.map(() => crypto.randomUUID()) ?? []);
-          await refresh();
-        }, "Saved");
-      }}
-    >
+    <form className="settings-form settings-card settings-card-body" onSubmit={submit}>
       <fieldset disabled={action.busy}>
         {FIXED_PLATFORMS.map((platform) => (
           <div key={platform.key}>
@@ -103,8 +75,9 @@ function SocialForm({ profile }: { profile: Profile }) {
                 }
               />
             </label>
-            <button
-              className="icon-button"
+            <Button
+              variant="ghost"
+              size="icon"
               type="button"
               aria-label={`${t("Remove link")} ${index + 1}`}
               onClick={() => {
@@ -113,11 +86,11 @@ function SocialForm({ profile }: { profile: Profile }) {
               }}
             >
               <Trash2 size={18} />
-            </button>
+            </Button>
           </div>
         ))}
-        <button
-          className="button secondary"
+        <Button
+          variant="outline"
           type="button"
           disabled={custom.length >= MAX_CUSTOM_LINKS}
           onClick={() => {
@@ -126,11 +99,9 @@ function SocialForm({ profile }: { profile: Profile }) {
           }}
         >
           + {t("Add custom link")}
-        </button>
+        </Button>
         {action.feedback}
-        <button className="button primary" type="submit">
-          {t(action.busy ? "Saving…" : "Save links")}
-        </button>
+        <Button type="submit">{t(action.busy ? "Saving…" : "Save links")}</Button>
       </fieldset>
     </form>
   );

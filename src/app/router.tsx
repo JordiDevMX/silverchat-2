@@ -6,15 +6,16 @@ import {
   Outlet,
   redirect,
   stripSearchParams,
-  useRouter,
 } from "@tanstack/react-router";
-import { useState } from "react";
+import { InfrastructureNotice } from "@/components/ui/auth-surfaces";
+import { Button } from "@/components/ui/button";
+import { RouteErrorState } from "@/components/ui/route-error-state";
 import { ChatSettingsNotice } from "@/features/chat-settings/components/ChatSettingsNotice";
 import "@/styles/chat-settings.css";
 import { AuthFrame, InlineError, SessionExpiredModal } from "@/features/auth/components";
+import { useDestinationActions } from "@/features/auth/hooks/useDestinationActions";
 import type { AuthState } from "@/features/auth/types";
 import { validateChatSearch } from "@/features/chats/utils/chatSearch";
-import { useAuth } from "@/lib/auth-provider";
 import { AuthenticatedLayout, requireAuthentication } from "@/routes/_authenticated";
 
 const MfaVerifyPage = lazyRouteComponent(() => import("@/routes/auth.2fa-verify"), "MfaVerifyPage");
@@ -47,10 +48,7 @@ function Root() {
 }
 // Auth landing destination only; messaging and the devices UI belong to later prompts.
 function AuthenticatedDestination() {
-  const auth = useAuth();
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { auth, busy, error, signOut } = useDestinationActions();
   return (
     <AuthFrame
       title={`You’re signed in, ${auth.profile?.display_name ?? "friend"}.`}
@@ -58,31 +56,16 @@ function AuthenticatedDestination() {
     >
       {auth.user?.user_metadata.requires_reenrollment &&
         !auth.user.factors?.some((factor) => factor.status === "verified") && (
-          <p role="status">Backup code used. Please re-enable 2FA in settings.</p>
+          <InfrastructureNotice>
+            Backup code used. Please re-enable 2FA in settings.
+          </InfrastructureNotice>
         )}
-      <a className="button primary" href="/settings">
-        Settings
-      </a>
-      <button
-        className="button secondary"
-        type="button"
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            await auth.signOut();
-            await router.navigate({ to: "/", replace: true });
-          } catch {
-            setError(
-              "Signed out here, but server revocation could not be confirmed. Try signing in and out again.",
-            );
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
+      <Button asChild>
+        <a href="/settings">Settings</a>
+      </Button>
+      <Button variant="outline" type="button" disabled={busy} onClick={signOut}>
         {busy ? "Signing out…" : "Sign out"}
-      </button>
+      </Button>
       <InlineError>{error}</InlineError>
     </AuthFrame>
   );
@@ -100,7 +83,10 @@ const root = createRootRouteWithContext<{ auth: AuthState }>()({
   },
   notFoundComponent: () => (
     <AuthFrame title="Page not found">
-      <a href="/">Return home</a>
+      <InfrastructureNotice>This page could not be found.</InfrastructureNotice>
+      <Button asChild>
+        <a href="/">Return home</a>
+      </Button>
     </AuthFrame>
   ),
 });
@@ -389,6 +375,7 @@ export const router = createRouter({
   routeTree: root.addChildren([...publicRoutes, authenticated.addChildren(protectedRoutes)]),
   context: { auth: undefined as unknown as AuthState },
   defaultPreload: false,
+  defaultErrorComponent: RouteErrorState,
 });
 declare module "@tanstack/react-router" {
   interface Register {

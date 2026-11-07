@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Modal } from "@/features/auth/components";
+import { useDeleteMessageDialog } from "../hooks/useDeleteMessageDialog";
 import { useMessageText } from "../i18n";
 export function DeleteMessageModal({
   everyone,
@@ -13,18 +14,10 @@ export function DeleteMessageModal({
   busy: boolean;
 }) {
   const { say } = useMessageText();
-  const [error, setError] = useState(false);
-  const remove = async (all: boolean) => {
-    setError(false);
-    try {
-      await onDelete(all);
-      onClose();
-    } catch {
-      setError(true);
-    }
-  };
+  const { error, remove } = useDeleteMessageDialog(onDelete, onClose);
   return (
     <Modal
+      className="messaging-dialog"
       title={say("Delete message?", "¿Eliminar mensaje?")}
       onClose={() => {
         if (!busy) onClose();
@@ -53,26 +46,34 @@ export function DeleteMessageModal({
         </p>
       )}
       <div className="modal-actions">
-        <button type="button" className="button secondary" disabled={busy} onClick={onClose}>
-          {say("Cancel", "Cancelar")}
-        </button>
-        <button
+        <Button
           type="button"
-          className="button secondary"
+          variant="outline"
+          className="rounded-xl"
+          disabled={busy}
+          onClick={onClose}
+        >
+          {say("Cancel", "Cancelar")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-xl"
           disabled={busy}
           onClick={() => void remove(false)}
         >
           {say("Delete for me", "Eliminar para mí")}
-        </button>
+        </Button>
         {everyone && (
-          <button
+          <Button
             type="button"
-            className="button danger"
+            variant="destructive"
+            className="rounded-xl"
             disabled={busy}
             onClick={() => void remove(true)}
           >
             {say("Delete for everyone", "Eliminar para todos")}
-          </button>
+          </Button>
         )}
       </div>
     </Modal>

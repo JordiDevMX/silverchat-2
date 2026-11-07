@@ -1,17 +1,11 @@
-import { Check, Monitor, Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { useI18n } from "@/app/providers/i18n-provider";
 import { useTheme } from "@/app/providers/theme-provider";
-import { QueryState, SettingsPage, useAction } from "@/features/settings/components/shared";
+import { AccentChoice, SETTINGS_ACCENTS, ThemeChoice } from "@/components/ui/settings-surfaces";
+import { SettingsPage } from "@/features/settings/components/presentation";
+import { QueryState, useAction } from "@/features/settings/components/shared";
 import { usePreferences } from "@/features/settings/preferences-provider";
 
-const accents = {
-  blue: "#3978f6",
-  purple: "#9856e8",
-  red: "#df464c",
-  orange: "#e98232",
-  yellow: "#c59c18",
-  green: "#239a65",
-} as const;
 export function AppearancePage() {
   const theme = useTheme();
   const { t, language } = useI18n();
@@ -31,45 +25,28 @@ export function AppearancePage() {
                 { value: "system", label: "System", icon: Monitor },
               ] as const
             ).map(({ value, label, icon: Icon }) => (
-              <button
-                className={`theme-option theme-preview-${value}`}
-                type="button"
+              <ThemeChoice
                 key={value}
-                aria-pressed={theme.theme === value}
-                onClick={() => void action.run(() => preferences.save({ theme: value }, true))}
-              >
-                <span className="theme-miniature">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                <span>
-                  <Icon size={17} />
-                  {t(label)}
-                </span>
-              </button>
+                value={value}
+                label={t(label)}
+                icon={<Icon size={17} />}
+                selected={theme.theme === value}
+                onSelect={() => void action.run(() => preferences.save({ theme: value }, true))}
+              />
             ))}
           </div>
         </div>
         <div className="settings-card settings-card-body">
           <h2>{t("Accent color")}</h2>
           <div className="accent-options">
-            {Object.entries(accents).map(([value, color]) => (
-              <button
+            {SETTINGS_ACCENTS.map((value) => (
+              <AccentChoice
                 key={value}
-                className="accent-swatch"
-                type="button"
-                style={{ background: color }}
-                aria-label={t(value)}
-                aria-pressed={theme.accent === value}
-                onClick={() =>
-                  void action.run(() =>
-                    preferences.save({ accent: value as keyof typeof accents }, true),
-                  )
-                }
-              >
-                {theme.accent === value && <Check size={21} />}
-              </button>
+                value={value}
+                label={t(value)}
+                selected={theme.accent === value}
+                onSelect={() => void action.run(() => preferences.save({ accent: value }, true))}
+              />
             ))}
           </div>
         </div>

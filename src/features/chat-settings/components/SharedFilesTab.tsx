@@ -1,70 +1,54 @@
-import { Download, File, FileArchive, FileSpreadsheet, FileText } from "lucide-react";
-import { useState } from "react";
+import { Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { SharedFileRowSurface } from "@/components/ui/chat-settings-surfaces";
+import { FileIconTile } from "@/components/ui/file-icon-tile";
 import { useMessageText } from "@/features/messages/i18n";
-import { getSignedUrl } from "@/features/messages/lib/media";
 import type { Message } from "@/features/messages/types";
 import { formatBytes } from "@/features/messages/utils/formatMessageTime";
+import { resolveFileType } from "@/lib/file-type";
+import { useSharedFileDownload } from "../hooks/useSharedFileDownload";
 
 function FileRow({ message }: { message: Message }) {
   const { say, language } = useMessageText();
-  const [error, setError] = useState(false);
-  const [busy, setBusy] = useState(false);
   const upload = message.upload;
+  const { error, busy, download } = useSharedFileDownload(upload);
   const name = upload?.original_filename ?? say("File unavailable", "Archivo no disponible");
-  const ext = name.split(".").at(-1)?.toLowerCase() ?? "";
-  const Icon = ["pdf", "docx", "txt"].includes(ext)
-    ? FileText
-    : ["xlsx", "csv"].includes(ext)
-      ? FileSpreadsheet
-      : ["zip", "rar", "7z"].includes(ext)
-        ? FileArchive
-        : File;
+  const fileType = resolveFileType({ filename: name, mimeType: upload?.mime_type });
   return (
-    <div className="shared-file-row">
-      <Icon />
-      <span>
-        <strong title={name}>{name.length > 40 ? `${name.slice(0, 37)}…` : name}</strong>
-        <small>
-          {upload && formatBytes(upload.size_bytes, language)} ·{" "}
+    <SharedFileRowSurface
+      name={name}
+      icon={<FileIconTile family={fileType.family} />}
+      details={
+        <>
+          {upload && `${formatBytes(upload.size_bytes, language)} · `}
+          {say(fileType.label[0], fileType.label[1])} ·{" "}
           {new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(
             new Date(message.created_at),
           )}
-        </small>
-      </span>
-      <button
-        type="button"
-        className="message-icon"
-        disabled={!upload || busy}
-        aria-label={say("Download file", "Descargar archivo")}
-        onClick={async () => {
-          if (!upload) return;
-          const tab = window.open("about:blank", "_blank");
-          if (tab) tab.opener = null;
-          setBusy(true);
-          setError(false);
-          try {
-            const url = await getSignedUrl(upload, true);
-            if (!tab) throw new Error("Popup blocked");
-            tab.location.replace(url);
-          } catch {
-            tab?.close();
-            setError(true);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        <Download />
-      </button>
-      {error && (
-        <p role="alert">
-          {say(
-            "Download failed. Allow pop-ups and try again.",
-            "La descarga falló. Permite ventanas emergentes e inténtalo de nuevo.",
-          )}
-        </p>
-      )}
-    </div>
+        </>
+      }
+      action={
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={!upload || busy}
+          aria-label={say("Download file", "Descargar archivo")}
+          onClick={download}
+        >
+          <Download />
+        </Button>
+      }
+      error={
+        error && (
+          <p role="alert">
+            {say(
+              "Download failed. Allow pop-ups and try again.",
+              "La descarga falló. Permite ventanas emergentes e inténtalo de nuevo.",
+            )}
+          </p>
+        )
+      }
+    />
   );
 }
 export function SharedFilesTab({ messages }: { messages: Message[] }) {

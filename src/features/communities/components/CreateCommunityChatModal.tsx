@@ -1,7 +1,5 @@
-import { useRouter } from "@tanstack/react-router";
-import { useState } from "react";
-import { useMessageText } from "@/features/messages/i18n";
-import { useCreateCommunityChat } from "../hooks/useCreateCommunityChat";
+import { Button } from "@/components/ui/button";
+import { useCreateCommunityChatDialog } from "../hooks/useCreateCommunityChatDialog";
 import { CreationDialog } from "./CreationDialog";
 export function CreateCommunityChatModal({
   communityId,
@@ -10,30 +8,14 @@ export function CreateCommunityChatModal({
   communityId: string;
   onClose: () => void;
 }) {
-  const { say } = useMessageText();
-  const router = useRouter();
-  const mutation = useCreateCommunityChat(communityId);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const { say, name, setName, description, setDescription, mutation, submit } =
+    useCreateCommunityChatDialog(communityId, onClose);
   return (
     <CreationDialog
       title={say("New chat", "Nuevo chat")}
       onClose={mutation.isPending ? undefined : onClose}
     >
-      <form
-        className="space-y-4"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!name.trim() || mutation.isPending) return;
-          try {
-            const id = await mutation.mutateAsync({ name, description });
-            await router.navigate({ href: `/communities/${communityId}/chats/${id}` });
-            onClose();
-          } catch {
-            /* Mutation error is rendered below. */
-          }
-        }}
-      >
+      <form className="community-creation-form" onSubmit={submit}>
         <label className="field">
           {say("Name", "Nombre")}
           <input
@@ -62,21 +44,22 @@ export function CreateCommunityChatModal({
           </p>
         )}
         <div className="modal-actions">
-          <button
+          <Button
             type="button"
-            className="button secondary"
+            variant="outline"
+            className="rounded-xl"
             disabled={mutation.isPending}
             onClick={onClose}
           >
             {say("Cancel", "Cancelar")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            className="button primary"
+            className="rounded-xl"
             disabled={mutation.isPending || !name.trim()}
           >
             {say("Create chat", "Crear chat")}
-          </button>
+          </Button>
         </div>
       </form>
     </CreationDialog>

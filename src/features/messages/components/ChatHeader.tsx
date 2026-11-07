@@ -1,5 +1,6 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { ChevronLeft, MoreVertical, Phone, Search, Users, Video } from "lucide-react";
+import { ConversationHeaderSurface } from "@/components/ui/conversation-surface";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
 import { Avatar } from "@/features/settings/components/shared";
 import { useChatPresence } from "../hooks/useChatPresence";
@@ -60,7 +61,7 @@ export function ChatHeader({ chat, onSearch }: { chat: ChatDetails; onSearch: ()
     </>
   );
   return (
-    <header className="conversation-header glass-surface">
+    <ConversationHeaderSurface>
       <Link
         to="/chats"
         search={{ filter: "all", q: "", selectedIds: "", select: undefined, notice: undefined }}
@@ -93,7 +94,7 @@ export function ChatHeader({ chat, onSearch }: { chat: ChatDetails; onSearch: ()
       <div className="conversation-actions">
         <button
           type="button"
-          className="message-icon"
+          className="message-icon conversation-search-trigger"
           aria-label={say("Search messages", "Buscar mensajes")}
           onClick={onSearch}
         >
@@ -127,6 +128,6 @@ export function ChatHeader({ chat, onSearch }: { chat: ChatDetails; onSearch: ()
           <MoreVertical size={20} />
         </button>
       </div>
-    </header>
+    </ConversationHeaderSurface>
   );
 }

@@ -1,5 +1,7 @@
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { ChatSettingsScreenSurface } from "@/components/ui/chat-settings-surfaces";
 import { useChat } from "@/features/messages/hooks/useChat";
 import { useMessageText } from "@/features/messages/i18n";
 import { NavLink } from "@/features/settings/components/shared";
@@ -45,11 +47,15 @@ export function SharedMediaView({ chatId }: { chatId: string }) {
   if (!chat.data) return <ChatSettingsLoading query={chat} />;
   const messages = [...new Map((query.data?.pages.flat() ?? []).map((m) => [m.id, m])).values()];
   return (
-    <main id="main" className="chat-settings-screen shared-media-screen">
-      <header>
-        <NavLink href={`/chats/${chatId}`}>← {say("Back to chat", "Volver al chat")}</NavLink>
-        <h1>{say("Shared media", "Archivos compartidos")}</h1>
-      </header>
+    <ChatSettingsScreenSurface
+      className="shared-media-screen"
+      header={
+        <>
+          <NavLink href={`/chats/${chatId}`}>← {say("Back to chat", "Volver al chat")}</NavLink>
+          <h1>{say("Shared media", "Archivos compartidos")}</h1>
+        </>
+      }
+    >
       <div
         className="shared-tabs"
         role="tablist"
@@ -86,18 +92,24 @@ export function SharedMediaView({ chatId }: { chatId: string }) {
           </button>
         ))}
       </div>
-      <section id="shared-panel" role="tabpanel" aria-labelledby={`shared-${tab}`}>
+      <section
+        key={tab}
+        className="shared-content-panel"
+        id="shared-panel"
+        role="tabpanel"
+        aria-labelledby={`shared-${tab}`}
+      >
         {query.isPending && <p role="status">{say("Loading…", "Cargando…")}</p>}
         {query.isError && (
-          <button
+          <Button
             type="button"
-            className="button secondary"
+            variant="outline"
             onClick={() =>
               void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch())
             }
           >
             {say("Reload shared content", "Recargar contenido compartido")}
-          </button>
+          </Button>
         )}
         {!query.isPending && !query.isError && !messages.length && (
           <p>{say("Nothing shared here yet.", "Aún no hay contenido compartido.")}</p>
@@ -109,17 +121,17 @@ export function SharedMediaView({ chatId }: { chatId: string }) {
         )}
         <div ref={marker} />
         {query.hasNextPage && (
-          <button
+          <Button
             type="button"
-            className="button secondary"
+            variant="outline"
             disabled={query.isFetching}
             onClick={() => void query.fetchNextPage()}
           >
             {say("Load more", "Cargar más")}
-          </button>
+          </Button>
         )}
       </section>
       <ChatSettingsLayer chat={chat.data} />
-    </main>
+    </ChatSettingsScreenSurface>
   );
 }

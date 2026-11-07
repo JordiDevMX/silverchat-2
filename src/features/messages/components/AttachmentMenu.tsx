@@ -21,7 +21,11 @@ export function AttachmentMenu({
     input.current.click();
   };
   return (
-    <Modal title={say("Attach", "Adjuntar")} className="attachment-menu" onClose={onClose}>
+    <Modal
+      title={say("Attach", "Adjuntar")}
+      className="attachment-menu messaging-dialog"
+      onClose={onClose}
+    >
       <button
         className="message-icon modal-close"
         type="button"

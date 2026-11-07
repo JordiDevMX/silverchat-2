@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { DisableReadReceiptsModal } from "@/features/settings/components/DisableReadReceiptsModal";
-import {
-  QueryState,
-  SettingRow,
-  SettingsPage,
-  Toggle,
-  useAction,
-} from "@/features/settings/components/shared";
+import { SettingsPage, Toggle } from "@/features/settings/components/presentation";
+import { QueryState, SettingRow, useAction } from "@/features/settings/components/shared";
 import { usePreferences } from "@/features/settings/preferences-provider";
 export function PrivacyPage() {
   const preferences = usePreferences();

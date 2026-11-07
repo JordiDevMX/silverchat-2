@@ -1,6 +1,15 @@
 // Local Docker only. Two independent Postgres sessions contend for the final pin slot.
 import assert from "node:assert/strict";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+
+// Missing infrastructure is distinct from a failed DB assertion or stopped daemon.
+const dockerProbe = spawnSync("docker", ["--version"], { encoding: "utf8" });
+if (dockerProbe.error?.code === "ENOENT") {
+  console.log(
+    "SKIPPED: requires Docker — DB-level concurrency tests, unaffected by the UI migration; deferred to CI",
+  );
+  process.exit(77);
+}
 
 const container =
   process.env.SUPABASE_TEST_CONTAINER ?? "supabase_db_silverchat-backend-validation";

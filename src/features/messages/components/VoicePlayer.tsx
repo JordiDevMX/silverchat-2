@@ -1,4 +1,5 @@
 import { Pause, Play } from "lucide-react";
+import { VoiceWaveform } from "@/components/ui/messaging";
 import { useVoicePlayback } from "../hooks/useVoicePlayback";
 import { useMessageText } from "../i18n";
 import { formatVoiceTime } from "../lib/voicePeaks";
@@ -20,7 +21,7 @@ export function VoicePlayer({
     <div className="voice-player">
       <button
         type="button"
-        className="message-icon"
+        className="message-icon voice-toggle"
         disabled={!url}
         aria-label={
           player.playing
@@ -32,23 +33,11 @@ export function VoicePlayer({
         {player.playing ? <Pause /> : <Play />}
       </button>
       <div className="voice-track">
-        <svg viewBox="0 0 160 40" aria-hidden="true">
-          {peaks.map((peak, i) => (
-            <rect
-              // biome-ignore lint/suspicious/noArrayIndexKey: Fixed waveform slots have no identity or state.
-              key={`peak-${i}-${peak}`}
-              x={i * 4}
-              y={20 - Math.max(2, peak * 0.38) / 2}
-              width="2.5"
-              height={Math.max(2, peak * 0.38)}
-              rx="1"
-              className={i / peaks.length < player.position / (length || 1) ? "played" : ""}
-            />
-          ))}
-        </svg>
+        <VoiceWaveform peaks={peaks} progress={player.position / (length || 1)} />
         <input
           type="range"
           aria-label={say("Audio position", "Posición del audio")}
+          aria-valuetext={`${formatVoiceTime(player.position, language)} / ${formatVoiceTime(length, language)}`}
           min={0}
           max={length || 1}
           step={0.1}

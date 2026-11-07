@@ -45,6 +45,7 @@ const chat = (id = chatId, type = "direct") => ({
   id,
   type,
   name: type === "group" ? "Weekend people" : null,
+  direct_pair_key: type === "direct" ? `${me}::${other}` : null,
   status: "active",
   avatar_url: null,
   community_id: null,
@@ -486,8 +487,47 @@ try {
   assert.equal(rows.at(-1).file_upload_id, uploads.at(-1).id);
   await page.getByRole("button", { name: "Open image" }).last().click();
   await page.getByRole("dialog", { name: "Media viewer" }).waitFor();
+  assert.match(await page.locator(".lightbox-filename").textContent(), /summer/i);
+  assert.equal(await page.locator(".lightbox-caption").textContent(), "Summer image");
+  const imageBounds = await page.locator(".lightbox-content img").boundingBox();
+  const captionBounds = await page.locator(".lightbox-caption").boundingBox();
+  assert.ok(
+    imageBounds.y + imageBounds.height <= captionBounds.y,
+    "Caption leaves media controls unobscured",
+  );
   await page.keyboard.press("Escape");
   await page.getByRole("dialog", { name: "Media viewer" }).waitFor({ state: "hidden" });
+
+  // Upload ownership transfers to the outbox even when sending fails.
+  const removedBeforeFailure = removed.length;
+  failSend = true;
+  await page.getByRole("button", { name: "Attach", exact: true }).click();
+  await page.locator("input[type=file]").setInputFiles({
+    name: "retry.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Retained attachment"),
+  });
+  const filePreview = page.getByRole("dialog", { name: "Send attachment" });
+  await filePreview.locator('[data-file-family="text"]').waitFor();
+  assert.match(
+    await filePreview.locator(".media-preview-stage small").textContent(),
+    /Text \/ Notes/,
+  );
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await page.getByRole("dialog", { name: "Send attachment" }).waitFor({ state: "hidden" });
+  const failedFile = page.locator("[data-message-id]").filter({ hasText: "retry.txt" });
+  await failedFile.getByRole("button", { name: "Send failed. Retry" }).waitFor();
+  assert.equal(await failedFile.locator('[data-file-family="text"]').count(), 1);
+  assert.match(await failedFile.locator(".message-file small").textContent(), /Text \/ Notes/);
+  const retryId = (await failedFile.getAttribute("data-message-id")).slice(5);
+  const ownedUpload = uploads.at(-1);
+  assert.equal(ownedUpload.status, "completed");
+  assert.equal(removed.length, removedBeforeFailure);
+  failSend = false;
+  await failedFile.getByRole("button", { name: "Send failed. Retry" }).click();
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await page.locator(`[data-message-id="${retryId}"]`).waitFor();
+  assert.equal(rows.find((row) => row.id === retryId).file_upload_id, ownedUpload.id);
 
   // Offline emoji fallback still inserts at the saved caret rather than the end.
   const editor = page.getByRole("textbox", { name: "Message", exact: true });
@@ -547,6 +587,21 @@ try {
   await page.getByRole("button", { name: "Play video", exact: true }).last().click();
   await page.locator(".media-lightbox video[autoplay]").waitFor();
   await page.keyboard.press("Escape");
+  // The extracted contact workflow still sends the same public profile payload.
+  await page.getByRole("button", { name: "Attach", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Attach", exact: true })
+    .getByRole("button", { name: "Contact", exact: true })
+    .click();
+  const contactPicker = page.getByRole("dialog", { name: "Share a contact", exact: true });
+  await contactPicker.getByRole("textbox", { name: "Search contacts" }).fill("sofia");
+  await contactPicker.locator(".contact-picker-list button").first().click();
+  await contactPicker.waitFor({ state: "hidden" });
+  await page.waitForTimeout(300);
+  assert.equal(rows.at(-1).type, "contact");
+  assert.equal(rows.at(-1).contact_data.user_id, other);
+  assert.equal(rows.at(-1).contact_data.username, "sofia");
+
   // Render every remaining type, deleted content, reply previews and safe links.
   const sample = uploads[0];
   const extra = [
@@ -569,7 +624,7 @@ try {
   emit("messages", extra.at(-1));
   await page.getByText("Sofia joined the conversation").waitFor();
   await page.locator(".voice-player").waitFor();
-  await page.locator(".message-file").waitFor();
+  await page.locator(`[data-message-id="${uid(1802)}"] .message-file`).waitFor();
   await page.locator(".message-sticker").waitFor();
   assert.match(
     await page.locator(".message-location").getAttribute("href"),
@@ -613,8 +668,6 @@ try {
   });
   await page.waitForTimeout(700);
   assert.equal(readCalls, beforeHidden + 1);
-
-  await page.screenshot({ path: "/workspace/messages-desktop.png", fullPage: true });
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -632,7 +685,6 @@ try {
   );
   const composer = await mp.locator(".conversation-composer").boundingBox();
   assert.ok(composer.y + composer.height <= 844 - 68 + 1, "Composer stays above mobile navigation");
-  await mp.screenshot({ path: "/workspace/messages-mobile.png", fullPage: true });
   await mobile.close();
   assert.deepEqual(errors, []);
   console.log(

@@ -1,7 +1,10 @@
-import { ArrowUp, FileText, X } from "lucide-react";
+import { ArrowUp, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { FileIconTile } from "@/components/ui/file-icon-tile";
 import { Modal } from "@/features/auth/components";
-import { useUploadProgress } from "../hooks/useUploadProgress";
+import { resolveFileType } from "@/lib/file-type";
+import { useMediaSend } from "../hooks/useMediaSend";
 import { useMessageText } from "../i18n";
 import type { SendInput } from "../types";
 import { formatBytes } from "../utils/formatMessageTime";
@@ -19,26 +22,25 @@ export function MediaPreviewModal({
   onClose: () => void;
 }) {
   const { say, language } = useMessageText();
-  const [url, setUrl] = useState("");
-  const [caption, setCaption] = useState("");
-  const [error, setError] = useState("");
-  const [sending, setSending] = useState(false);
-  const upload = useUploadProgress(chatId, channelMode);
+  const [url, setUrl] = useState<string>();
+  const { caption, setCaption, error, sending, upload, close, send } = useMediaSend({
+    file,
+    chatId,
+    channelMode,
+    onSend,
+    onClose,
+  });
+  const fileType = resolveFileType({ filename: file.name, mimeType: file.type });
   const media = file.type.startsWith("image/") || file.type.startsWith("video/");
   useEffect(() => {
     const next = URL.createObjectURL(file);
     setUrl(next);
     return () => URL.revokeObjectURL(next);
   }, [file]);
-  const close = () => {
-    if (sending && !upload.uploading) return;
-    upload.cancel();
-    onClose();
-  };
   return (
     <Modal
       title={say("Send attachment", "Enviar archivo")}
-      className="media-preview"
+      className="media-preview messaging-dialog"
       onClose={close}
     >
       <button
@@ -59,9 +61,11 @@ export function MediaPreviewModal({
           </video>
         ) : (
           <div>
-            <FileText size={64} />
+            <FileIconTile family={fileType.family} />
             <p>{file.name}</p>
-            <small>{formatBytes(file.size, language)}</small>
+            <small>
+              {formatBytes(file.size, language)} · {say(fileType.label[0], fileType.label[1])}
+            </small>
           </div>
         )}
       </div>
@@ -85,49 +89,19 @@ export function MediaPreviewModal({
       )}
       {error && <p role="alert">{error}</p>}
       <div className="modal-actions">
-        <button
+        <Button
           type="button"
-          className="button secondary"
+          variant="outline"
+          className="rounded-xl"
           disabled={sending && !upload.uploading}
           onClick={close}
         >
           {say("Cancel", "Cancelar")}
-        </button>
-        <button
-          type="button"
-          className="button primary"
-          disabled={sending}
-          onClick={async () => {
-            setSending(true);
-            setError("");
-            try {
-              const result = await upload.upload(file);
-              try {
-                await onSend({
-                  type: result.type,
-                  content: caption.trim() || null,
-                  file_upload_id: result.upload.id,
-                  media_thumbnail_upload_id: result.thumbnail?.id,
-                  upload: result.upload,
-                  thumbnail: result.thumbnail,
-                });
-              } catch {
-                /* The failed optimistic message owns these uploads and its retry UUID. */
-              }
-              onClose();
-            } catch (e) {
-              if (!(e instanceof DOMException && e.name === "AbortError"))
-                setError(
-                  say("Upload failed. Please try again.", "La carga falló. Inténtalo de nuevo."),
-                );
-            } finally {
-              setSending(false);
-            }
-          }}
-        >
+        </Button>
+        <Button type="button" className="rounded-xl" disabled={sending} onClick={() => void send()}>
           <ArrowUp size={18} />
           {say("Send", "Enviar")}
-        </button>
+        </Button>
       </div>
     </Modal>
   );

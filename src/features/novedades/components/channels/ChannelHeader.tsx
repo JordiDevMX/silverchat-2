@@ -1,18 +1,9 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "@tanstack/react-router";
-import { BadgeCheck, MoreVertical } from "lucide-react";
-import { useCallback, useState } from "react";
+import { BadgeCheck, ChevronLeft, MoreVertical } from "lucide-react";
+import { ConversationHeaderSurface } from "@/components/ui/conversation-surface";
 import { ChatOptionsMenu } from "@/features/chat-settings/components/ChatOptionsMenu";
 import { MuteSubmenu } from "@/features/chat-settings/components/MuteSubmenu";
-import type { ChannelAction } from "@/features/chat-settings/lib/chatActions";
-import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
-import { useMessageText } from "@/features/messages/i18n";
 import { Avatar, NavLink } from "@/features/settings/components/shared";
-import { useAuth } from "@/lib/auth-provider";
-import { supabase } from "@/lib/supabase";
-import { useFollowChannel } from "../../hooks/channels/useFollowChannel";
-import { useMuteChannel } from "../../hooks/channels/useMuteChannel";
-import { useUnfollowChannel } from "../../hooks/channels/useUnfollowChannel";
+import { useChannelHeaderActions } from "../../hooks/channels/useChannelHeaderActions";
 import type { Channel, Follow } from "../../types";
 import "@/styles/chat-settings.css";
 
@@ -25,68 +16,18 @@ export function ChannelHeader({
   follow: Follow | null;
   onSearch?: () => void;
 }) {
-  const { say } = useMessageText();
-  const { user } = useAuth();
-  const cache = useQueryClient();
-  const router = useRouter();
-  const add = useFollowChannel();
-  const remove = useUnfollowChannel();
-  const mute = useMuteChannel(c.id);
-  const [open, setOpen] = useState(false);
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const closeMenu = useCallback(() => setMenu(null), []);
-  const action = useMutation({
-    mutationFn: async (choice: ChannelAction) => {
-      switch (choice) {
-        case "mute":
-          setOpen(true);
-          break;
-        case "follow":
-          await add.mutateAsync(c.id);
-          break;
-        case "unfollow":
-          await remove.mutateAsync(c.id);
-          break;
-        case "view_channel_info":
-          await router.navigate({ href: `/channels/${c.id}/info` });
-          break;
-        case "search_in_chat":
-          if (onSearch) onSearch();
-          else await router.navigate({ href: `/channels/${c.id}?search=true` });
-          break;
-        case "copy_channel_link":
-          await navigator.clipboard.writeText(
-            new URL(`/channels/${c.id}`, window.location.origin).href,
-          );
-          useChatUIStore.getState().notify(say("Channel link copied", "Enlace del canal copiado"));
-          break;
-        case "mark_unread": {
-          // Leave the latest post unread using the existing follower read cursor.
-          const lastRead = new Date(
-            c.last_message_at ? Date.parse(c.last_message_at) - 1 : 0,
-          ).toISOString();
-          const result = await supabase
-            .from("channel_followers")
-            .update({ last_read_at: lastRead })
-            .eq("channel_id", c.id)
-            .eq("user_id", user?.id ?? "")
-            .select("channel_id")
-            .single();
-          if (result.error) throw result.error;
-          await Promise.all([
-            cache.invalidateQueries({ queryKey: ["channels", user?.id] }),
-            cache.invalidateQueries({ queryKey: ["channel-info", user?.id, c.id] }),
-          ]);
-          await router.navigate({ href: "/novedades" });
-          break;
-        }
-      }
-    },
-  });
+  const { say, user, add, remove, mute, open, setOpen, menu, setMenu, closeMenu, action } =
+    useChannelHeaderActions(c, onSearch);
   return (
     <>
-      <header className="conversation-header channel-header">
-        <NavLink href="/novedades">←</NavLink>
+      <ConversationHeaderSurface className="channel-header">
+        <NavLink
+          className="message-icon"
+          href="/novedades"
+          aria-label={say("Back to updates", "Volver a novedades")}
+        >
+          <ChevronLeft size={22} />
+        </NavLink>
         <NavLink href={`/channels/${c.id}/info`} className="channel-header-identity">
           <Avatar
             profile={{ id: c.id, display_name: c.name, avatar_url: c.avatar_url }}
@@ -122,7 +63,7 @@ export function ChannelHeader({
         >
           <MoreVertical size={20} />
         </button>
-      </header>
+      </ConversationHeaderSurface>
       {menu && (
         <ChatOptionsMenu
           contextType="channel"

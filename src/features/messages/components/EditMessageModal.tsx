@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useId } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Modal } from "@/features/auth/components";
+import { useEditMessageDialog } from "../hooks/useEditMessageDialog";
 import { useMessageText } from "../i18n";
 import type { Message } from "../types";
 export function EditMessageModal({
@@ -13,19 +16,25 @@ export function EditMessageModal({
   onClose: () => void;
   busy: boolean;
 }) {
+  const inputId = useId();
   const { say } = useMessageText();
-  const [text, setText] = useState(message.content ?? "");
-  const [error, setError] = useState(false);
+  const { text, setText, error, save } = useEditMessageDialog(
+    message.content ?? "",
+    onSave,
+    onClose,
+  );
   return (
     <Modal
+      className="messaging-dialog"
       title={say("Edit message", "Editar mensaje")}
       onClose={() => {
         if (!busy) onClose();
       }}
     >
-      <label className="field">
+      <label className="field" htmlFor={inputId}>
         {say("Message", "Mensaje")}
-        <textarea
+        <Textarea
+          id={inputId}
           value={text}
           maxLength={message.type === "text" ? undefined : 500}
           onChange={(e) => setText(e.target.value)}
@@ -42,27 +51,25 @@ export function EditMessageModal({
         </p>
       )}
       <div className="modal-actions">
-        <button type="button" className="button secondary" disabled={busy} onClick={onClose}>
-          {say("Cancel", "Cancelar")}
-        </button>
-        <button
+        <Button
           type="button"
-          className="button primary"
+          variant="outline"
+          className="rounded-xl"
+          disabled={busy}
+          onClick={onClose}
+        >
+          {say("Cancel", "Cancelar")}
+        </Button>
+        <Button
+          type="button"
+          className="rounded-xl"
           disabled={
             busy || (message.type === "text" && !text.trim()) || text === (message.content ?? "")
           }
-          onClick={async () => {
-            setError(false);
-            try {
-              await onSave(text);
-              onClose();
-            } catch {
-              setError(true);
-            }
-          }}
+          onClick={save}
         >
           {say("Save", "Guardar")}
-        </button>
+        </Button>
       </div>
     </Modal>
   );

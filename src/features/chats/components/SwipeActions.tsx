@@ -1,13 +1,18 @@
 import { Archive, Check, Pin, VolumeX } from "lucide-react";
+import type { ComponentProps } from "react";
 import { type PropsWithChildren, useRef, useState } from "react";
 import { useChatText } from "../i18n";
 import type { ChatAction } from "../types";
-export function SwipeActions({
+export function SwipeActionsSurface({
+  t,
   children,
   disabled,
   onAction,
-}: { disabled: boolean; onAction: (action: ChatAction) => void } & PropsWithChildren) {
-  const t = useChatText();
+}: {
+  t: (value: string, spanish?: string) => string;
+  disabled: boolean;
+  onAction: (action: ChatAction) => void;
+} & PropsWithChildren) {
   const [offset, setOffset] = useState(0);
   const start = useRef<{ x: number; y: number; horizontal: boolean } | null>(null);
   const delta = useRef(0);
@@ -108,4 +113,9 @@ export function SwipeActions({
       </div>
     </div>
   );
+}
+
+export function SwipeActions(props: Omit<ComponentProps<typeof SwipeActionsSurface>, "t">) {
+  const t = useChatText();
+  return <SwipeActionsSurface {...props} t={t} />;
 }

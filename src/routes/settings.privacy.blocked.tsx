@@ -1,15 +1,9 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { useI18n } from "@/app/providers/i18n-provider";
-import { Avatar, QueryState, SettingsPage, useAction } from "@/features/settings/components/shared";
-import { useBlockedUsers } from "@/features/settings/hooks";
-import { useAuth } from "@/lib/auth-provider";
-import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { SettingsPage } from "@/features/settings/components/presentation";
+import { Avatar, QueryState } from "@/features/settings/components/shared";
+import { useBlockedContacts } from "@/features/settings/hooks/useBlockedContacts";
 export function BlockedContactsPage() {
-  const blocked = useBlockedUsers();
-  const { user } = useAuth();
-  const cache = useQueryClient();
-  const action = useAction();
-  const { t } = useI18n();
+  const { blocked, action, t, unblock } = useBlockedContacts();
   return (
     <SettingsPage title="Blocked contacts">
       <p>
@@ -28,37 +22,14 @@ export function BlockedContactsPage() {
               <strong>{profile.display_name}</strong>
               <small>@{profile.username}</small>
             </span>
-            <button
-              className="button secondary"
+            <Button
+              variant="outline"
               type="button"
               disabled={action.busy}
-              onClick={() =>
-                void action.run(async () => {
-                  const previous = blocked.data;
-                  await cache.cancelQueries({ queryKey: ["blocked", user?.id] });
-                  cache.setQueryData(
-                    ["blocked", user?.id],
-                    previous?.filter((p) => p.id !== profile.id),
-                  );
-                  const r = await supabase
-                    .from("user_blocks")
-                    .delete()
-                    .eq("blocker_id", user?.id ?? "")
-                    .eq("blocked_id", profile.id ?? "");
-                  if (r.error) {
-                    cache.setQueryData(["blocked", user?.id], previous);
-                    throw r.error;
-                  }
-                  await Promise.all(
-                    ["blocked", "contacts", "public-profile", "chats"].map((key) =>
-                      cache.invalidateQueries({ queryKey: [key] }),
-                    ),
-                  );
-                }, "Unblocked")
-              }
+              onClick={() => void unblock(profile.id)}
             >
               {t("Unblock")}
-            </button>
+            </Button>
           </div>
         ))}
       </div>

@@ -1,5 +1,8 @@
-import { Plus, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { useState } from "react";
+import { SearchField } from "@/components/ui/search-field";
+import "@/styles/communities.css";
+import { FloatingActionButton } from "@/components/ui/floating-action-button";
 import { useMessageText } from "@/features/messages/i18n";
 import { QueryState } from "@/features/settings/components/shared";
 import { useCommunities } from "../hooks/useCommunities";
@@ -15,15 +18,15 @@ export function CommunitiesList() {
       c.name.toLocaleLowerCase().includes(search.toLocaleLowerCase().trim()),
     ) ?? [];
   return (
-    <main id="main" className="mx-auto w-full max-w-4xl space-y-5 p-4 pb-28 lg:p-8">
-      <h1 className="text-2xl font-semibold">{say("Communities", "Comunidades")}</h1>
-      <input
-        type="search"
-        className="input w-full"
-        aria-label={say("Search communities", "Buscar comunidades")}
-        placeholder={say("Search communities…", "Buscar comunidades…")}
+    <main id="main" className="communities-page">
+      <h1 className="communities-title">{say("Communities", "Comunidades")}</h1>
+      <SearchField
+        className="community-search"
+        clearLabel={say("Clear search", "Limpiar búsqueda")}
+        onClear={() => setSearch("")}
+        label={say("Search communities", "Buscar comunidades")}
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={setSearch}
       />
       <h2 className="text-sm text-muted-foreground">
         {say(
@@ -49,19 +52,18 @@ export function CommunitiesList() {
           </p>
         </div>
       )}
-      <div className="space-y-4">
+      <div className="community-cards">
         {visible.map((community) => (
           <CommunityCard key={community.id} community={community} />
         ))}
       </div>
-      <button
+      <FloatingActionButton
+        kind="communities"
         className="new-chat-fab"
         type="button"
         aria-label={say("New community", "Nueva comunidad")}
         onClick={() => setCreate(true)}
-      >
-        <Plus size={26} />
-      </button>
+      />
       {create && <CreateCommunityModal onClose={() => setCreate(false)} />}
     </main>
   );

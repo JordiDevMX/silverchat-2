@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { useMessageText } from "@/features/messages/i18n";
 import { useChatUIStore } from "../stores/uiStore";
 export function ChatSettingsNotice() {
@@ -5,11 +6,17 @@ export function ChatSettingsNotice() {
   const notify = useChatUIStore((s) => s.notify);
   const { say } = useMessageText();
   return notice ? (
-    <div className="chat-settings-notice" role="status">
+    <div className="chat-settings-notice chat-settings-notice-v2" role="status">
       {notice}
-      <button type="button" aria-label={say("Dismiss", "Cerrar")} onClick={() => notify("")}>
+      <Button
+        variant="ghost"
+        size="icon"
+        type="button"
+        aria-label={say("Dismiss", "Cerrar")}
+        onClick={() => notify("")}
+      >
         ×
-      </button>
+      </Button>
     </div>
   ) : null;
 }

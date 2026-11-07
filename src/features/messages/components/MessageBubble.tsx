@@ -1,5 +1,6 @@
 import { AlertCircle, Check, CheckCheck, LoaderCircle, MoreHorizontal } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
+import { MessageSurface } from "@/components/ui/conversation-surface";
 import { Avatar } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
 import { useMessageText } from "../i18n";
@@ -79,9 +80,9 @@ export function MessageBubble({
           </button>
         )}
 
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: Pointer gestures supplement the keyboard-accessible actions button. */}
-        <div
-          className={`message-bubble ${message.type === "sticker" ? "sticker-bubble" : ""}`}
+        <MessageSurface
+          own={own}
+          sticker={message.type === "sticker" && !message.deleted_for_everyone}
           onContextMenu={(e) => {
             if (available) {
               e.preventDefault();
@@ -179,7 +180,7 @@ export function MessageBubble({
               )}
             </>
           )}
-        </div>
+        </MessageSurface>
         {!message.deleted_for_everyone && message.reactions.length > 0 && (
           <ReactionsDisplay message={message} members={chat.members} />
         )}

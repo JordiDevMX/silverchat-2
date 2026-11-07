@@ -8,6 +8,8 @@ import {
   Users,
   VolumeX,
 } from "lucide-react";
+import type { ComponentProps } from "react";
+import { Button } from "@/components/ui/button";
 import { useChatText } from "../i18n";
 import type { FilterKey } from "../types";
 
@@ -25,16 +27,17 @@ const states = {
     null,
   ],
 } as const;
-export function ChatsEmptyState({
+export function ChatsEmptyStateSurface({
+  t,
   filter,
   query,
   onNew,
 }: {
+  t: (value: string, spanish?: string) => string;
   filter: FilterKey;
   query: string;
   onNew: () => void;
 }) {
-  const t = useChatText();
   const [Icon, title, subtitle, cta] = states[filter];
   return (
     <div className="chats-empty">
@@ -44,10 +47,15 @@ export function ChatsEmptyState({
       </h2>
       <p>{query ? t("Try another search.", "Prueba otra búsqueda.") : t(subtitle)}</p>
       {!query && cta && (
-        <button className="button primary" type="button" onClick={onNew}>
+        <Button type="button" onClick={onNew}>
           {t(cta)}
-        </button>
+        </Button>
       )}
     </div>
   );
+}
+
+export function ChatsEmptyState(props: Omit<ComponentProps<typeof ChatsEmptyStateSurface>, "t">) {
+  const t = useChatText();
+  return <ChatsEmptyStateSurface {...props} t={t} />;
 }

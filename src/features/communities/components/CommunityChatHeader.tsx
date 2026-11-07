@@ -1,4 +1,5 @@
-import { ChevronLeft, MoreVertical } from "lucide-react";
+import { ChevronLeft, MessageCircle, MoreVertical } from "lucide-react";
+import { ConversationHeaderSurface } from "@/components/ui/conversation-surface";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
 import { useMessageText } from "@/features/messages/i18n";
 import type { ChatDetails } from "@/features/messages/types";
@@ -7,7 +8,7 @@ export function CommunityChatHeader({ chat }: { chat: ChatDetails }) {
   const { say } = useMessageText();
   const ui = useChatUIStore();
   return (
-    <header className="conversation-header glass-surface">
+    <ConversationHeaderSurface className="community-conversation-header">
       <span className="lg:hidden">
         <NavLink className="message-icon" href={`/communities/${chat.communityId}`}>
           <ChevronLeft aria-label={say("Back to community", "Volver a la comunidad")} />
@@ -17,6 +18,9 @@ export function CommunityChatHeader({ chat }: { chat: ChatDetails }) {
         className="conversation-identity min-w-0 flex-1"
         href={`/communities/${chat.communityId}/info`}
       >
+        <span className="community-chat-icon">
+          <MessageCircle size={20} aria-hidden="true" />
+        </span>
         <span>
           <strong>{chat.name}</strong>
           <small>{chat.communityName}</small>
@@ -33,6 +37,6 @@ export function CommunityChatHeader({ chat }: { chat: ChatDetails }) {
       >
         <MoreVertical size={20} />
       </button>
-    </header>
+    </ConversationHeaderSurface>
   );
 }

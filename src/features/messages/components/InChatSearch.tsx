@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { Input } from "@/components/ui/input";
 import type { useInChatSearch } from "../hooks/useInChatSearch";
 import { useMessageText } from "../i18n";
 export function InChatSearch({
@@ -15,9 +16,9 @@ export function InChatSearch({
     input.current?.focus();
   }, []);
   return (
-    <header className="in-chat-search glass-surface">
+    <header className="in-chat-search bg-gradient-silver">
       <div>
-        <input
+        <Input
           type="search"
           ref={input}
           aria-label={say("Search in conversation", "Buscar en conversación")}

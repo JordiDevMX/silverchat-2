@@ -1,8 +1,5 @@
 // Actual React surfaces with mocked BFF/PostgREST/Storage boundaries; no remote writes.
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
 const browser = await chromium.launch({
@@ -10,8 +7,6 @@ const browser = await chromium.launch({
   headless: true,
 });
 const origin = process.env.TEST_ORIGIN ?? "http://127.0.0.1:5175";
-const artifacts = join(tmpdir(), "silverchat-communities");
-await mkdir(artifacts, { recursive: true });
 const id = (n) => `${String(n).padStart(8, "0")}-4444-4444-8444-444444444444`;
 const me = id(1),
   other = id(2),
@@ -46,7 +41,9 @@ let community = null,
   pinned = null,
   manuallyUnread = false,
   failCreate = false,
-  failInfo = false;
+  failInfo = false,
+  failRead = false;
+const messages = [];
 const calls = [],
   errors = [],
   uploads = [];
@@ -171,13 +168,21 @@ async function setup(context) {
       }
       if (rpc === "mute_community") muted = body.p_muted_until;
       if (rpc === "mark_chat_as_unread") manuallyUnread = true;
-      if (rpc === "mark_chat_as_read") manuallyUnread = false;
+      if (rpc === "mark_chat_as_read") {
+        if (failRead) return send(route, { message: "temporary read failure" }, 503);
+        manuallyUnread = false;
+      }
       if (rpc === "delete_community" || rpc === "leave_community") {
         community = null;
         members = [];
         chats = [];
       }
-      return send(route, rpc === "get_chat_messages" ? [] : null);
+      return send(
+        route,
+        rpc === "get_chat_messages"
+          ? messages.filter((m) => m.chat_id === body.p_chat_id).toReversed()
+          : null,
+      );
     }
     if (p.endsWith("/user")) return send(route, user);
     if (p.endsWith("/profiles")) return send(route, profiles[0]);
@@ -214,6 +219,33 @@ async function setup(context) {
         chats
           .filter((c) => !chatId || c.id === chatId)
           .flatMap((c) => members.map((m) => member(c.id, m.user_id))),
+      );
+    }
+    if (p.endsWith("/messages")) {
+      if (method === "POST") {
+        const row = {
+          deleted_at: null,
+          deleted_for_everyone: false,
+          edited_at: null,
+          is_pinned_in_chat: false,
+          forwarded_from_message_id: null,
+          reply_to_message_id: null,
+          file_upload_id: null,
+          media_thumbnail_upload_id: null,
+          contact_data: null,
+          location_data: null,
+          mentions: null,
+          media_peaks: null,
+          created_at: now(),
+          ...body,
+        };
+        messages.push(row);
+        return result([row]);
+      }
+      return result(
+        s.has("is_pinned_in_chat")
+          ? []
+          : messages.filter((m) => !s.get("id") || s.get("id").includes(m.id)),
       );
     }
     if (p.endsWith("/file_uploads")) {
@@ -292,18 +324,54 @@ try {
   await dialog.getByRole("button", { name: "Create community", exact: true }).click();
   await dialog.getByRole("alert").waitFor();
   failCreate = false;
+  failInfo = true;
+  await dialog.getByRole("button", { name: "Create community", exact: true }).click();
+  await dialog.getByRole("alert").waitFor();
+  assert.ok(await dialog.getByLabel("Name", { exact: true }).isDisabled());
+  assert.equal(chats.length, 1, "General exists once after partial creation");
+  assert.equal(calls.filter((c) => c.rpc === "create_community").length, 2);
+  failInfo = false;
   await dialog.getByRole("button", { name: "Create community", exact: true }).click();
   await page.waitForURL(`**/communities/${cid}`);
   await page.getByText("Select a chat", { exact: true }).waitFor();
-  assert.equal(uploads.length, 1);
+  assert.equal(uploads.length, 2);
+  assert.equal(
+    calls.filter((c) => c.rpc === "create_community").length,
+    2,
+    "Avatar retry reuses created ID",
+  );
   assert.match(uploads[0].path, new RegExp(`^community-${cid}/community-`));
+  failRead = true;
+  const markedRead = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.endsWith("/rpc/mark_chat_as_read") && response.ok(),
+  );
   await page
     .getByRole("link", { name: /General/ })
     .first()
     .click();
   await page.locator(".composer-input textarea").waitFor();
+  await page.getByRole("button", { name: "Unable to mark read. Retry", exact: true }).waitFor();
+  failRead = false;
+  await page.getByRole("button", { name: "Unable to mark read. Retry", exact: true }).click();
+  await markedRead;
   assert.ok(calls.some((c) => c.rpc === "mark_chat_as_read"));
   assert.equal(await page.getByRole("button", { name: /calls coming soon/ }).count(), 0);
+  assert.equal(await page.locator('[data-slot="composer-dock"]').count(), 1);
+  await page
+    .getByRole("textbox", { name: "Message", exact: true })
+    .fill("Community shared composer");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await page.getByText("Community shared composer", { exact: true }).waitFor();
+  assert.equal(messages.at(-1).chat_id, general);
+  await page.locator('[data-slot="bubble-surface"]').last().click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Reply", exact: true }).click();
+  await page.locator(".reply-bar").waitFor();
+  assert.ok(
+    await page.locator(".composer-input textarea").evaluate((el) => el === document.activeElement),
+  );
+  await page.getByRole("button", { name: "Cancel reply", exact: true }).click();
+  assert.equal(await page.locator(".reply-bar").count(), 0);
   const bounds = await page.locator(".community-layout > div").evaluateAll((els) =>
     els.map((el) => ({
       x: el.getBoundingClientRect().x,
@@ -312,7 +380,6 @@ try {
   );
   assert.equal(bounds[0].width, 320);
   assert.ok(bounds[1].x >= bounds[0].x + 320);
-  await page.screenshot({ path: join(artifacts, "desktop.png") });
   await page.getByRole("button", { name: "Chat options", exact: true }).click();
   assert.equal(
     await page
@@ -324,6 +391,11 @@ try {
   await page.getByLabel("Community name", { exact: true }).fill("Renamed friends");
   await page.getByRole("textbox", { name: /^Description/ }).click();
   await page.getByRole("heading", { name: "Renamed friends", exact: true }).waitFor();
+  assert.equal(
+    await page.locator(".chat-settings-panel .chat-info-card").count(),
+    1,
+    "Shared GroupSettingsScreen card is used for communities",
+  );
   await page.getByRole("button", { name: "Add members", exact: true }).click();
   await page
     .getByRole("dialog", { name: "Add members", exact: true })
@@ -331,15 +403,24 @@ try {
     .fill("carol");
   await page.getByRole("checkbox").last().check();
   await page.getByRole("button", { name: "Add 1 members", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Add 1 members", exact: true })
+    .waitFor({ state: "hidden" });
   assert.ok(calls.some((c) => c.rpc === "join_community" && c.body.p_user_id === third));
   await page.getByRole("button", { name: "View members", exact: true }).click();
   const membersDialog = page.getByRole("dialog", { name: "Community members", exact: true });
+  await membersDialog.locator(".chat-settings-panel").waitFor();
+  assert.ok(
+    (await membersDialog.locator(".group-member-v2").count()) > 0,
+    "Communities use the same migrated member surface",
+  );
   await membersDialog.getByRole("button", { name: "Member actions: Carol" }).click();
   await membersDialog.getByRole("button", { name: "Promote to admin", exact: true }).click();
   await page
     .getByRole("dialog", { name: "Promote Carol?" })
     .getByRole("button", { name: "Confirm", exact: true })
     .click();
+  await page.getByRole("dialog", { name: "Promote Carol?" }).waitFor({ state: "hidden" });
   assert.ok(calls.some((c) => c.rpc === "promote_community_admin"));
   await membersDialog.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByRole("button", { name: "Mute community", exact: true }).click();
@@ -359,7 +440,6 @@ try {
   await page.getByRole("link", { name: "Back to community", exact: true }).waitFor();
   assert.equal(await page.locator("aside:visible").count(), 0);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  await page.screenshot({ path: join(artifacts, "mobile.png") });
   await page.getByRole("link", { name: "Back to community", exact: true }).click();
   await page.getByRole("link", { name: /Announcements/ }).waitFor();
   await page.goto(`${origin}/communities`);
@@ -367,6 +447,22 @@ try {
   await page.getByRole("link", { name: /See all 2 chats/ }).waitFor();
   await page.reload();
   await page.getByRole("link", { name: /See all 2 chats/ }).waitFor();
+  const cardToggle = page.locator(".community-card-heading");
+  const cardPanel = page.locator(".community-card-chats");
+  await cardToggle.press("Enter");
+  assert.equal(await cardToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(await cardPanel.evaluate((el) => el.inert), true);
+  assert.equal(await cardPanel.locator(".community-chat-row").count(), 2);
+  await cardPanel.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+  assert.equal(await cardPanel.evaluate((el) => el.getBoundingClientRect().height), 0);
+  await page.keyboard.press("Tab");
+  assert.equal(await cardPanel.evaluate((el) => el.contains(document.activeElement)), false);
+  await page.reload();
+  await cardToggle.waitFor();
+  assert.equal(await cardToggle.getAttribute("aria-expanded"), "false");
+  await cardToggle.press("Space");
+  await page.getByRole("link", { name: /See all 2 chats/ }).waitFor();
+  assert.equal(await cardToggle.getAttribute("aria-expanded"), "true");
   await page.getByRole("searchbox").fill("missing");
   await page.getByText("No matching communities.").waitFor();
   members[0].role = "member";
@@ -400,13 +496,11 @@ try {
   console.log(
     "Communities browser checks passed: creation/crop/focus, retries, list/search/persistence, desktop/mobile, messages/menu/read, shared settings/members, mute, admin controls, succession warning, delete and access redirect.",
   );
-  console.log(`Screenshots: ${artifacts}`);
   await context.close();
 } catch (error) {
   if (diagnosticPage) {
     console.error(await diagnosticPage.locator("body").textContent());
     console.error("Page errors", errors);
-    await diagnosticPage.screenshot({ path: join(artifacts, "failure.png") });
   }
   throw error;
 } finally {

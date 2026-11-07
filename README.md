@@ -17,10 +17,17 @@ with Supabase (DB/Auth/Storage/Realtime), LiveKit (calls), and Netlify (hosting)
 ```bash
 pnpm install
 cp .env.example .env.local   # then fill in real Supabase values
-pnpm dev                     # dev server at http://localhost:5173
+pnpm dev                     # frontend only, strict http://127.0.0.1:5173
 pnpm typecheck               # verify zero TypeScript errors
 pnpm lint                    # verify zero Biome lint/format errors
 ```
+
+## Visual review (no login)
+
+Run `pnpm review:ui`, keep the terminal open, and visit **http://127.0.0.1:5177/**.
+This opens the migrated UI fixture directly without credentials or the auth backend.
+Do not open the HTML from disk. See [the verified review procedure](docs/ui-feedback-review.md).
+Plain `pnpm dev` does not run Netlify auth functions and its root is not the fixture.
 
 ## Supabase CLI
 

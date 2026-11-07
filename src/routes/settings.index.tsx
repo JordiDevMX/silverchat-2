@@ -1,13 +1,9 @@
 import { useState } from "react";
 import { useI18n } from "@/app/providers/i18n-provider";
+import { Button } from "@/components/ui/button";
 import { LogoutConfirmModal } from "@/features/settings/components/LogoutConfirmModal";
-import {
-  Avatar,
-  NavLink,
-  QueryState,
-  SettingRow,
-  SettingsPage,
-} from "@/features/settings/components/shared";
+import { SettingsPage } from "@/features/settings/components/presentation";
+import { Avatar, NavLink, QueryState, SettingRow } from "@/features/settings/components/shared";
 import { useProfile } from "@/features/settings/hooks";
 import { SETTINGS_NAV } from "./settings";
 export function SettingsIndexPage() {
@@ -27,9 +23,9 @@ export function SettingsIndexPage() {
           <div>
             <h2>{profile.data.display_name}</h2>
             <p>@{profile.data.username}</p>
-            <NavLink className="button secondary" href="/settings/profile">
-              {t("Edit profile")}
-            </NavLink>
+            <Button asChild variant="outline">
+              <NavLink href="/settings/profile">{t("Edit profile")}</NavLink>
+            </Button>
           </div>
         </div>
       )}
@@ -43,13 +39,14 @@ export function SettingsIndexPage() {
           />
         ))}
       </div>
-      <button
-        className="button danger settings-logout"
+      <Button
+        variant="destructive"
+        className="settings-logout"
         type="button"
         onClick={() => setLogout(true)}
       >
         {t("Log out")}
-      </button>
+      </Button>
       {logout && <LogoutConfirmModal onClose={() => setLogout(false)} />}
     </SettingsPage>
   );

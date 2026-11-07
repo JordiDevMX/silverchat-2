@@ -1,11 +1,15 @@
 import { Users } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ChatSettingsScreenSurface } from "@/components/ui/chat-settings-surfaces";
+import { CardSurface } from "@/components/ui/settings-row";
 import { CommunitySettingsActions } from "@/features/communities/components/CommunitySettingsActions";
 import { useMessageText } from "@/features/messages/i18n";
 import type { ChatDetails } from "@/features/messages/types";
 import { AvatarPickerModal } from "@/features/settings/components/AvatarPickerModal";
 import { Avatar, NavLink } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
+import { useGroupFields } from "../hooks/useGroupFields";
 import { useGroupSettings } from "../hooks/useGroupSettings";
 import { saveGroupAvatar } from "../lib/groupAvatar";
 import { useChatUIStore } from "../stores/uiStore";
@@ -22,30 +26,10 @@ function GroupFields({
   onSave: (patch: { name?: string; description?: string }) => Promise<void>;
   context?: "group" | "community";
 }) {
-  const { say } = useMessageText();
-  const [name, setName] = useState(chat.name);
-  const [description, setDescription] = useState(chat.description ?? "");
-  const [error, setError] = useState("");
-  const save = async (field: "name" | "description") => {
-    const value = field === "name" ? name : description;
-    const original = field === "name" ? chat.name : (chat.description ?? "");
-    if (value === original) return;
-    if (field === "name" && !value.trim()) {
-      setError(say("Name is required.", "El nombre es obligatorio."));
-      return;
-    }
-    setError("");
-    try {
-      await onSave({ [field]: value });
-    } catch {
-      setError(
-        say(
-          "Unable to save group details. Try again.",
-          "No se pudieron guardar los datos del grupo. Inténtalo de nuevo.",
-        ),
-      );
-    }
-  };
+  const { say, name, setName, description, setDescription, error, save } = useGroupFields(
+    chat,
+    onSave,
+  );
   return (
     <>
       <label className="field">
@@ -91,17 +75,20 @@ export function GroupSettingsScreen(
   if (!["group", "community_chat"].includes(chat.type)) return <ChatSettingsLoading />;
   const admin = chat.own?.role === "admin";
   return (
-    <main id="main" className="chat-settings-screen">
-      <header>
-        <NavLink href={context === "community" ? `/communities/${chatId}` : `/chats/${chatId}`}>
-          ← {say("Back", "Volver")}
-        </NavLink>
-        <h1>
-          {context === "community"
-            ? say("Community info", "Información de la comunidad")
-            : say("Group info", "Información del grupo")}
-        </h1>
-      </header>
+    <ChatSettingsScreenSurface
+      header={
+        <>
+          <NavLink href={context === "community" ? `/communities/${chatId}` : `/chats/${chatId}`}>
+            ← {say("Back", "Volver")}
+          </NavLink>
+          <h1>
+            {context === "community"
+              ? say("Community info", "Información de la comunidad")
+              : say("Group info", "Información del grupo")}
+          </h1>
+        </>
+      }
+    >
       <div className="group-photo">
         {chat.avatar ? (
           <Avatar
@@ -114,41 +101,43 @@ export function GroupSettingsScreen(
           </span>
         )}
         {admin && (
-          <button type="button" className="button secondary" onClick={() => setPhoto(true)}>
+          <Button type="button" variant="outline" onClick={() => setPhoto(true)}>
             {say("Change photo", "Cambiar foto")}
-          </button>
+          </Button>
         )}
       </div>
-      {admin ? (
-        <GroupFields
-          key={`${chat.name}:${chat.description}`}
-          chat={chat}
-          busy={hook.busy}
-          onSave={hook.save}
-          context={context}
-        />
-      ) : (
-        <>
-          <h2>{chat.name}</h2>
-          <p className="group-description">{chat.description}</p>
-        </>
-      )}
-      <p>
-        {say("Created on", "Creado el")}{" "}
-        {chat.createdAt
-          ? new Intl.DateTimeFormat(language, { dateStyle: "long" }).format(
-              new Date(chat.createdAt),
-            )
-          : "—"}
-      </p>
-      <p>
-        {hook.community?.member_count ?? chat.members.length} {say("members", "miembros")}
-      </p>
+      <CardSurface className="chat-info-card">
+        {admin ? (
+          <GroupFields
+            key={`${chat.name}:${chat.description}`}
+            chat={chat}
+            busy={hook.busy}
+            onSave={hook.save}
+            context={context}
+          />
+        ) : (
+          <>
+            <h2>{chat.name}</h2>
+            <p className="group-description">{chat.description}</p>
+          </>
+        )}
+        <p>
+          {say("Created on", "Creado el")}{" "}
+          {chat.createdAt
+            ? new Intl.DateTimeFormat(language, { dateStyle: "long" }).format(
+                new Date(chat.createdAt),
+              )
+            : "—"}
+        </p>
+        <p>
+          {hook.community?.member_count ?? chat.members.length} {say("members", "miembros")}
+        </p>
+      </CardSurface>
       {context === "community" && hook.community ? (
         <CommunitySettingsActions community={hook.community} chat={chat} />
       ) : (
         <>
-          <nav className="group-links">
+          <nav className="group-links settings-card">
             <NavLink href={`/chats/${chatId}/members`}>
               {say("View members →", "Ver miembros →")}
             </NavLink>
@@ -156,13 +145,13 @@ export function GroupSettingsScreen(
               {say("Shared media →", "Archivos compartidos →")}
             </NavLink>
           </nav>
-          <button
+          <Button
             type="button"
-            className="button danger"
+            variant="destructive"
             onClick={() => ui.open(chatId, { kind: "leave" })}
           >
             {say("Leave group", "Salir del grupo")}
-          </button>
+          </Button>
         </>
       )}
       {photo && admin && (
@@ -185,6 +174,6 @@ export function GroupSettingsScreen(
         />
       )}
       {context === "group" && <ChatSettingsLayer chat={chat} />}
-    </main>
+    </ChatSettingsScreenSurface>
   );
 }

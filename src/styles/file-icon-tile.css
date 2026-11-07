@@ -1,0 +1,79 @@
+@layer components {
+  :root {
+    --file-tile-base: #ffffff;
+    --file-tile-tint: 10%;
+    --file-tile-ring: 30%;
+    --file-pdf: #c6283d;
+    --file-spreadsheet: #158044;
+    --file-word: #2463cd;
+    --file-presentation: #bc4b10;
+    --file-text: #8041c6;
+    --file-unknown: #ffffff;
+    --file-unknown-fill: #475569;
+    --file-unknown-border: #64748b;
+  }
+
+  :root[data-theme="dark"] {
+    --file-tile-base: #151a23;
+    --file-tile-tint: 16%;
+    --file-tile-ring: 48%;
+    --file-pdf: #ff7b8b;
+    --file-spreadsheet: #62db92;
+    --file-word: #82b4ff;
+    --file-presentation: #ffab70;
+    --file-text: #c59aff;
+    --file-unknown: #111827;
+    --file-unknown-fill: #cbd5e1;
+    --file-unknown-border: #e2e8f0;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+      --file-tile-base: #151a23;
+      --file-tile-tint: 16%;
+      --file-tile-ring: 48%;
+      --file-pdf: #ff7b8b;
+      --file-spreadsheet: #62db92;
+      --file-word: #82b4ff;
+      --file-presentation: #ffab70;
+      --file-text: #c59aff;
+      --file-unknown: #111827;
+      --file-unknown-fill: #cbd5e1;
+      --file-unknown-border: #e2e8f0;
+    }
+  }
+
+  .file-icon-tile {
+    --file-hue: var(--file-unknown);
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    border: 1px solid
+      color-mix(in srgb, var(--file-hue) var(--file-tile-ring), var(--file-tile-base));
+    border-radius: 50%;
+    color: var(--file-hue);
+    background: color-mix(in srgb, var(--file-hue) var(--file-tile-tint), var(--file-tile-base));
+  }
+
+  .file-icon-tile[data-file-family="pdf"] {
+    --file-hue: var(--file-pdf);
+  }
+  .file-icon-tile[data-file-family="spreadsheet"] {
+    --file-hue: var(--file-spreadsheet);
+  }
+  .file-icon-tile[data-file-family="word"] {
+    --file-hue: var(--file-word);
+  }
+  .file-icon-tile[data-file-family="presentation"] {
+    --file-hue: var(--file-presentation);
+  }
+  .file-icon-tile[data-file-family="text"] {
+    --file-hue: var(--file-text);
+  }
+  .file-icon-tile[data-file-family="unknown"] {
+    background: var(--file-unknown-fill);
+    border-color: var(--file-unknown-border);
+  }
+}
