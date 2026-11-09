@@ -22,13 +22,6 @@ pnpm typecheck               # verify zero TypeScript errors
 pnpm lint                    # verify zero Biome lint/format errors
 ```
 
-## Visual review (no login)
-
-Run `pnpm review:ui`, keep the terminal open, and visit **http://127.0.0.1:5177/**.
-This opens the migrated UI fixture directly without credentials or the auth backend.
-Do not open the HTML from disk. See [the verified review procedure](docs/ui-feedback-review.md).
-Plain `pnpm dev` does not run Netlify auth functions and its root is not the fixture.
-
 ## Supabase CLI
 
 See [docs/SUPABASE_CLI.md](./docs/SUPABASE_CLI.md) for one-time setup
