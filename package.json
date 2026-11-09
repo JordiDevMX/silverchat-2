@@ -6,7 +6,6 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "dev": "vite",
-    "review:ui": "vite --mode ui-review",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "biome check .",
@@ -58,6 +57,8 @@
     "@biomejs/biome": "^2.5.15",
     "@netlify/functions": "^6.0.3",
     "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/devtools-vite": "0.8.6",
+    "@tanstack/react-devtools": "0.10.14",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

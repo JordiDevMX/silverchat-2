@@ -1,3 +1,4 @@
+import { TanStackDevtools } from "@tanstack/react-devtools";
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -62,6 +63,7 @@ export default function App() {
           </AuthProvider>
         </I18nProvider>
       </ThemeProvider>
+      <TanStackDevtools config={{ hideInAutomation: true, triggerHidden: false }} />
     </QueryClientProvider>
   );
 }

@@ -6,8 +6,7 @@ Phase 2 establishes reusable presentation. Phase 2.1 adds glow; Phase 3 Module 1
 
 `src/styles/globals.css` is the single theme entry. Keep the existing Inter import,
 `data-theme` provider, `.theme-*` accent classes and preference persistence.
-Tailwind scans `src/`, excluding the reference project. The standalone test fixture
-opts into its own source scanning without adding fixture classes to production.
+Tailwind scans `src/`.
 
 The reference silver/neon palette now includes popover, bubble, sidebar and chart
 tokens, radii through 4xl, gradients, shadows, scrollbars and view-transition CSS.
@@ -80,14 +79,9 @@ migration.
 
 ## Review and checks
 
-Run `pnpm review:ui` and open **http://127.0.0.1:5177/**. This strict-port,
-auth-independent server redirects directly to the fixture, ignores .env files,
-and prints the exact review link. Do not open the HTML from disk. See
-[the verified procedure](ui-feedback-review.md) for expected content and port-conflict handling.
-
-Plain `pnpm dev` uses http://127.0.0.1:5173/tests/ui-foundation.html for this fixture;
-its root is the application entry, and its protected routes require the separate
-Netlify auth backend. The fixture is excluded from the production entry.
+Run `pnpm dev` and open **http://127.0.0.1:5173/**. Its root is the application
+entry, and its protected routes require the separate Netlify auth backend (or a
+mocked-service test environment).
 
 Required checks:
 
@@ -96,25 +90,21 @@ pnpm exec tsc --noEmit -p tsconfig.app.json
 pnpm typecheck
 pnpm test
 pnpm exec vite build
-node tests/ui-review-path-browser.mjs
-node tests/ui-foundation-browser.mjs
 node tests/settings-browser.mjs
+node tests/chats-browser.mjs
 ```
 
 The browser harnesses use the existing external Playwright setup: configure
 `PLAYWRIGHT_MODULE_PATH` (an importable package or file URL) and `CHROMIUM_PATH`.
-Start Vite on port 5173 with `VITE_SUPABASE_URL=https://supabase.test` and a dummy
-`VITE_SUPABASE_ANON_KEY` when running the mocked settings harness. All settings
-mutations are intercepted. The foundation harness also blocks remote requests.
-Browser harnesses run functional assertions without saving screenshots (CON-008).
-Use UI_BASE_URL=http://127.0.0.1:5177 for the foundation harness against the review server.
-The new review-path harness defaults to 5177 (UI_REVIEW_URL can override it).
-Run the existing application harnesses against the ordinary Vite server with their
-mocked-service environment, not against the dedicated review server.
+Start Vite on port 5173 (or an isolated port via `UI_BASE_URL`) with
+`VITE_SUPABASE_URL=https://supabase.test` and a dummy `VITE_SUPABASE_ANON_KEY`
+when running the mocked application harnesses. All settings and chat mutations
+are intercepted. Browser harnesses run functional assertions without saving
+screenshots (CON-008).
 
 Browser coverage includes utility/legacy cascade, button submit semantics,
 switches, OTP entry, avatar recovery, native nested dialogs, keyboard menus,
-Radix focus restoration, popovers, 12 theme/accent combinations, system fallback,
+Radix focus restoration, popovers, theme/accent combinations, system fallback,
 reduced motion, and 375/768/1280px viewport checks. The settings regression covers
 profile persistence, avatar crop/upload/removal, privacy, device/account actions,
 theme persistence, notifications and mobile layout.
@@ -127,14 +117,14 @@ theme persistence, notifications and mobile layout.
 - ShellBackdrop is a static, pointer-transparent decoration for a positioned container. The bg-ambient-glow utility can also be applied directly to a surface. Both follow the existing accent; neither animates.
 - AuthenticatedLayout owns the shell frame and banner placement. AppNavigation mounts once and transforms from bottom tabs to a 68px rail at lg. useAppNavigation owns the unchanged query/realtime/draft/unread work. Never mount separate live desktop/mobile navigation instances.
 - app-shell.css is imported by globals.css; it replaces only the legacy navigation styles in chats.css and bridges viewport/FAB/selection geometry. Keep feature-owned headers, search state, document scroll and content sidebars intact until those modules migrate.
-- Shell regression coverage lives in tests/chats-browser.mjs. The foundation/chats/settings harnesses accept UI_BASE_URL (default http://127.0.0.1:5173); communities accepts TEST_ORIGIN. None saves screenshots.
+- Shell regression coverage lives in tests/chats-browser.mjs. The chats/settings harnesses accept UI_BASE_URL (default http://127.0.0.1:5173); communities accepts TEST_ORIGIN. None saves screenshots.
 
 ## Own-bubble surfaces
 
-Use BubbleSurface with own for message-owned styling; feature code determines ownership and retains actions/receipts. The bubble-self utility is also available for other silhouettes. Rounded corners determine the static halo shape. Light surfaces are pale with foreground text; dark surfaces use the accent gradient with contrasting text and a bright rim. Other bubbles remain unlit. Visual review is manual in /tests/ui-foundation.html; browser harnesses no longer save image artifacts (CON-008).
+Use BubbleSurface with own for message-owned styling; feature code determines ownership and retains actions/receipts. The bubble-self utility is also available for other silhouettes. Rounded corners determine the static halo shape. Light surfaces are pale with foreground text; dark surfaces use the accent gradient with contrasting text and a bright rim. Other bubbles remain unlit. Visual review is manual on the local dev server and authenticated application routes; browser harnesses no longer save image artifacts (CON-008).
 
 ## Feedback primitives and review
 
 BrandLockup composes a white S on the active accent tile with the ilver/Chat wordmark. BrandMark is shared by the rail. SearchField is a borderless metallic surface with a focus indicator; debounce and URL ownership remain in ChatSearchBar. FloatingActionButton takes an explicit tab kind and native button props; it supplies icons and presentation, never navigation or creation workflows. Its keyboard indicator changes brightness/stroke without a surrounding ring. RequestDisclosure starts closed and mounts request contents only after opening.
 
-See ui-feedback-review.md for manual acceptance. CON-006/007/008 in the root AGENTS.md govern future units and commits.
+CON-006/007/008 in the root AGENTS.md govern future units and commits.
