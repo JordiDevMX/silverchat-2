@@ -436,7 +436,11 @@ function handleDoBlock(st) {
         return b.split(find).join(repl);
       };
       let b = f.body;
-      if (/Initial message cannot be empty/.test(st)) {
+      // The rewrites are applied to the body, not to the statement text: a
+      // corrective migration that repeats 0005's rewrite finds the body
+      // already rewritten and must leave it alone (same guard the migration
+      // itself uses).
+      if (b.includes("Initial message cannot be empty")) {
         b = apply(
           b,
           "  IF p_initial_content IS NULL OR btrim(p_initial_content) = '' THEN\n    RAISE EXCEPTION 'Initial message cannot be empty';\n  END IF;",
@@ -450,7 +454,11 @@ function handleDoBlock(st) {
           "0005-insert-wrap",
         );
       }
-      if (/FOUND AND v_chat\.status/.test(st)) {
+      if (
+        b.includes(
+          "  IF FOUND AND v_chat.status IN ('active', 'pending_request') THEN\n    RETURN v_chat.id;",
+        )
+      ) {
         b = apply(
           b,
           "  IF FOUND AND v_chat.status IN ('active', 'pending_request') THEN\n    RETURN v_chat.id;",
