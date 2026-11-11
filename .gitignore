@@ -13,6 +13,12 @@ dist/
 supabase/.branches/
 supabase/.temp/
 
+# Migration verification working output (catalog dumps, per-target reports)
+.migration-verification/
+
+# Agent working notes (plans, ledgers, scratch output)
+.superpowers/
+
 # OS
 .DS_Store
 Thumbs.db
