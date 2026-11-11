@@ -1,13 +1,29 @@
 # Bidirectional Traceability Register
 
-Record significant links; avoid creating fictional relationships. A relationship's reverse lookup is not a reversed dependency.
+Authoritative traceability links between goals, requirements, roadmap tasks, implementation artifacts (`supabase/migrations/`, `docs/`, and Graphify community hubs), and recorded evidence at revision `fceb0e51750eb06ee9f6f18652f7c43f18d11585`.
 
 | Source ID | Relationship | Target ID or exact artifact path | Link confidence | Evidence reference |
 |---|---|---|---|---|
-| — | — | No verified relationships yet | — | — |
+| `FR-001`–`FR-011` | `derived_from` | `GOAL-001`, `GOAL-002` (`.roadmap/01-foundations.md`) | `DOCUMENTED` | `EVID-009` |
+| `FR-003`, `FR-017` | `derived_from` | `GOAL-003` (`.roadmap/03-design-system.md`, `UI_MIGRATION_MAP.md`) | `DOCUMENTED` | `EVID-008`, `EVID-009` |
+| `TASK-001` | `implements` | `FR-001`, `FR-002`, `FR-003` (`src/app/`, `src/components/ui/`, `src/styles/globals.css`) | `DOCUMENTED` (Graphify AST) | `EVID-008`, `EVID-009` |
+| `TASK-002` | `implements` | `FR-004`, `NFR-001` (`supabase/migrations/0001_initial_schema.sql`–`0003_business_logic.sql`, `supabase/tests/backend_foundation.sql`) | `VERIFIED` (files exist) / `REPORTED` (execution) | `EVID-001`, `EVID-002`, `EVID-009` |
+| `TASK-003` | `implements` | `FR-005`, `NFR-001` (`supabase/migrations/0004_auth_backup_codes.sql`, `netlify/functions/`, `src/lib/auth-provider.tsx`, `tests/auth-bff.test.ts`, `tests/auth-browser.mjs`) | `DOCUMENTED` (Graphify AST + `docs/authentication.md`) | `EVID-001`, `EVID-002`, `EVID-008` |
+| `TASK-004` | `implements` | `FR-006` (`supabase/migrations/0005_profile_settings.sql`, `0006_account_deletion_rpcs.sql`, `0009_device_fingerprint.sql`, `src/features/settings/`, `tests/settings-browser.mjs`) | `DOCUMENTED` (Graphify AST + `docs/profile-settings.md`) | `EVID-002`, `EVID-008` |
+| `TASK-005` | `implements` | `FR-007` (`supabase/migrations/0007_chat_delete_adjustments.sql`, `src/features/chats/`, `tests/chats-browser.mjs`) | `DOCUMENTED` (Graphify AST + `docs/chats-list.md`, `docs/new-chat-flow.md`) | `EVID-002`, `EVID-003`, `EVID-008` |
+| `TASK-006A` | `implements` | `FR-008A` (`supabase/migrations/0008_messages_enhancements.sql`, `src/features/messages/`, `tests/messages-browser.mjs`) | `DOCUMENTED` (Graphify AST + `docs/messages.md`) | `EVID-008`, `EVID-009` |
+| `TASK-006B` | `implements` | `FR-008B` (`supabase/migrations/0010_message_actions.sql`, `src/features/messages/`, `tests/message-actions.test.ts`, `tests/message-actions-browser.mjs`) | `DOCUMENTED` (Graphify AST + `docs/8b-verification.md`) | `EVID-004`, `EVID-008` |
+| `TASK-007` | `implements` | `FR-009` (`supabase/migrations/0011_chat_settings.sql`, `src/features/chat-settings/`, `tests/chat-settings-browser.mjs`) | `DOCUMENTED` (Graphify AST + `docs/09-verification.md`) | `EVID-005`, `EVID-008` |
+| `TASK-008` | `implements` | `FR-010`, `NFR-002` (`supabase/migrations/0012_stories_channels.sql`, `0013_optimize_story_viewers.sql`, `src/features/novedades/`, `tests/novedades-browser.mjs`) | `DOCUMENTED` (Graphify AST + `docs/novedades.md`, `docs/query-storm-fix.md`, `docs/story-media-burst-fix.md`) | `EVID-006`, `EVID-008` |
+| `TASK-009` | `implements` | `FR-011` (`supabase/migrations/0014_communities.sql`, `src/features/communities/`, `tests/communities.test.ts`, `tests/communities-browser.mjs`) | `DOCUMENTED` (Graphify AST + `docs/communities.md`) | `EVID-007`, `EVID-008` |
+| `TASK-010` | `implements` | `FR-017` (`UI_MIGRATION_MAP.md`, `src/components/ui/`, `src/styles/*.css`, `docs/ui-module-6a.md`) | `DOCUMENTED` (`docs/ui-migration-closeout.md`, `docs/ui-module-6a.md`) | `EVID-008`, `EVID-009` |
+| `TASK-015` | `implements` (`IN_PROGRESS`: existing `en`/`es` i18n & theme vs. remaining Prompt 14 items) | `FR-014` (`src/app/providers/i18n-provider.tsx`, `src/app/providers/theme-provider.tsx`, feature `i18n.ts` modules; remaining `.roadmap/14-i18n-theme.md` 9-NS `i18next`/`useFormatters`/FOUC script pending) | `DOCUMENTED` (Graphify AST + `UI_MIGRATION_MAP.md` + PO statement) | `EVID-008`, `EVID-009`, `EVID-010` |
+| `TASK-016` | `implements` (`IN_PROGRESS`: existing Magic Link + 2FA, RLS & privacy vs. remaining Prompt 15 items) | `FR-015` (Magic Link + 2FA in `0004`/BFF, RLS in `0002`, block/visibility in `0005`, deletion in `0006`; remaining `.roadmap/15-privacy-security.md` `SecuritySummaryCard` & `StorageScreen` wiring pending) | `DOCUMENTED` (`supabase/README.md`, `docs/authentication.md`, `docs/profile-settings.md` + PO statement) | `EVID-001`, `EVID-002`, `EVID-008`, `EVID-010` |
+| `TASK-011` | `affects` | `RISK-005`, `CON-003` (current `.env.example` confirmed placeholder-only by PO in `EVID-010`; historical commit check in `docs/staging-migrations-report.md` uninspected/optional) | `DOCUMENTED` | `EVID-002`, `EVID-010` |
+| `TASK-012` | `affects` | `RISK-001` (`supabase/migrations/0001..0014` vs. remote `schema_migrations` ledger in `docs/FASE-2.md` & `docs/communities.md`) | `DOCUMENTED` | `EVID-002`, `EVID-007` |
 
 ## Coverage audit
-- Requirement-to-task coverage: NOT_EVALUATED
-- Requirement-to-test coverage: NOT_EVALUATED
-- Implementation-to-purpose coverage: NOT_EVALUATED
-- Suspected orphans: NONE EVALUATED (not a clean bill of health)
+- **Requirement-to-task coverage:** `EVALUATED` — All requirements `FR-001`–`FR-017` and `NFR-001`–`NFR-002` map to `TASK-001`–`TASK-017` (`TASK-015` and `TASK-016` are `IN_PROGRESS`; `TASK-011`, `TASK-013`, `TASK-014`, `TASK-017` are `NOT_STARTED`).
+- **Requirement-to-test coverage:** `PARTIALLY_EVALUATED (REPORTED)` — Pre-PIF docs report pgTAP SQL suites (`supabase/tests/*.sql`), 72 unit tests (`tests/*.test.ts`), and 10 Playwright browser suites (`tests/*-browser.mjs`) covering `FR-001`–`FR-011`, partial `FR-014`–`FR-015`, and `FR-017`; PIF Guardian has not independently re-executed them.
+- **Implementation-to-purpose coverage:** `EVALUATED (ARCHITECTURAL)` — Graphify (`2,092` nodes across `118` communities) maps code and SQL modules to Prompts `01`–`11`, partial Prompts `14`–`15`, and UI Migration Modules `1`–`6A`.
+- **Suspected orphans:** `53` isolated symbol nodes noted in `graphify-out/GRAPH_REPORT.md` (plus 31 retained UI primitive exports documented as intentional public composition API in `docs/ui-migration-closeout.md`).

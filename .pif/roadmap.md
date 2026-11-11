@@ -1,13 +1,36 @@
 # Roadmap
 
-**Baseline status:** DRAFT — no tasks approved.
+**Baseline status:** `APPROVED` — Reconciled initial governance baseline at `fceb0e51750eb06ee9f6f18652f7c43f18d11585` (`CHG-002`).
+
+> **Status & Historical Deviation Policy (`CON-004`):** Pre-PIF work is recorded according to its documented implementation and verification evidence (`IMPLEMENTED` / `IN_PROGRESS` / `AWAITING_VERIFICATION` / `AWAITING_ACCEPTANCE`) without fabricating retrospective `ACCEPTED` statuses. Capabilities implemented earlier than their numbered roadmap milestone (notably in Prompts `14` and `15`) are preserved as intentional historical progress (`IN_PROGRESS`) without rewriting the original roadmap sequence or requiring completed functionality to be reimplemented.
 
 | Task ID | Objective / requirement | Dependencies | DoR | DoD | Status | Owner |
 |---|---|---|---|---|---|---|
-| — | No work authorized yet | — | — | — | NOT_STARTED | — |
+| `TASK-001` | Prompt 01–03: Foundations, SPA Stack Setup & Design System (`FR-001`–`FR-003`) | — | Spec in `.roadmap/01`–`03` | Stack, router, OKLCH tokens & UI primitives wired | `IMPLEMENTED` (`REPORTED`) | PIF Engineer |
+| `TASK-002` | Prompt 04a–04b2: Postgres Schema, RLS Policies & Business RPCs (`FR-004`, `NFR-001`) | `TASK-001` | Spec in `.roadmap/04a`–`04b2` | Migrations `0001`–`0003` + pgTAP tests (`EVID-001`, `EVID-002`) | `IMPLEMENTED` (`REPORTED`) | PIF Engineer |
+| `TASK-003` | Prompt 05: Netlify BFF Magic-Link Auth, AAL2 TOTP & Backup Codes (`FR-005`) | `TASK-002` | Spec in `.roadmap/05-authentication.md` | Migration `0004`, 6 BFF functions, auth unit/browser suites (`EVID-001`, `EVID-008`) | `IMPLEMENTED` (`REPORTED`) | PIF Engineer |
+| `TASK-004` | Prompt 06: Profile, User Settings, Devices & Account Deletion (`FR-006`) | `TASK-003` | Spec in `.roadmap/06-profile-settings.md` | Migrations `0005`, `0006`, `0009`, settings routes & scheduled cleanup (`EVID-002`, `EVID-008`) | `IMPLEMENTED` (`REPORTED`) | PIF Engineer |
+| `TASK-005` | Prompt 07 + Gap Fix: Chats List, Filters, Requests & New Chat/Group Flows (`FR-007`) | `TASK-002`, `TASK-004` | Spec in `.roadmap/07-chats-list.md` | Migration `0007`, chat list + `/chats/new` & `/chats/new-group` (`EVID-003`, `EVID-008`) | `IMPLEMENTED` (`REPORTED`) | PIF Engineer |
+| `TASK-006A` | Prompt 08a: Chat Layout, Message Subtypes, Composer & Media (`FR-008A`) | `TASK-005` | Spec in `.roadmap/08a-chat-layout-messages.md` | Migration `0008`, conversation view, optimistic send & media (`EVID-008`) | `IMPLEMENTED` (`REPORTED`) | PIF Engineer |
+| `TASK-006B` | Prompt 08b: Message Actions, Search, Pins & Voice Notes (`FR-008B`) | `TASK-006A` | Spec in `.roadmap/08b-message-actions.md` | Migration `0010`, action RPCs & voice notes (`EVID-004`); 2 prod SQL checks pending | `AWAITING_VERIFICATION` | PIF Engineer / PO |
+| `TASK-007` | Prompt 09: Contact Profile, Chat Settings, Group Admin & Shared Media (`FR-009`) | `TASK-006B` | Spec in `.roadmap/09-contact-profile-chat-settings.md` | Migration `0011`, 52/66 UI checks `PASS`, 14 community items deferred (`EVID-005`) | `AWAITING_VERIFICATION` | PIF Engineer / PO |
+| `TASK-008` | Prompt 10 + Storm Fixes: Novedades (Stories & Channels) & Burst Resilience (`FR-010`, `NFR-002`) | `TASK-006B` | Spec in `.roadmap/10-novedades-stories-channels.md` | Migrations `0012` & `0013` applied & verified in staging/prod + manual checklist (`EVID-006`) | `AWAITING_VERIFICATION` | PIF Engineer / PO |
+| `TASK-009` | Prompt 11: Communities Hierarchy, Child Chats & Succession (`FR-011`) | `TASK-007` | Spec in `.roadmap/11-communities.md` | Migration `0014` (prod catalog verified) + live multi-user & deferred Prompt 09 checklist (`EVID-007`) | `AWAITING_VERIFICATION` | PIF Engineer / PO |
+| `TASK-010` | UI Migration Modules `1`–`6A`: Visual Transplant & CSS Consolidation (`FR-017`) | `TASK-001`–`TASK-009` | `UI_MIGRATION_MAP.md` | All modules `1`–`6A` implemented, 72 unit + 10 browser suites `GREEN`, final PO acceptance (`EVID-008`) | `AWAITING_ACCEPTANCE` | PIF Engineer / PO |
+| `TASK-011` | Optional Historical Commit Audit: `.env.example` Warning (`RISK-005`) | Separate PO authorization | Current `.env.example` confirmed clean by PO (`EVID-010`); only run if historical commit audit is requested | Read-only check of historical commits without exposing secrets | `NOT_STARTED` (Low priority / optional) | PIF Guardian |
+| `TASK-012` | Governance Assessment: Supabase Remote Migration Ledger Discrepancy (`RISK-001`) | Separate PO authorization | PO authorization for read-only ledger review | Read-only reconciliation report for `0001`–`0014` across local/staging/prod | `READY` (Next priority #1) | PIF Guardian |
+| `TASK-013` | Prompt 12: Voice & Video Calls — LiveKit Edge Function & Call UI (`FR-012`) | `TASK-006A` | Spec in `.roadmap/12-calls.md` + PO approval | LiveKit token Edge Function, call state machine, call modals & verification | `NOT_STARTED` | PIF Engineer |
+| `TASK-014` | Prompt 13: PWA, Offline Caching, IndexedDB Outbox & Web Push (`FR-013`) | `TASK-006A` | Spec in `.roadmap/13-pwa-offline.md` + PO approval | Workbox SW, IndexedDB outbox, web push subscription & verification | `NOT_STARTED` | PIF Engineer |
+| `TASK-015` | Prompt 14: Internationalization (`en`/`es`) & Theme System (`FR-014`) | `TASK-001` | Spec in `.roadmap/14-i18n-theme.md` + resolution of `Q-001` | **Existing:** Functional `en`/`es` i18n (`EVID-010`) + `I18nProvider`/`ThemeProvider` (`EVID-008`, `EVID-009`). **Remaining:** 9-NS `i18next` files, `useFormatters.ts`, FOUC script & verification | `IN_PROGRESS` (`REPORTED` / PO-confirmed partial) | PIF Engineer |
+| `TASK-016` | Prompt 15: Privacy & Security Settings Wiring & Hardening (`FR-015`) | `TASK-004` | Spec in `.roadmap/15-privacy-security.md` + PO approval | **Existing:** Functional Magic Link + 2FA (`EVID-010`) + RLS/AAL2/privacy/deletion (`EVID-001`, `EVID-002`, `EVID-008`). **Remaining:** `SecuritySummaryCard`, `StorageScreen` (`get_my_storage_usage`) & verification | `IN_PROGRESS` (`REPORTED` / PO-confirmed partial) | PIF Engineer |
+| `TASK-017` | Prompt 16: Production Deployment, Security Headers, Health & Sentry (`FR-016`) | `TASK-001`–`TASK-016` | Spec in `.roadmap/16-deployment-metadata.md` + PO approval | Sentry integration, health endpoints, CI/Netlify config & release verification | `NOT_STARTED` | PIF Engineer |
 
 ## Milestones
-To be defined based on approved requirements.
+1. **M1 — Core Foundation, Auth, Settings & Messaging (`TASK-001`–`TASK-006A`):** Implemented (`REPORTED` pre-PIF).
+2. **M2 — Advanced Social & Community Domains + UI Migration (`TASK-006B`–`TASK-010`):** Implemented in repository; pending remaining live/manual verification items and Product Owner acceptance.
+3. **M3 — Out-of-Sequence In-Progress Capabilities (`TASK-015`–`TASK-016`):** `IN_PROGRESS` — core `en`/`es` localization, theme persistence, Magic Link + 2FA, RLS, and privacy controls implemented early (`EVID-010`, `EVID-001`–`EVID-009`); remaining Prompt 14/15 items pending.
+4. **M4 — PIF Governance Migration Ledger Audit (`TASK-012`) & Optional Historical Check (`TASK-011`):** `TASK-012` is the next priority read-only assessment; `TASK-011` is low-priority/optional after PO confirmation of current `.env.example` (`EVID-010`).
+5. **M5 — Calls, PWA & Production Release (`TASK-013`, `TASK-014`, `TASK-017`):** `NOT_STARTED`.
 
 ## Approved scope changes
-See `history/changes.md` and corresponding decisions.
+See `history/changes.md` (`CHG-001`, `CHG-002`) and corresponding decisions.
