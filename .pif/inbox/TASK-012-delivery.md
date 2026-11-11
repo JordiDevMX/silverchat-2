@@ -7,6 +7,10 @@
 - `174b71b3d9192b9c8c8c1ee7be074a8e601e0a85` — `chore(db): add write-target guard for Supabase CLI operations`
 - `3338089d56c8706d92e6c32a089de3e914fed5c2` — `docs(db): record reconciled migration state and file conventions`
 - `44bea4f266c820b51e0fa276ad7d813da1d27484` — `fix(db): type the guard module for the TypeScript test import`
+- `65f0bbd9724884c0671e43f37bafc27849566133` — `docs(pif): submit TASK-012 corrective delivery for Guardian audit` (first submission)
+- `de86468635f0897241024082e7429b246a516bc1` — `fix(db): harden the write-target guard after review`
+- `629dd31aeb98d88bd4df2f021e1fd6e6940e2f3b` — `chore(db): commit the migration equivalence tool and its 2026-11-11 result`
+- `60f58ccaf29667d2895f0f0853c319da1eacbf8e` — `docs(db): correct the migration documentation after review`
 - `docs(pif): submit TASK-012 corrective delivery for Guardian audit` — the commit that contains this file (its SHA is reported to the Product Owner separately; it cannot be self-referenced)
 
 **Claim status:** `REPORTED` (Engineer claims below are individually classified; Guardian to re-check). Working tree clean except untracked `.superpowers/` (task working notes) and `graphify-out/cache/last_query_stamp` (pre-existing, untouched).
@@ -61,14 +65,14 @@ Scope kept as authorized: **no schema DDL was executed on Production**; `db push
 | Production ledger before repair | `SELECT version FROM supabase_migrations.schema_migrations` (read-only) + `npx supabase migration list --linked` | **PASS** — exactly 0001–0007 recorded; 0008–0014 local-only | `.superpowers/sdd/migration-reconciliation/ledger-read.mjs` output; CLI JSON `{"local":"0008","remote":""}`… |
 | Production ledger after repair | `npx supabase migration list --linked` | **PASS** — 14 local == 14 remote | CLI output (this session) |
 | Repair executed no DDL | Read-only catalog dump + full equivalence compare before vs after repair | **PASS** — identical results (same 12 drift findings, same 13 whitespace-only bodies) | `equivalence-report-lmzbaxlojgsdwgcxkmzx.txt` before/after |
-| Production equivalence vs files | File inventory of 0001–0014 vs read-only Production catalog dump | **FAIL (12 findings)** — all attributable to 0005/0006; see findings table | `equivalence-report-lmzbaxlojgsdwgcxkmzx.txt`, `dump-lmzbaxlojgsdwgcxkmzx.json` |
+| Production equivalence vs files | File inventory of 0001–0014 vs read-only Production catalog dump | **FAIL (12 findings)** — all attributable to 0005/0006; see findings table | `docs/migration-equivalence-2026-11-11.md` (committed); raw dump + report under `.migration-verification/` |
 | Staging rebuild | `npx supabase db push --linked` after reset | **PASS** — 0001–0014 applied, no error | CLI output |
-| Staging equivalence vs files | Same comparison against staging | **PASS — 0 findings** | `equivalence-report-gffdrrtatxdiucigtwdn.txt`, `dump-gffdrrtatxdiucigtwdn.json` |
+| Staging equivalence vs files | Same comparison against staging | **PASS — 0 findings** | `docs/migration-equivalence-2026-11-11.md` (committed) |
 | Staging ledger | `npx supabase migration list --linked` | **PASS** — 14 local == 14 remote | CLI output |
 | Link-target discipline | `supabase/.temp/project-ref` asserted before and after every link switch and write command | **PASS** — prod → staging → prod, asserted each time | this session's command log |
 | CRLF root cause | Read-only `position(<needle> in pg_get_functiondef(...))` on staging | **PASS (reproduced)** — both 0005 needles returned `0`; the stored body contains `\r\n` while the needles are LF-only | `probe-fn.sql`, `fn-raw.json` |
-| Guard unit tests | `node --experimental-strip-types --test tests/db-guard.test.ts` | **PASS** — 9/9 | this session |
-| Guard live behavior | `node scripts/db-guard.mjs --expect <ref> [--allow-production]` | **PASS** — exit 0 on match (+flag for prod); exit 1 on mismatch, on missing flag, and would exit 1 on CRLF | this session |
+| Guard unit tests | `node --experimental-strip-types --test tests/db-guard.test.ts` | **PASS** — 15/15 | this session |
+| Guard live behavior | `node scripts/db-guard.mjs --expect <ref> [--allow-production]` | **PASS** — exit 0 on match (+flag for prod); exit 1 on mismatch or missing flag; exit 2 on usage error; also verified through a directory-junction invocation and from a subdirectory | this session |
 | Full test suite | `pnpm test` | **PASS** — 81/81 (72 pre-existing + 9 new) | this session |
 | Type check | `pnpm typecheck` | **PASS** — exit 0 | this session |
 | Biome on changed files | `npx biome check scripts/db-guard.mjs tests/db-guard.test.ts biome.json` | **PASS** | this session |
@@ -76,7 +80,7 @@ Scope kept as authorized: **no schema DDL was executed on Production**; `db push
 
 ### Verification method (for reproducibility)
 
-Engineer built a parser that reads all 14 migration files into a final-state inventory and diffs it against a read-only catalog dump of the linked project (`npx supabase db query --linked`, every statement a `SELECT`). Tooling and evidence live in `.superpowers/sdd/migration-reconciliation/` (`verify-prod.mjs`, `canon.mjs`, `dump-<ref>.json`, `equivalence-report-<ref>.txt`; untracked working notes — commit on request). Compared: function bodies/signatures/attributes, tables and columns, constraints (named by name; CHECK by count per table; FK/UNIQUE/PK by column set and FK actions), policies (including expression text), triggers, indexes, privileges, RLS enablement, enum types and labels, extensions, views (options, owner, output columns), cron jobs (command **and** schedule), publication membership, and `app_config` seed rows.
+Engineer built a parser that reads all 14 migration files into a final-state inventory and diffs it against a read-only catalog dump of the linked project (`npx supabase db query --linked`, every statement a `SELECT`). The tool is committed at `scripts/verify-migrations/` (with `README.md` describing the method and how to read its output); the result of the 2026-11-11 runs is committed at `docs/migration-equivalence-2026-11-11.md`; the raw per-target dumps and reports stay local under `.migration-verification/` (gitignored). Compared: function bodies/signatures/attributes, tables and columns, constraints (named by name; CHECK by count per table; FK/UNIQUE/PK by column set and FK actions), policies (including expression text), triggers, indexes, privileges, RLS enablement, enum types and labels, extensions, views (options, owner, output columns), cron jobs (command **and** schedule), publication membership, function and view ownership, and `app_config` seed rows.
 
 ### Findings — Production differs from the migration files (12 objects, all 0005/0006)
 
@@ -97,11 +101,50 @@ Engineer built a parser that reads all 14 migration files into a final-state inv
 | 11 | `public.schedule_account_deletion()` | 0006 |
 | 12 | `public.cancel_account_deletion()` | 0006 |
 
-Corroboration (`VERIFIED`): `0009_device_fingerprint.sql` header states *"Migration 0005 was never applied to the remote database"*; Production has 0004's `profiles_visible` definition and the pre-0005 `create_direct_chat_request` body, while 0007's rewrite — which is independent of 0005 — **is** applied. Root cause of the 0005 failure (`VERIFIED` by probe): 0005/0007 match the function body by exact text with LF-only needles; a CRLF working tree stores CRLF in the body, the match fails, and 0005 aborts with `Unexpected create_direct_chat_request definition; migration stopped`.
+Corroboration (`VERIFIED`): `0009_device_fingerprint.sql` header states *"Migration 0005 was never applied to the remote database"*; Production still has 0004's `profiles_visible` definition and the pre-0005 `create_direct_chat_request` body, while 0007's rewrite — which is independent of 0005 — **is** applied.
+
+**Why 0005 is absent on Production (`VERIFIED`):** it was never run there. A read-only probe against Production shows its `create_direct_chat_request` body is LF-clean and still contains **both** of 0005's exact-text needles (`position(...)` = 1522 and 2991), so 0005 would have applied successfully against Production's body — the CRLF defect described below is what blocked 0005 on **staging** (2026-10-23 and the first rebuild attempt), not on Production. 0006 depends on a column that only 0005 creates, so it was never applied either.
 
 **Why this is drift and not a tool artifact:** the same comparison against the freshly rebuilt Staging returns **0 findings** (`VERIFIED`).
 
 ---
+
+## Independent review
+
+An independent reviewer (`general` subagent, read-only) reviewed the branch diff
+against the migration files. Its blocking findings were addressed:
+
+- the guard's entry-point detection silently exited 0 when invoked through a
+  symlink or a Windows directory junction (a caller checking the exit code
+  would read that as "passed") — now resolved through `realpathSync`, and
+  verified live through a junction;
+- the guard resolved the repository root from the working directory, so running
+  it from a subdirectory reported a misleading "not linked" — now resolved from
+  the script's own location;
+- the remediation command the guard printed (`git reset --hard
+  supabase/migrations`) is rejected by git — replaced with `git checkout HEAD --
+  supabase/migrations`, verified to restore LF endings;
+- the CRLF explanation named the wrong files: the needles in 0005/0007 are
+  LF-only regardless of those files' own line endings, and what breaks the
+  match is CRLF in the body stored by the migration that created the function
+  (0003) — the message and the docs now say that;
+- the documentation asserted database facts whose only source was untracked
+  working notes — the tool (`scripts/verify-migrations/`) and the result
+  (`docs/migration-equivalence-2026-11-11.md`) are now committed;
+- `docs/FASE-2.md` pointed at a file name that did not exist, and the
+  corrective-migration example contradicted the repository's own naming
+  convention — both corrected;
+- `docs/SUPABASE_CLI.md` forbade committing a project ref while the same
+  document and the guard script commit both refs — the rule now targets
+  credentials;
+- the guard's CLI layer had no test coverage — `parseArgs`/`runCli` are
+  exported and covered (exit codes 0/1/2, flag parsing, unknown linked
+  project), taking the guard suite from 9 to 15 cases.
+
+The reviewer also confirmed against the migration files that the
+`storage.objects` policy count (26), the devices constraint chain
+(0004 → 0005 → 0009), the staging pre-state numbers, and the 12-item
+production gap list are accurate.
 
 ## Risks / open gates
 
@@ -125,13 +168,14 @@ Do not mark these PASS without confirmation:
 
 - Audit the evidence above and create `AUD-…` findings; compare against `RISK-001` and the gate table in `.pif/state.md`.
 - Propose (or perform, if authorized) the canonical status updates: `RISK-001` → resolved for the ledger with the 0005/0006 content gap recorded as a new risk; `G5` (delivery readiness) reconsideration; `TASK-012` state transition. **Engineer has not modified any canonical record.**
-- Confirm whether the verification tooling in `.superpowers/sdd/migration-reconciliation/` should be committed to the repository for auditability (currently untracked working notes).
+- Note that the verification tool (`scripts/verify-migrations/`) and the equivalence result (`docs/migration-equivalence-2026-11-11.md`) are committed, so the DB facts asserted in the documentation have a committed, re-runnable source.
 
 ---
 
-## Supplementary evidence — the CR bytes that broke 0005
+## Supplementary evidence — the CR bytes that blocked 0005 on Staging
 
-Read-only probe run against Staging during the rebuild (the same probe reproduces the failure signature on Production's pre-0005 body):
+Read-only probe run against **Staging** during the rebuild, at the moment its
+body had been stored from a CRLF working tree:
 
 ```sql
 select position(
@@ -145,4 +189,12 @@ select substring(pg_get_functiondef('public.create_direct_chat_request(uuid,text
 -- => "p_initial_content IS NULL OR btrim(p_initial_content) = '' THEN\r\n    RAISE EXCEPTION 'Initial message cannot be empty';\r\n  END IF;\r\n…"
 ```
 
-The `\r\n` in the stored body against an LF-only needle is the whole failure. The committed migration files are LF and `.gitattributes` pins `supabase/migrations/*.sql text eol=lf`; `scripts/db-guard.mjs` now blocks any write command while a checked-out migration file contains CRLF, and `docs/SUPABASE_CLI.md` documents the repair command for a dirty working tree.
+The `\r\n` in the stored body against an LF-only needle is the whole failure.
+The same probe against **Production** returns 1522 and 2991 — both needles
+present, body LF-clean — which is why Production's missing 0005 is a
+"never applied" gap rather than a CRLF failure.
+
+The committed migration files are LF and `.gitattributes` pins
+`supabase/migrations/*.sql text eol=lf`; `scripts/db-guard.mjs` now blocks any
+write command while a checked-out migration file contains CRLF, and
+`docs/SUPABASE_CLI.md` documents the repair command for a dirty working tree.
