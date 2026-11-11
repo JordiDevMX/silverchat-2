@@ -161,3 +161,86 @@ Variant B: `.gitattributes` enforces
 migration file as `i/lf`. Staging is green and ready for further testing.
 Production work and history reconciliation remain the developer's
 responsibility.
+
+## Rebuild — 2026-11-11 (TASK-012 corrective sequence, staging only)
+
+Outcome: staging was rebuilt from scratch with the CLI, applying
+`supabase/migrations/0001`–`0014` from the committed (LF) files. The result
+matches the migration files exactly (verified by a read-only catalog
+comparison: **0 findings**). Production was not touched by this rebuild.
+
+### Pre-state
+
+- Ledger: 7 rows, all timestamp versions (`20261023174155` … `20261023180930`)
+  from the 2026-10-23 run — no `000N` versions.
+- Public schema: 22 tables, 2 views, 48 functions, 13 enum types.
+- 4 cron jobs; `pgcrypto` in `extensions`, `pg_cron` in `pg_catalog`.
+- The 0009 device-fingerprint content existed in the schema but was not
+  recorded in the ledger (it had been applied out-of-band).
+
+### Reset performed
+
+1. Unscheduled all cron jobs.
+2. Dropped the 26 app-owned `storage.objects` policies (names derived from
+   the migration files; Supabase's own storage policies were left alone).
+3. Dropped every object in the `public` schema (tables, views, sequences,
+   functions, enum types) with `CASCADE`.
+4. Reverted the stale ledger rows (`migration repair --status reverted`).
+5. `npx supabase db push --linked` applied 0001–0014 in order.
+
+### The CRLF failure recurred, and its fix is now enforced
+
+The first `db push` of the rebuild failed in 0005 with the exact error
+documented above: `Unexpected create_direct_chat_request definition;
+migration stopped`. The cause was the same one from 2026-10-23 — the local
+working tree still held CRLF copies of 0001–0007 (`git ls-files --eol` showed
+`i/lf w/crlf`), so the body stored by 0003 contained CRLF while 0005's
+needles are LF-only.
+
+The committed blobs were always LF (`i/lf`) and `.gitattributes` already
+pins `text eol=lf`; the working tree had simply never been renormalized
+(`git checkout --` is a no-op for files git already considers unmodified).
+Fix applied: the seven files were removed from the working tree and restored
+from the index, so all 14 migration files are `w/lf` again. **No migration
+file content was modified** (`git status` clean for `supabase/migrations/`).
+
+`scripts/db-guard.mjs` (new, with tests) now blocks any write command when
+a checked-out migration file contains CRLF, so this failure mode cannot
+recur silently.
+
+### Verification
+
+| Check                                                       | Result                          |
+| ----------------------------------------------------------- | ------------------------------- |
+| `migration list --linked`                                    | 14 local == 14 remote           |
+| Catalog comparison vs. the migration files                   | **0 findings** (functions, tables/columns, constraints incl. FK/UNIQUE/PK and CHECK counts, policies, triggers, indexes, privileges, RLS, enums, extensions, views, cron jobs, publication, seed rows) |
+| Residual differences                                          | 13 function bodies differing only in whitespace (token-identical); 83 auto-named constraint notes (postgres-generated names for inline PK/UNIQUE/CHECK) |
+
+The full comparison output and the method are recorded in
+`docs/migration-equivalence-2026-11-11.md`; the tool that produced it is
+`scripts/verify-migrations/` (read-only — every remote statement is a
+`SELECT`).
+
+### Device-index resolution
+
+The earlier "0009 applied out-of-band, unledgered" anomaly is gone: 0009 is
+now applied by the CLI as part of the ordered sequence and recorded as
+version `0009`. Concretely, `public.devices` has `device_fingerprint`,
+`devices_user_fingerprint_unique UNIQUE (user_id, device_fingerprint)` and
+`idx_devices_fingerprint` — created by 0005 and re-created idempotently by
+0009, with 0004's `devices_user_agent_unique` dropped, matching the files
+exactly.
+
+### Production ledger (separate, ledger-only action)
+
+Production's ledger was repaired the same day with
+`npx supabase migration repair --status applied 0008 0009 0010 0011 0012 0013 0014`
+(no schema DDL; verified by a before/after read-only catalog comparison).
+
+Production then still lacked the *content* of 0005/0006; with the Product
+Owner's authorization that gap was closed later the same day by
+`supabase/migrations/20261111103000_backfill_profile_settings.sql`, an
+idempotent corrective migration that was applied to Staging first (where it
+changed nothing) and then to Production. The result is recorded in
+`docs/migration-equivalence-2026-11-11.md`; both projects now show 0 findings
+against the migration files.

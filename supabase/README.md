@@ -1,9 +1,14 @@
 # SilverChat backend foundation
 
-Authentication now adds migration `0004_auth_backup_codes.sql`; see
-[authentication deployment notes](../docs/authentication.md). It is locally
-validated but has not been applied remotely. The remote results below describe
-0001–0003 only. The new local schema has 22 application tables.
+The migration series now runs to `0014_communities.sql`; the tables below
+describe the original 0001–0003 foundation, and
+[Current deployment state](#current-deployment-state-2026-11-11) records what
+is applied on each remote project today.
+
+Authentication added migration `0004_auth_backup_codes.sql`; see
+[authentication deployment notes](../docs/authentication.md). The remote
+results further down describe 0001–0003 as they stood at the time and are
+kept as a historical record; the migration set now has 22 application tables.
 
 Built from roadmap 01, 02, 04a, 04b-1 and 04b-2, after refreshing `main` to
 `bf12b71`. No roadmap files from 05 onward were read for this implementation.
@@ -36,6 +41,37 @@ place. This change adds no UI or application dependencies.
 
 `0004_auth_backup_codes.sql` adds backup codes, device uniqueness, service-only
 recovery RPCs, and MFA assurance gates. Apply it separately before deploying auth.
+
+### Current deployment state (2026-11-11)
+
+The migration set now runs to `0014_communities.sql`; the table above lists the
+original 0001–0003 foundation only.
+
+- **Production** (`lmzbaxlojgsdwgcxkmzx`): the CLI ledger records 0001–0014.
+  0008–0014 were recorded with `migration repair --status applied` (ledger
+  metadata only, no DDL). The *content* of 0005 and 0006 was never created on
+  Production — see `docs/FASE-2.md` for the open decision.
+- **Staging** (`gffdrrtatxdiucigtwdn`): rebuilt from scratch on 2026-11-11;
+  0001–0014 applied in order from the committed (LF) files and verified equal
+  to them — see `docs/staging-migrations-report.md`.
+
+Conventions for migration files:
+
+- **New migrations use timestamp-prefixed filenames**
+  (`YYYYMMDDHHMMSS_<name>.sql`, what `supabase migration new` produces). The
+  existing `000N_<slug>.sql` series is not renumbered and not extended.
+- **Files must stay LF.** `.gitattributes` pins
+  `supabase/migrations/*.sql text eol=lf`; `scripts/db-guard.mjs` blocks a
+  write command when a checked-out migration file contains CRLF, because a
+  CRLF body makes 0005/0007 fail their LF-only exact-text needles (the body
+  of `create_direct_chat_request` is created by 0003, so a CRLF 0003 is what
+  breaks 0005).
+- **Never edit an applied migration file** — add a new, idempotent migration
+  instead.
+
+`scripts/verify-migrations/` compares the schema these files describe with
+the schema of the linked project; the 2026-11-11 result is in
+`docs/migration-equivalence-2026-11-11.md`.
 
 ### Resolved inconsistencies in the specs
 
@@ -143,7 +179,9 @@ The developer applied migrations `0001_initial_schema.sql`,
 `0002_rls_policies.sql`, and `0003_business_logic.sql` in numeric order using
 the Supabase SQL Editor and reported that all three succeeded. The SQL files
 were left unchanged. No remote `supabase link` or `supabase db push` was run
-for this verification, and CLI migration history was not reconciled.
+for this verification, and CLI migration history was not reconciled **at that
+time** — the history was reconciled on 2026-11-11 (see
+[Current deployment state](#current-deployment-state-2026-11-11)).
 
 Read-only SQL through the Management API endpoint
 `POST /v1/projects/{ref}/database/query` confirmed:
