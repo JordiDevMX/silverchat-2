@@ -9,6 +9,6 @@
   "implementation_owner": "PIF Engineer",
   "approval_authority": "Product Owner",
   "documentation_language": "en",
-  "last_reconciled_revision": "fceb0e51750eb06ee9f6f18652f7c43f18d11585",
-  "note": "Initial brownfield governance baseline APPROVED by Product Owner on 2026-11-10 at fceb0e51 (limited to governance baseline structure and accuracy; does not constitute retrospective acceptance of historical implementations or deployment authorization)."
+  "last_reconciled_revision": "42501c4",
+  "note": "Initial brownfield governance baseline APPROVED on 2026-11-10; TASK-012 (Supabase Migration Reconciliation) APPROVED and ACCEPTED by Product Owner on 2026-11-11 following PIF Guardian PASS audit verdict (EVID-011)."
 }
