@@ -49,7 +49,6 @@ test("a matching link with LF-only migrations passes the guard", () => {
   link(root, STAGING_REF);
   migration(root, "0001_lf.sql", "select 1;\n");
   const result = evaluate({
-    root,
     expectedRef: STAGING_REF,
     currentRef: readProjectRef(root),
     crlfFiles: findCrlfMigrations(root),
@@ -63,7 +62,6 @@ test("a mismatched link fails the guard with the expected and actual refs", () =
   const root = makeRepo();
   link(root, PRODUCTION_REF);
   const result = evaluate({
-    root,
     expectedRef: STAGING_REF,
     currentRef: readProjectRef(root),
     crlfFiles: [],
@@ -75,9 +73,7 @@ test("a mismatched link fails the guard with the expected and actual refs", () =
 });
 
 test("an unlinked project fails the guard", () => {
-  const root = makeRepo();
   const result = evaluate({
-    root,
     expectedRef: STAGING_REF,
     currentRef: null,
     crlfFiles: [],
@@ -91,7 +87,6 @@ test("CRLF migration files fail the guard because DO-block needles are LF-only",
   const root = makeRepo();
   link(root, STAGING_REF);
   const result = evaluate({
-    root,
     expectedRef: STAGING_REF,
     currentRef: readProjectRef(root),
     crlfFiles: ["0005_profile_settings.sql"],
@@ -105,7 +100,6 @@ test("production writes need an explicit authorization flag", () => {
   const root = makeRepo();
   link(root, PRODUCTION_REF);
   const withoutFlag = evaluate({
-    root,
     expectedRef: PRODUCTION_REF,
     currentRef: readProjectRef(root),
     crlfFiles: [],
@@ -115,7 +109,6 @@ test("production writes need an explicit authorization flag", () => {
   assert.match(withoutFlag.errors.join("\n"), /authorization/i);
 
   const withFlag = evaluate({
-    root,
     expectedRef: PRODUCTION_REF,
     currentRef: readProjectRef(root),
     crlfFiles: [],
@@ -128,7 +121,6 @@ test("an unknown expected ref fails the guard", () => {
   const root = makeRepo();
   link(root, "someotherref");
   const result = evaluate({
-    root,
     expectedRef: "someotherref",
     currentRef: readProjectRef(root),
     crlfFiles: [],
