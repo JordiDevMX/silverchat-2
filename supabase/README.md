@@ -37,6 +37,31 @@ place. This change adds no UI or application dependencies.
 `0004_auth_backup_codes.sql` adds backup codes, device uniqueness, service-only
 recovery RPCs, and MFA assurance gates. Apply it separately before deploying auth.
 
+### Current deployment state (2026-11-11)
+
+The migration set now runs to `0014_communities.sql`; the table above lists the
+original 0001–0003 foundation only.
+
+- **Production** (`lmzbaxlojgsdwgcxkmzx`): the CLI ledger records 0001–0014.
+  0008–0014 were recorded with `migration repair --status applied` (ledger
+  metadata only, no DDL). The *content* of 0005 and 0006 was never created on
+  Production — see `docs/FASE-2.md` for the open decision.
+- **Staging** (`gffdrrtatxdiucigtwdn`): rebuilt from scratch on 2026-11-11;
+  0001–0014 applied in order from the committed (LF) files and verified equal
+  to them — see `docs/staging-migrations-report.md`.
+
+Conventions for migration files:
+
+- **New migrations use timestamp-prefixed filenames**
+  (`YYYYMMDDHHMMSS_<name>.sql`, what `supabase migration new` produces). The
+  existing `000N_<slug>.sql` series is not renumbered.
+- **Files must stay LF.** `.gitattributes` pins
+  `supabase/migrations/*.sql text eol=lf`; `scripts/db-guard.mjs` blocks a
+  write command when a checked-out migration file contains CRLF, because
+  0005/0007 match function bodies by exact text with LF-only needles.
+- **Never edit an applied migration file** — add a new, idempotent migration
+  instead.
+
 ### Resolved inconsistencies in the specs
 
 - 04a names **13 enums**, although the request and 04b-2 summary say 14. No

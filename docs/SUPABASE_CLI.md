@@ -53,6 +53,56 @@ All three should succeed.
 | `npx supabase db lint --linked`        | Lint the remote schema               |
 | `npx supabase db reset`                | Reset LOCAL db (needs Docker)        |
 
+## Guard before any write to a remote database
+
+`scripts/db-guard.mjs` must pass before `db push`, `migration repair` or any
+other command that mutates a remote database. It refuses to let you write to
+the wrong project, and it refuses to push migrations whose line endings would
+break the exact-text rewrites in 0005/0007.
+
+```bash
+# staging
+node scripts/db-guard.mjs --expect gffdrrtatxdiucigtwdn
+
+# production (requires the explicit authorization flag)
+node scripts/db-guard.mjs --expect lmzbaxlojgsdwgcxkmzx --allow-production
+```
+
+The guard checks that:
+
+1. the expected ref is a known project (production or staging);
+2. `supabase/.temp/project-ref` exists and is exactly the expected project;
+3. production writes carry `--allow-production`;
+4. no file in `supabase/migrations/` contains CRLF line endings.
+
+Exit code 0 means "proceed", 1 means "blocked" with the reason printed. It
+never touches the network and never writes to the database.
+
+## Project references in use
+
+| Environment | Project ref              | Notes                                             |
+| ----------- | ------------------------ | ------------------------------------------------- |
+| Production  | `lmzbaxlojgsdwgcxkmzx`   | Ledger repaired 2026-11-11: 14/14 versions recorded |
+| Staging     | `gffdrrtatxdiucigtwdn`   | Rebuilt 2026-11-11: 0001–0014 applied from scratch  |
+
+## Rules for migration files
+
+- **Line endings must be LF.** `.gitattributes` pins
+  `supabase/migrations/*.sql text eol=lf`, because 0005 and 0007 match
+  function bodies by exact text with LF-only needles. If a Windows checkout
+  materializes CRLF, those migrations abort with
+  `Unexpected create_direct_chat_request definition; migration stopped`.
+  Repair a dirty working tree with:
+  `git rm --cached -r supabase/migrations && git reset --hard supabase/migrations`.
+- **New migrations use timestamp-prefixed filenames**
+  (`supabase migration new <name>` produces `YYYYMMDDHHMMSS_<name>.sql`).
+  The existing 0001–0014 series stays as-is; do not renumber it.
+- **Never edit an already-applied migration file.** Add a new migration
+  instead — with idempotent guards (`if not exists`, `drop … if exists`) so it
+  is a no-op where the change already landed.
+- **Do not run `supabase db push` against Production.** All 14 versions are
+  recorded there; pushing is unnecessary and risks re-applying DDL.
+
 ## What is NOT committed
 
 - `~/.supabase/access-token` — global, per-machine
@@ -83,6 +133,14 @@ npx supabase projects list && cat supabase/.temp/project-ref
 
 If either fails, do NOT try `supabase login` or `supabase link` yourself.
 Ask the developer to run them.
+
+Before any command that writes to a remote database, run the guard for the
+intended target and stop if it exits non-zero:
+
+```bash
+node scripts/db-guard.mjs --expect gffdrrtatxdiucigtwdn          # staging
+node scripts/db-guard.mjs --expect lmzbaxlojgsdwgcxkmzx --allow-production
+```
 
 Fast path if everything is healthy:
 
