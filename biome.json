@@ -15,7 +15,6 @@
       "!**/.netlify",
       "!**/.agents",
       "!**/.claude",
-      "!**/.superpowers",
       "!**/skills",
       "!**/*.md",
       "!src/types/database.ts",
