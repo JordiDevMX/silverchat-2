@@ -1,31 +1,31 @@
-# Graph Report - silverchat  (2026-11-10)
+# Graph Report - silverchat  (2026-11-11)
 
 ## Corpus Check
-- 482 files · ~256,296 words
+- 493 files · ~278,178 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 18 file(s) not represented in the graph (top: .css 10, (none) 6, .example 1)
 
 ## Summary
-- 2092 nodes · 6649 edges · 118 communities (84 shown, 34 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 29 edges (avg confidence: 0.84)
+- 2200 nodes · 6832 edges · 116 communities (80 shown, 36 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 43 edges (avg confidence: 0.88)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3afa9907`
+- Built from commit: `79f31f5b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- useAction
+- Button
 - App Navigation & Chat Menus
 - cn
 - Initial Postgres Database Schema
 - Netlify Auth BFF Serverless Functions
-- Button
+- router.tsx
 - MessageActionsProvider.tsx
 - messages/types.ts
 - Database Business Logic Triggers
-- supabase.ts
+- ChannelInfoScreen.tsx
 - Conversation Timeline & Bubbles
 - Message Actions Browser Tests
 - useMessages.ts
@@ -35,18 +35,18 @@
 - Package DevDependencies Config
 - Biome Linter & Formatter Config
 - Package Runtime Dependencies
-- useAuth
+- useChats.ts
 - Novedades Browser Test Suite
 - useMessageText
-- i18n-provider.tsx
-- Avatar
+- theme-provider.tsx
+- StoryViewer.tsx
 - @tanstack/react-router
-- ChannelView.tsx
+- lucide-react
 - Messages Browser Test Suite
 - Row Level Security Policies
 - Communities SQL Schema & RPCs
 - NavLink
-- Auth Onboarding & MFA Hooks
+- verify-migrations.mjs
 - Communities, Calls & PWA Roadmap
 - devDependencies
 - utils.ts
@@ -55,9 +55,9 @@
 - lib/auth-provider.tsx
 - Stories & Channels SQL Migration
 - database.ts
-- settings-surfaces.tsx
+- db-guard.test.ts
 - Chats List Browser Test Suite
-- QueryState
+- novedades/types.ts
 - Foundations, Stack & Schema Roadmap
 - useChatUIStore
 - Communities Browser Test Suite
@@ -69,18 +69,18 @@
 - Module 6A — Chat List, Creation and Final Migration Evidence
 - Message Actions SQL Migration
 - Feature Architecture & Verification Docs
-- lucide-react
+- SharedMediaView.tsx
 - I18n & Theme System Roadmap
 - Profile Settings & Block SQL Migration
-- shared.tsx
-- settings.profile.tsx
-- hooks.ts
+- messages/types.ts
+- 20261111103000_backfill_profile_settings.sql
+- ChannelView.tsx
 - Messages Enhancements SQL Migration
 - PIF Shared Memory — Operating Protocol v1.0
-- upload.ts
+- Migration equivalence report — 2026-11-11
 - Profile & Account Deletion Roadmap
 - Chat Layout & Media Upload Roadmap
-- App Skeleton & Deletion Banner
+- dialog.tsx
 - message-actions-concurrency.mjs
 - Profile Docs & Migration Reports
 - Novedades pgTAP SQL Tests
@@ -103,19 +103,14 @@
 - Root TypeScript Project References
 - UI Migration Traceability & Contracts
 - Authentication & AAL2 MFA Docs
-- _authenticated.chats.$chatId.tsx
-- SettingsDialog
+- Migration equivalence verification
+- EmojiPanel.tsx
 - manifest.json
-- useGroupSettings.ts
 - settings-browser.mjs
 - PIF Session Handoff
-- voice-player.tsx
 - Engineer → Guardian Delivery Submission
 - Project Baseline
-- Current Project State
-- Roadmap
 - Evidence Index
-- Requirements Register
 - Bidirectional Traceability Register
 - decisions/README.md
 - handoffs/README.md
@@ -135,16 +130,16 @@
 10. `Avatar()` - 58 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Application HTML Entry (index.html)` --references--> `SilverChat Brand Favicon SVG (public/favicon.svg)`  [EXTRACTED]
-  index.html → public/favicon.svg
-- `clearRedirectCookie()` --calls--> `buildSetCookie()`  [EXTRACTED]
-  tests/auth-bff.test.ts → netlify/functions/_lib/cookies.ts
-- `PlaybackContract()` --calls--> `I18nProvider()`  [EXTRACTED]
-  tests/voice-player.tsx → src/app/providers/i18n-provider.tsx
-- `PlaybackContract()` --calls--> `VoicePlayer()`  [EXTRACTED]
-  tests/voice-player.tsx → src/features/messages/components/VoicePlayer.tsx
-- `Voice Playback Contract Test Fixture HTML (tests/voice-player.html)` --conceptually_related_to--> `Module 6A — Chat List, Creation and Final Migration Evidence`  [INFERRED]
-  tests/voice-player.html → docs/ui-module-6a.md
+- `Findings — Production differed from the migration files (12 objects, all 0005/0006) — RESOLVED` --references--> `authenticated()`  [INFERRED]
+  .pif/inbox/TASK-012-delivery.md → netlify/functions/_lib/supabase-admin.ts
+- `Open questions` --references--> `I18nProvider()`  [INFERRED]
+  .pif/requirements.md → src/app/providers/i18n-provider.tsx
+- `Requirements Register` --references--> `useChats()`  [INFERRED]
+  .pif/requirements.md → src/features/chats/hooks/useChats.ts
+- `Requirements Register` --references--> `useMessageRequests()`  [INFERRED]
+  .pif/requirements.md → src/features/chats/hooks/useMessageRequests.ts
+- `Requirements Register` --references--> `useStorageUsage()`  [INFERRED]
+  .pif/requirements.md → src/features/settings/hooks.ts
 
 ## Import Cycles
 - None detected.
@@ -167,19 +162,19 @@
 - **Unified Message Rendering, Composer & Actions Pipeline** — roadmap_08a_chat_layout_messages_message_list_scroll, roadmap_08a_chat_layout_messages_message_bubble_grouping, roadmap_08a_chat_layout_messages_composer, roadmap_08b_message_actions_action_matrix, roadmap_08b_message_actions_reply_forward_edit_delete, roadmap_10_novedades_stories_channels_channel_view [EXTRACTED 1.00]
 - **PWA Caching, IndexedDB Outbox & Device Push Subscription Lifecycle** — roadmap_13_pwa_offline_workbox_caching, roadmap_13_pwa_offline_indexeddb_outbox, roadmap_13_pwa_offline_web_push_pipeline, roadmap_15_privacy_security_auth_logout_all [INFERRED 0.85]
 
-## Communities (118 total, 34 thin omitted)
+## Communities (116 total, 36 thin omitted)
 
-### Community 0 - "useAction"
-Cohesion: 0.23
-Nodes (14): DisableReadReceiptsModal(), ManageExclusionsModal(), Toggle(), useAction(), useContacts(), useNotificationPreview(), usePreferenceConfirmation(), inAppNotification() (+6 more)
+### Community 0 - "Button"
+Cohesion: 0.05
+Nodes (102): browser-image-compression, react-easy-crop, I18nContext, spanish, useI18n(), useTheme(), Root(), BackupCodesSurface() (+94 more)
 
 ### Community 1 - "App Navigation & Chat Menus"
-Cohesion: 0.06
-Nodes (62): ChatMenuItem, ChatMenuSurface(), FloatingActionButton(), icons, SearchField(), AppNavigation(), ChatContextMenu(), ChatFilters() (+54 more)
+Cohesion: 0.07
+Nodes (53): Badge, BadgeProps, badgeVariants, BrandLockup(), BrandMark(), FloatingActionButton(), icons, SearchField() (+45 more)
 
 ### Community 2 - "cn"
-Cohesion: 0.10
-Nodes (29): @radix-ui/react-dialog, @radix-ui/react-separator, AuthCard(), Avatar(), sizes, Card, CardContent, CardDescription (+21 more)
+Cohesion: 0.17
+Nodes (18): Avatar(), sizes, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, DropdownMenuCheckboxItem (+10 more)
 
 ### Community 3 - "Initial Postgres Database Schema"
 Cohesion: 0.07
@@ -189,49 +184,49 @@ Nodes (64): app_config_set_updated_at, channels_set_updated_at, chats_set_update
 Cohesion: 0.11
 Nodes (45): allowAttempt(), attempts, handler(), schema, handler(), handler(), handler(), schema (+37 more)
 
-### Community 5 - "Button"
-Cohesion: 0.09
-Nodes (44): authenticated, AuthenticatedDestination(), AuthErrorPage, communityChildren, LoginPage, MfaVerifyPage, PickUsernamePage, protectedRoutes (+36 more)
+### Community 5 - "router.tsx"
+Cohesion: 0.05
+Nodes (72): @fontsource-variable/inter, @hookform/resolvers, react-hook-form, App(), AuthenticatedRouter(), queryClient, ConnectionBanner(), rootElement (+64 more)
 
 ### Community 6 - "MessageActionsProvider.tsx"
-Cohesion: 0.19
-Nodes (17): react, Textarea, DeleteMessageModal(), EditMessageModal(), ForwardModal(), Context, MessageActionsProvider(), actionIcons (+9 more)
+Cohesion: 0.18
+Nodes (16): react, QuickReactions(), Textarea, DeleteMessageModal(), EditMessageModal(), Context, MessageActionsProvider(), actionIcons (+8 more)
 
 ### Community 7 - "messages/types.ts"
-Cohesion: 0.13
-Nodes (33): SharedMediaTileSurface(), SharedMediaTab(), Tile(), useSharedFileDownload(), AudioMessage(), ContactMessage(), DownloadButton(), ImageMessage() (+25 more)
+Cohesion: 0.17
+Nodes (26): SharedMediaTileSurface(), StoryCardSurface(), Tile(), AudioMessage(), ContactMessage(), ImageMessage(), LocationMessage(), StickerMessage() (+18 more)
 
 ### Community 8 - "Database Business Logic Triggers"
 Cohesion: 0.07
 Nodes (20): channel_followers_after_delete, channel_followers_after_insert, chat_members_after_delete, community_members_after_delete, community_members_after_insert, idx_channels_last_message, messages_after_insert, messages_after_update (+12 more)
 
-### Community 9 - "supabase.ts"
-Cohesion: 0.16
-Nodes (17): @tanstack/react-query, Profile, useChannelDeletion(), useChannelHeaderActions(), useCreateChannel(), useFollowChannel(), useMuteChannel(), useUnfollowChannel() (+9 more)
+### Community 9 - "ChannelInfoScreen.tsx"
+Cohesion: 0.25
+Nodes (13): ChannelInfoSurface(), ChannelInfoScreen(), EditFields(), useChannelDeletion(), useChannelHeaderActions(), useChannelInfo(), useFollowChannel(), useMuteChannel() (+5 more)
 
 ### Community 10 - "Conversation Timeline & Bubbles"
-Cohesion: 0.13
-Nodes (23): BubbleSurface(), MessageSurface(), ReactionChip(), TimelineDate(), TimelineUnread(), ReplySurface(), DateSeparator(), useMessageActionUI() (+15 more)
+Cohesion: 0.14
+Nodes (22): BubbleSurface(), MessageSurface(), ReactionChip(), TimelineDate(), TimelineUnread(), Modal(), DateSeparator(), InChatSearch() (+14 more)
 
 ### Community 11 - "Message Actions Browser Tests"
 Cohesion: 0.07
 Nodes (34): ago(), bubble(), channels, chat(), chatId, errors, forwardCalls, goto() (+26 more)
 
 ### Community 12 - "useMessages.ts"
-Cohesion: 0.25
-Nodes (14): useSharedMedia(), Action, useMessageActions(), enrichMessages(), useMessages(), usePinnedMessages(), useReactions(), invalidateActions() (+6 more)
+Cohesion: 0.17
+Nodes (25): useSharedMedia(), readDrafts(), useRequestMutation(), useCommunityConversation(), useChat(), useConversationController(), useMarkAsRead(), Action (+17 more)
 
 ### Community 13 - "Chat Settings Browser Tests"
 Cohesion: 0.07
 Nodes (32): ago(), channels, chat(), chatId, errors, fileRows, goto(), groupId (+24 more)
 
 ### Community 14 - "message-actions.test.ts"
-Cohesion: 0.23
-Nodes (9): Recording, useVoiceRecorder(), audioExtension(), audioMimeType(), computePeaks(), recordingLimitMs, AudioStore, useAudioStore (+1 more)
+Cohesion: 0.20
+Nodes (10): zustand, Recording, useVoiceRecorder(), audioExtension(), audioMimeType(), computePeaks(), recordingLimitMs, AudioStore (+2 more)
 
 ### Community 15 - "Chat Picker & Creation Hooks"
-Cohesion: 0.27
-Nodes (15): ChatContactRow(), ChatListSkeleton(), useNewChatPage(), MAX_GROUP_MEMBERS, useNewGroupPage(), buildUserSearchOrFilter(), DirectContactItem, escapeIlikePattern() (+7 more)
+Cohesion: 0.23
+Nodes (16): Skeleton(), ChatContactRow(), ChatListSkeleton(), useNewChatPage(), MAX_GROUP_MEMBERS, useNewGroupPage(), buildUserSearchOrFilter(), DirectContactItem (+8 more)
 
 ### Community 16 - "Package DevDependencies Config"
 Cohesion: 0.07
@@ -245,33 +240,33 @@ Nodes (30): source, assist, actions, noUnusedImports, noUnusedVariables, css, pa
 Cohesion: 0.06
 Nodes (31): dependencies, browser-image-compression, class-variance-authority, clsx, focus-trap-react, @fontsource-variable/inter, frimousse, @hookform/resolvers (+23 more)
 
-### Community 19 - "useAuth"
-Cohesion: 0.16
-Nodes (23): allRows(), chunks(), fetchChats(), useMessageRequests(), useRequestMutation(), useCommunities(), useCommunityChats(), useCommunityConversation() (+15 more)
+### Community 19 - "useChats.ts"
+Cohesion: 0.17
+Nodes (21): useLeaveGroup(), cleanupDrafts(), createDraftWriter(), draftEvent, writeDraft(), useAppNavigation(), useChatMutations(), allRows() (+13 more)
 
 ### Community 20 - "Novedades Browser Test Suite"
 Cohesion: 0.08
 Nodes (28): channels, direct, errors, followed, follows, goto(), longClip, me (+20 more)
 
 ### Community 21 - "useMessageText"
-Cohesion: 0.13
-Nodes (22): frimousse, Badge, quickReactionEmoji, QuickReactions(), VoiceWaveform(), EmojiPanel(), pickerComponents, EmojiPanel (+14 more)
+Cohesion: 0.20
+Nodes (17): ChannelFollowButton(), ChannelRowContent(), ConversationHeaderSurface(), CommunityChatHeader(), CommunityChatView(), ChatHeader(), ScrollToBottomButton(), useMessageText() (+9 more)
 
-### Community 22 - "i18n-provider.tsx"
-Cohesion: 0.16
-Nodes (18): zustand, App(), AuthenticatedRouter(), queryClient, ConnectionBanner(), I18nContext, I18nProvider(), spanish (+10 more)
+### Community 22 - "theme-provider.tsx"
+Cohesion: 0.12
+Nodes (18): Open questions, Requirements Register, Approved scope changes, Milestones, Roadmap, Active / blocked tasks, Current focus, Current Project State (+10 more)
 
-### Community 23 - "Avatar"
-Cohesion: 0.15
-Nodes (21): StoryCardSurface(), StoryProgressSurface(), StoryReplySurface(), StoryStageSurface(), StoryCard(), StoryProgressBar(), StoryReplyInput(), Segment() (+13 more)
+### Community 23 - "StoryViewer.tsx"
+Cohesion: 0.09
+Nodes (32): modalStack, MotionOverlay(), StoryProgressSurface(), StoryReplySurface(), StoryStageSurface(), useUploadProgress(), cleanupUploads(), prepareAndUpload() (+24 more)
 
 ### Community 24 - "@tanstack/react-router"
-Cohesion: 0.23
-Nodes (15): @tanstack/react-router, useAddMembers(), useCommunitySettingsActions(), useCreateCommunity(), useCreateCommunityChat(), useCreateCommunityDialog(), useDeleteCommunity(), useLeaveCommunity() (+7 more)
+Cohesion: 0.18
+Nodes (20): @tanstack/react-query, useAddMembers(), useClearChat(), useGroupMembers(), useGroupSettings(), refreshChatSettings(), useCommunityChats(), useCommunityMembers() (+12 more)
 
-### Community 25 - "ChannelView.tsx"
-Cohesion: 0.19
-Nodes (14): ComposerDock(), AttachmentMenu(), Composer(), EmojiPanel, ContactPicker(), InChatSearch(), MentionAutocomplete(), useContactPicker() (+6 more)
+### Community 25 - "lucide-react"
+Cohesion: 0.15
+Nodes (20): lucide-react, ComposerDock(), quickReactionEmoji, ReplySurface(), VoiceWaveform(), AttachmentMenu(), Composer(), EmojiPanel (+12 more)
 
 ### Community 26 - "Messages Browser Test Suite"
 Cohesion: 0.09
@@ -286,12 +281,12 @@ Cohesion: 0.09
 Nodes (5): community_members_after_delete, community_members_after_role_update, profiles_before_delete_community_succession, public.create_community(), public.handle_profile_deletion_community_succession()
 
 ### Community 29 - "NavLink"
-Cohesion: 0.06
-Nodes (65): ChannelFollowButton(), ChannelInfoSurface(), ChannelRowContent(), ChatSettingsDialog(), ChatSettingsScreenSurface(), MemberRowSurface(), Modal(), modalStack (+57 more)
+Cohesion: 0.08
+Nodes (43): react-dom, ChatMenuItem, ChatMenuSurface(), ChatSettingsDialog(), ChatSettingsScreenSurface(), MemberRowSurface(), CardSurface(), SettingsRow() (+35 more)
 
-### Community 30 - "Auth Onboarding & MFA Hooks"
-Cohesion: 0.17
-Nodes (21): @hookform/resolvers, react-hook-form, CheckEmailPage, LandingPage, PostLoginPage, LandingSurface(), useCheckEmail(), useEmailForm() (+13 more)
+### Community 30 - "verify-migrations.mjs"
+Cohesion: 0.10
+Nodes (38): canonExpr(), canonExprLoose(), intervalSeconds(), LITERAL_PATTERN, matchParen(), relNames(), DUMP_JSON, DUMP_SQL (+30 more)
 
 ### Community 31 - "Communities, Calls & PWA Roadmap"
 Cohesion: 0.11
@@ -302,48 +297,48 @@ Cohesion: 0.13
 Nodes (15): devDependencies, @biomejs/biome, @netlify/functions, supabase, tailwindcss, @tailwindcss/vite, @tanstack/devtools-vite, @tanstack/react-devtools (+7 more)
 
 ### Community 33 - "utils.ts"
-Cohesion: 0.16
-Nodes (10): clsx, @radix-ui/react-hover-card, @radix-ui/react-popover, tailwind-merge, BrandLockup(), BrandMark(), HoverCardContent, PopoverContent (+2 more)
+Cohesion: 0.15
+Nodes (9): clsx, @radix-ui/react-hover-card, @radix-ui/react-popover, @radix-ui/react-separator, tailwind-merge, HoverCardContent, PopoverContent, Separator (+1 more)
 
 ### Community 34 - "App TypeScript Compiler Config"
 Cohesion: 0.08
 Nodes (23): compilerOptions, allowArbitraryExtensions, allowImportingTsExtensions, erasableSyntaxOnly, jsx, lib, module, moduleDetection (+15 more)
 
 ### Community 35 - "sheet.tsx"
-Cohesion: 0.18
-Nodes (11): class-variance-authority, BadgeProps, badgeVariants, SheetContent, SheetContentProps, SheetDescription, SheetFooter(), SheetHeader() (+3 more)
+Cohesion: 0.24
+Nodes (9): class-variance-authority, SheetContent, SheetContentProps, SheetDescription, SheetFooter(), SheetHeader(), SheetOverlay, SheetTitle (+1 more)
 
 ### Community 36 - "lib/auth-provider.tsx"
-Cohesion: 0.09
-Nodes (35): @supabase/supabase-js, generateBackupCodes(), AuthState, Profile, RefreshBody, SessionPayload, Action, useSecuritySettings() (+27 more)
+Cohesion: 0.13
+Nodes (27): @supabase/supabase-js, generateBackupCodes(), AuthState, Profile, RefreshBody, SessionPayload, Action, useSecuritySettings() (+19 more)
 
 ### Community 37 - "Stories & Channels SQL Migration"
 Cohesion: 0.11
 Nodes (8): idx_messages_channel_cursor, idx_messages_reply_to_story, idx_stories_active, idx_stories_thumbnail, messages_validate_novedades, public.get_story_viewers(), public.set_message_reaction(), public.update_channel_info()
 
 ### Community 38 - "database.ts"
-Cohesion: 0.12
-Nodes (21): focus-trap-react, communityLayout, CommunityCardSurface(), CommunityChatRowContent(), CommunityCard(), CommunityChatListItem(), CommunityChatSidebar(), CreateCommunityChatModal() (+13 more)
+Cohesion: 0.11
+Nodes (25): focus-trap-react, communityLayout, CommunityCardSurface(), CommunityChatRowContent(), CommunityCard(), CommunityChatListItem(), CommunityChatSidebar(), CreateCommunityChatModal() (+17 more)
 
-### Community 39 - "settings-surfaces.tsx"
-Cohesion: 0.17
-Nodes (17): useTheme(), AccentChoice(), SETTINGS_ACCENTS, SettingsPageSurface(), SettingsToggle(), ThemeChoice(), Switch, SettingsPage() (+9 more)
+### Community 39 - "db-guard.test.ts"
+Cohesion: 0.09
+Nodes (23): Changes made, Checks and evidence, Database-side changes (authorized), Engineer → Guardian Delivery Submission, Findings — Production differed from the migration files (12 objects, all 0005/0006) — RESOLVED, Human verification needed, Independent review, Reconciliation — new files (+15 more)
 
 ### Community 40 - "Chats List Browser Test Suite"
 Cohesion: 0.14
 Nodes (19): ago(), creationCalls, errors, fulfill(), liveConfig, membership(), memberships, menu() (+11 more)
 
-### Community 41 - "QueryState"
-Cohesion: 0.20
-Nodes (16): PublicProfileSurface(), ContactProfileModal(), QueryState(), Profile, usePublicProfile(), useSocialLinksForm(), clean(), FIXED_PLATFORMS (+8 more)
+### Community 41 - "novedades/types.ts"
+Cohesion: 0.10
+Nodes (19): Profile, useChannels(), useDeleteStory(), viewedThisSession, useMyStories(), useStories(), FollowedChannel, Story (+11 more)
 
 ### Community 42 - "Foundations, Stack & Schema Roadmap"
 Cohesion: 0.11
 Nodes (14): LiveKit Token Generation Edge Function, SilverChat Infrastructure Stack, Frontend SPA Tech Stack (Vite 6 + React 19 + TypeScript Strict), Supabase Typed Client (src/lib/supabase.ts), Glassmorphism (.glass-surface) & Motion Tokens, handle_new_user() Auth Onboarding Trigger, SilverChat 21-Table Postgres Schema (0001_initial_schema.sql), profiles_visible Column-Level Privacy View (+6 more)
 
 ### Community 43 - "useChatUIStore"
-Cohesion: 0.18
-Nodes (14): useAddMembersDialog(), useChatSettingsLayer(), useContactProfile(), useContactProfileActions(), ChatModal, useChatUIStore, CreateDirectChatInput, formatDirectChatError() (+6 more)
+Cohesion: 0.13
+Nodes (20): @tanstack/react-router, useChatSettingsLayer(), useContactProfile(), useContactProfileActions(), saveGroupAvatar(), ChatModal, useChatUIStore, CreateDirectChatInput (+12 more)
 
 ### Community 44 - "Communities Browser Test Suite"
 Cohesion: 0.13
@@ -373,9 +368,9 @@ Nodes (4): idx_messages_forwarded_from, messages_pin_limit, messages_validate_ed
 Cohesion: 0.20
 Nodes (13): Prompt 09 Contact Profile & Chat Settings Verification Report, Prompt 08b Message Actions Verification Report, Contact Profiles, Group Admin RPCs & Shared Media (Prompt 09 / Migration 0011), Active Chats List, Filters, Requests & Local Drafts (Prompt 07 / Migration 0007), Communities Hierarchy, Succession & Shared Conversation (Prompt 11 / Migration 0014), Hardened Message Actions & Exclusive Voice Notes (Prompt 08b / Migration 0010), Conversation History, Optimistic Outbox & Private Media (Prompt 08a / Migration 0008), New Direct Chat & New Group Creation Flows (Prompt 07 Gap Fix) (+5 more)
 
-### Community 53 - "lucide-react"
-Cohesion: 0.25
-Nodes (13): lucide-react, SharedFileRowSurface(), FileIconTile(), icons, FileRow(), FileMessage(), MediaPreviewModal(), formatBytes() (+5 more)
+### Community 53 - "SharedMediaView.tsx"
+Cohesion: 0.12
+Nodes (23): SharedFileRowSurface(), FileIconTile(), icons, FileRow(), SharedFilesTab(), SharedMediaTab(), SharedMediaView(), useSharedFileDownload() (+15 more)
 
 ### Community 54 - "I18n & Theme System Roadmap"
 Cohesion: 0.18
@@ -385,17 +380,17 @@ Nodes (12): src/features/settings/components/AppearanceScreen.tsx, src/lib/i18n.
 Cohesion: 0.18
 Nodes (6): idx_devices_fingerprint, idx_profiles_pending_deletion, messages_block_check, profiles_username_change_validation, public.profiles_blocked, public.profiles_visible
 
-### Community 56 - "shared.tsx"
-Cohesion: 0.27
-Nodes (14): useI18n(), settingsRowClassName, SettingsRowContent(), SettingsShellSurface(), LogoutConfirmModal(), SettingRow(), SettingsPage(), Toggle() (+6 more)
+### Community 56 - "messages/types.ts"
+Cohesion: 0.19
+Nodes (12): TextMessage(), useComposerController(), mentionIds(), useMentions(), grouped(), groupMessages(), sameDay(), Member (+4 more)
 
-### Community 57 - "settings.profile.tsx"
-Cohesion: 0.23
-Nodes (12): browser-image-compression, react-easy-crop, AvatarPickerModal(), useAvatarPicker(), schema, useProfileForm(), cropAvatar(), deleteAvatarFile() (+4 more)
+### Community 57 - "20261111103000_backfill_profile_settings.sql"
+Cohesion: 0.19
+Nodes (7): idx_profiles_pending_deletion, messages_block_check, profiles_username_change_validation, public.check_blocked_on_message_insert(), public.profiles_blocked, public.profiles_visible, public.validate_username_change()
 
-### Community 58 - "hooks.ts"
-Cohesion: 0.20
-Nodes (11): BlockUserModal(), blockUser(), Settings, SettingsPatch, useBlockedContacts(), useBlockedUsers(), useBlockUser(), AccountPreferences() (+3 more)
+### Community 58 - "ChannelView.tsx"
+Cohesion: 0.33
+Nodes (6): useInChatSearch(), ChannelComposer(), ChannelView(), useChannelReadCursor(), channelChat(), ChannelPage()
 
 ### Community 59 - "Messages Enhancements SQL Migration"
 Cohesion: 0.25
@@ -405,9 +400,9 @@ Nodes (5): idx_messages_chat, idx_messages_mentions, idx_messages_thumbnail, mes
 Cohesion: 0.13
 Nodes (14): 10. Recovery, 11. Stop conditions, 12. Language, 1. Roles, 2. Canonical files and minimalism, 3. Claim classification, 4. Record and link conventions, 5. Controlled update transaction (+6 more)
 
-### Community 61 - "upload.ts"
-Cohesion: 0.32
-Nodes (10): cleanupUploads(), prepareAndUpload(), safeFilename(), uploadToStorage(), videoThumbnail(), StoryCreator(), StoryTextEditor(), useCreateStory() (+2 more)
+### Community 61 - "Migration equivalence report — 2026-11-11"
+Cohesion: 0.22
+Nodes (8): Differences proven to be presentational, Ledger, Migration equivalence report — 2026-11-11, Production — 12 findings (resolved by the corrective migration), Reconciliation (2026-11-11, later the same day), Scope of the comparison, Summary, Why 0005 is missing on Production
 
 ### Community 62 - "Profile & Account Deletion Roadmap"
 Cohesion: 0.20
@@ -417,9 +412,9 @@ Nodes (6): Device Fingerprinting & Session Management (devices.ts), Prompt #6: P
 Cohesion: 0.20
 Nodes (5): Composer, Lazy Emoji Picker (frimousse) & @Mention Autocomplete, Prompt #8a: Chat Layout, Message Rendering & Composer Specification, MessageBubble & Consecutive Message Grouping (groupMessages.ts), MessageContent Dispatcher & 9 Content Subtypes, Migration 0008: Message Mentions GIN Index & Profiles Realtime
 
-### Community 64 - "App Skeleton & Deletion Banner"
-Cohesion: 0.43
-Nodes (4): AppSkeleton(), ShellBackdrop(), Skeleton(), AuthenticatedLayout()
+### Community 64 - "dialog.tsx"
+Cohesion: 0.29
+Nodes (7): @radix-ui/react-dialog, DialogContent, DialogDescription, DialogFooter(), DialogHeader(), DialogOverlay, DialogTitle
 
 ### Community 65 - "message-actions-concurrency.mjs"
 Cohesion: 0.16
@@ -450,8 +445,8 @@ Cohesion: 0.25
 Nodes (5): Prompt #7: Chats List Specification, MessageRequestsSection (Accept & 7-Day Cooldown Decline), Migration 0007: Chat Delete Adjustments & Read/Unread RPCs, useChats, useMessageRequests & Realtime Subscriptions, ReplyPreview, ForwardModal, EditMessageModal & DeleteMessageModal
 
 ### Community 77 - "Auth BFF Browser Test Suite"
-Cohesion: 0.20
-Nodes (6): failures, fulfill(), jwt(), session(), storedHashes, wav
+Cohesion: 0.33
+Nodes (5): failures, fulfill(), jwt(), session(), storedHashes
 
 ### Community 78 - "Query Storm & Story Burst Fix Docs"
 Cohesion: 0.47
@@ -461,33 +456,25 @@ Nodes (3): Novedades Query Storm Fix Report, Supabase Health Outage Detection an
 Cohesion: 0.67
 Nodes (3): UI Migration Closeout Policy, Standalone Visual Review Server (pnpm review:ui), Phased UI Migration Execution Log (Modules 1-6A)
 
-### Community 100 - "_authenticated.chats.$chatId.tsx"
-Cohesion: 0.27
-Nodes (8): ConversationHeaderSurface(), CommunityChatHeader(), CommunityChatView(), ChatHeader(), PinnedMessagesBar(), ChatPage(), Conversation(), CommunityChatPage()
+### Community 100 - "Migration equivalence verification"
+Cohesion: 0.29
+Nodes (6): Guarantees, Migration equivalence verification, Probes, Reading the report, Usage, What is compared
 
-### Community 101 - "SettingsDialog"
-Cohesion: 0.35
-Nodes (10): SettingsDialog(), DeleteAccountModal(), PendingDeletionBanner(), useAccountActions(), useAccountDeletion(), useDeletionCancellation(), useEmailChange(), useProfileRefresh() (+2 more)
+### Community 101 - "EmojiPanel.tsx"
+Cohesion: 0.47
+Nodes (4): frimousse, EmojiPanel(), pickerComponents, resolveEmojiData()
 
 ### Community 102 - "manifest.json"
 Cohesion: 0.15
 Nodes (12): approval_authority, baseline_revision, baseline_status, documentation_language, governance_owner, implementation_owner, last_reconciled_revision, note (+4 more)
 
-### Community 103 - "useGroupSettings.ts"
-Cohesion: 0.37
-Nodes (7): useClearChat(), useGroupMembers(), useGroupSettings(), useLeaveGroup(), refreshChatSettings(), writeDraft(), useCommunityMembers()
-
 ### Community 104 - "settings-browser.mjs"
-Cohesion: 0.15
-Nodes (11): backupWrites, errors, fulfill(), other, patches, profile, removed, replacementHashes (+3 more)
+Cohesion: 0.12
+Nodes (12): backupWrites, errors, fulfill(), other, patches, profile, removed, replacementHashes (+4 more)
 
 ### Community 105 - "PIF Session Handoff"
 Cohesion: 0.22
 Nodes (8): Active task and exact revision, Approved objective and scope, Blocking issues / pending approvals, Gate states and evidence, Last independently verified milestone, Latest source records, Next authorized action, PIF Session Handoff
-
-### Community 106 - "voice-player.tsx"
-Cohesion: 0.25
-Nodes (5): @fontsource-variable/inter, react-dom, rootElement, PlaybackContract(), root
 
 ### Community 107 - "Engineer → Guardian Delivery Submission"
 Cohesion: 0.25
@@ -497,33 +484,25 @@ Nodes (7): Changes made, Checks and evidence, Engineer → Guardian Delivery Sub
 Cohesion: 0.25
 Nodes (7): Approvals, Constraints and non-goals, Definition of Success, Goals, Problem and purpose, Project Baseline, Scope
 
-### Community 109 - "Current Project State"
-Cohesion: 0.29
-Nodes (6): Active / blocked tasks, Current focus, Current Project State, Next authorized step, Open decisions and risks, Quality gates
-
-### Community 110 - "Roadmap"
-Cohesion: 0.50
-Nodes (3): Approved scope changes, Milestones, Roadmap
-
 ## Knowledge Gaps
 - **53 isolated node(s):** `linkifyjs`, `tw-animate-css`, `@biomejs/biome`, `@types/node`, `@types/react` (+48 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 643 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **34 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 689 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **36 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `react` connect `MessageActionsProvider.tsx` to `useAction`, `App Navigation & Chat Menus`, `cn`, `Button`, `messages/types.ts`, `supabase.ts`, `Conversation Timeline & Bubbles`, `useMessages.ts`, `message-actions.test.ts`, `Chat Picker & Creation Hooks`, `Package DevDependencies Config`, `useAuth`, `useMessageText`, `i18n-provider.tsx`, `Avatar`, `@tanstack/react-router`, `ChannelView.tsx`, `NavLink`, `Auth Onboarding & MFA Hooks`, `utils.ts`, `sheet.tsx`, `lib/auth-provider.tsx`, `database.ts`, `settings-surfaces.tsx`, `QueryState`, `useChatUIStore`, `lucide-react`, `shared.tsx`, `settings.profile.tsx`, `hooks.ts`, `upload.ts`, `App Skeleton & Deletion Banner`, `_authenticated.chats.$chatId.tsx`, `SettingsDialog`, `voice-player.tsx`?**
-  _High betweenness centrality (0.095) - this node is a cross-community bridge._
+- **Why does `react` connect `MessageActionsProvider.tsx` to `Button`, `App Navigation & Chat Menus`, `cn`, `router.tsx`, `messages/types.ts`, `ChannelInfoScreen.tsx`, `Conversation Timeline & Bubbles`, `useMessages.ts`, `message-actions.test.ts`, `Chat Picker & Creation Hooks`, `Package DevDependencies Config`, `useChats.ts`, `useMessageText`, `theme-provider.tsx`, `StoryViewer.tsx`, `@tanstack/react-router`, `lucide-react`, `NavLink`, `utils.ts`, `sheet.tsx`, `lib/auth-provider.tsx`, `database.ts`, `useChatUIStore`, `SharedMediaView.tsx`, `messages/types.ts`, `ChannelView.tsx`, `dialog.tsx`?**
+  _High betweenness centrality (0.100) - this node is a cross-community bridge._
 - **What connects `linkifyjs`, `tw-animate-css`, `@biomejs/biome` to the rest of the system?**
   _53 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Button` be split into smaller, more focused modules?**
+  _Cohesion score 0.05458612975391499 - nodes in this community are weakly interconnected._
+- **Why does `useAuth()` connect `useMessages.ts` to `Button`, `lib/auth-provider.tsx`, `router.tsx`, `database.ts`, `MessageActionsProvider.tsx`, `messages/types.ts`, `ChannelInfoScreen.tsx`, `Conversation Timeline & Bubbles`, `useChatUIStore`, `ChannelView.tsx`, `novedades/types.ts`, `Chat Picker & Creation Hooks`, `useChats.ts`, `useMessageText`, `StoryViewer.tsx`, `@tanstack/react-router`, `messages/types.ts`, `NavLink`?**
+  _High betweenness centrality (0.057) - this node is a cross-community bridge._
 - **Should `App Navigation & Chat Menus` be split into smaller, more focused modules?**
-  _Cohesion score 0.06181410974244121 - nodes in this community are weakly interconnected._
-- **Why does `useAuth()` connect `useAuth` to `useAction`, `App Navigation & Chat Menus`, `Button`, `MessageActionsProvider.tsx`, `messages/types.ts`, `supabase.ts`, `Conversation Timeline & Bubbles`, `useMessages.ts`, `Chat Picker & Creation Hooks`, `useMessageText`, `i18n-provider.tsx`, `Avatar`, `@tanstack/react-router`, `ChannelView.tsx`, `NavLink`, `Auth Onboarding & MFA Hooks`, `lib/auth-provider.tsx`, `database.ts`, `settings-surfaces.tsx`, `QueryState`, `useChatUIStore`, `shared.tsx`, `hooks.ts`, `upload.ts`, `App Skeleton & Deletion Banner`, `SettingsDialog`, `useGroupSettings.ts`?**
-  _High betweenness centrality (0.051) - this node is a cross-community bridge._
-- **Should `cn` be split into smaller, more focused modules?**
-  _Cohesion score 0.10160427807486631 - nodes in this community are weakly interconnected._
-- **Why does `Button` connect `Button` to `useAction`, `App Navigation & Chat Menus`, `cn`, `MessageActionsProvider.tsx`, `Chat Picker & Creation Hooks`, `useMessageText`, `i18n-provider.tsx`, `Avatar`, `ChannelView.tsx`, `NavLink`, `Auth Onboarding & MFA Hooks`, `database.ts`, `settings-surfaces.tsx`, `QueryState`, `lucide-react`, `shared.tsx`, `settings.profile.tsx`, `hooks.ts`, `upload.ts`, `SettingsDialog`?**
-  _High betweenness centrality (0.031) - this node is a cross-community bridge._
+  _Cohesion score 0.06569133677567413 - nodes in this community are weakly interconnected._
+- **Why does `Button` connect `Button` to `App Navigation & Chat Menus`, `cn`, `router.tsx`, `database.ts`, `MessageActionsProvider.tsx`, `ChannelInfoScreen.tsx`, `Chat Picker & Creation Hooks`, `useMessageText`, `SharedMediaView.tsx`, `StoryViewer.tsx`, `lucide-react`, `ChannelView.tsx`, `NavLink`?**
+  _High betweenness centrality (0.032) - this node is a cross-community bridge._
 - **Should `Initial Postgres Database Schema` be split into smaller, more focused modules?**
   _Cohesion score 0.0673903211216644 - nodes in this community are weakly interconnected._
