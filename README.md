@@ -64,7 +64,6 @@ Apply **migration 0007 after 0001–0006 before deploying the frontend**. See th
 [chat-list deployment notes and verification checklist](docs/chats-list.md).
 Run `pnpm test:chats` alongside the existing checks.
 
-
 ## Chat conversations
 
 Prompt 08a adds message history, all nine message renderers, optimistic sends,
@@ -98,3 +97,32 @@ See [implementation/deployment notes](docs/novedades.md) and
 [verification status](docs/novedades-implementation-status.md). Migration 0012
 is locally validated; staging application and manual end-to-end checks remain
 pending. Do not change deployed migrations 0001–0011.
+
+# PIF Shared Memory v1.0
+
+A file-based governance and evidence system shared by **PIF Engineer v2.0** and **PIF Guardian v1.0**. This folder is a template, not evidence of a completed project.
+
+## Getting started
+
+1. Copy `.pif/` into the project repository, on an agreed governance branch or otherwise approved location.
+2. Set the project ID, title and scope in `project.md`; approve the initial baseline.
+3. Guardian maintains canonical records only when authorized. Engineer reads them and submits change proposals via `inbox/` or a PR; Engineer never silently edits the approved baseline.
+4. Record implementation evidence with stable paths and revision identifiers; do not equate reported results with verified results.
+5. Commit governance changes to Git for history and review. Protect sensitive content; never commit credentials.
+6. Read `SHARED_MEMORY_PROTOCOL.md` for mandatory procedures and decision rules.
+
+## Files
+
+- `.pif/manifest.json`: schema, baseline and ownership metadata.
+- `.pif/project.md`: approved purpose, boundaries and success.
+- `.pif/requirements.md`: requirements and acceptance criteria.
+- `.pif/roadmap.md`: milestones and task dependencies.
+- `.pif/state.md`: current evidence-backed state (a snapshot, not a history rewrite).
+- `.pif/traceability.md`: relationships between objectives, requirements, tasks, implementation and tests.
+- `.pif/decisions/`: decision records.
+- `.pif/evidence/index.md`: evidence index; artifacts may live elsewhere.
+- `.pif/history/changes.md`: append-only material governance change log.
+- `.pif/inbox/`: Engineer proposals and review requests (suggestions, not authoritative state).
+- `.pif/handoffs/`: concise, dated handoff notes with source revision.
+
+**Policy:** no background synchronization is implied; agents must have file access or receive explicit handoffs. Repository permissions and branch protections, where configured, enforce boundaries more reliably than prompt text alone.

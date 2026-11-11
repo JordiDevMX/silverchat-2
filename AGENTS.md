@@ -1,14 +1,62 @@
-# SilverChat working agreements
+# PIF — Shared Project Instructions
 
-- **CON-006 — Quality and autonomy:** work step by step, favor quality, and adapt architectural suggestions to the existing implementation. Preserve business/data contracts. Extract workflows into hooks/lib and pass the app typecheck before changing their JSX. Respect the user-approved migration scope and stop at its review boundary.
-- **CON-007 — One commit per turn:** create exactly one commit at the very end of each work turn, after all work and verification are complete and immediately before the handoff. Reference affected `UI_MIGRATION_MAP.md` IDs and exclude unrelated user changes. Do not create intermediate micro-commits or rewrite existing history. The verified Phase 2.1/Module 1 baseline remains `ff3b4eb`.
-- **CON-008 — Usable browser review, no image artifacts:** do not generate or save screenshots/PNG images for visual review, including failure screenshots in browser harnesses. Functional browser assertions are allowed. Before handoff, verify the work from a clean dev server and browser state. Report exact commands, URLs with ports, viewport sizes, themes and accents for manual devtools review on the local dev server (`pnpm dev` at `http://127.0.0.1:5173`) and authenticated app routes requiring the backend.
-- **CON-010 — Publish the branch:** after the single final commit, push the current working branch to its remote (set upstream when needed). Push only: never open a pull request, merge, rebase or force-push published history, or touch other branches unless explicitly requested. Report the commit hash and pushed remote branch.
+This repository uses the Project Intelligence Framework (PIF).
 
-- **CON-011 — Living UI:** every migrated surface should use tasteful, responsive micro-animations for overlays, hover/press, reveals and state changes. Choose techniques and easing to suit the surface; the community-card 200ms ease-out is an example, not a fixed rule. Reduced motion makes decorative motion instant. Never block interaction or harm scroll/send performance; keep functional timing, including story autoplay, independent of decorative motion.
+## Role Separation
 
-- **CON-012 — Quality evidence:** report an explicit green/red evidence table for every requested gate and suite, including unavailable prerequisites; never label an unrun suite green.
+Two independent agents operate in this project:
 
-## UI migration closeout
+- PIF Engineer: implementation and technical verification.
+- PIF Guardian: governance, memory integrity, and independent auditing.
 
-Module 6A, the authorized final chat-list migration, is implemented and regression-verified; formal closure awaits user acceptance. Module 5C / TASK-006 remains the historical cleanup baseline (`84df8e5`). `_ui_reference/` and the temporary standalone UI review fixture were removed with explicit user authorization and no longer exist. Donor paths in `UI_MIGRATION_MAP.md` are historical provenance, not live dependencies. Preserve the established business/data contracts and review surfaces directly on the development server and authenticated app. See `docs/ui-module-6a.md` for final evidence and `docs/ui-css-consumers.md` for retained CSS consumers. Further feature or cosmetic work requires its own scope.
+The active agent must follow its own role-specific protocol.
+
+Instructions addressed to another agent are not assigned to the active agent.
+
+## Shared Memory
+
+Authoritative project information is located in `.pif/`.
+
+Before performing significant work:
+
+1. Read `.pif/manifest.json`.
+2. Read `SHARED_MEMORY_PROTOCOL.md`.
+3. Read `.pif/project.md` and `.pif/state.md`.
+4. Load other relevant records as needed.
+5. Identify missing, stale, or conflicting information.
+
+Do not assume that project records are automatically loaded into context.
+
+## Authority
+
+- The Product Owner approves strategic decisions.
+- Engineer owns implementation and technical evidence.
+- Guardian audits evidence and maintains authorized governance records.
+- Neither agent can approve decisions reserved for the Product Owner.
+
+## Memory Integrity
+
+- Do not silently modify approved requirements.
+- Do not turn reported claims into verified facts.
+- Preserve provenance and decision history.
+- Do not overwrite concurrent changes.
+- Respect the ownership and update rules in SHARED_MEMORY_PROTOCOL.md.
+
+## Quality
+
+- Required Quality Gates must not be bypassed.
+- Missing checks must not be reported as passed.
+- Unverified implementation must not be reported as accepted.
+- Operations require their applicable authorization.
+
+## Language
+
+Respond in the user's established language.
+Preserve technical identifiers and commands where appropriate.
+
+## Important
+
+This file defines shared rules only.
+
+It does not assign the Engineer or Guardian role.
+Do not merge their responsibilities.
