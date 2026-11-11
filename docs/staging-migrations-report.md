@@ -216,6 +216,11 @@ recur silently.
 | Catalog comparison vs. the migration files                   | **0 findings** (functions, tables/columns, constraints incl. FK/UNIQUE/PK and CHECK counts, policies, triggers, indexes, privileges, RLS, enums, extensions, views, cron jobs, publication, seed rows) |
 | Residual differences                                          | 13 function bodies differing only in whitespace (token-identical); 83 auto-named constraint notes (postgres-generated names for inline PK/UNIQUE/CHECK) |
 
+The full comparison output and the method are recorded in
+`docs/migration-equivalence-2026-11-11.md`; the tool that produced it is
+`scripts/verify-migrations/` (read-only — every remote statement is a
+`SELECT`).
+
 ### Device-index resolution
 
 The earlier "0009 applied out-of-band, unledgered" anomaly is gone: 0009 is

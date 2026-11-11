@@ -10,8 +10,9 @@ previous session (see `supabase/README.md`), so the internal
 State as of 2026-11-11 (TASK-012 corrective sequence, Production
 `lmzbaxlojgsdwgcxkmzx`):
 
-- 0001–0007 are recorded in `schema_migrations` (verified by reading the
-  table directly).
+- 0001–0007 are recorded in `schema_migrations`. They were recorded before
+  this task (verified by reading the table directly), independently of the
+  repair below.
 - 0008–0014 had been applied out-of-band and their content was verified
   present, but they were **absent from the ledger** — the CLI therefore wanted
   to apply them again and `supabase db push` was blocked. They are now
@@ -30,7 +31,8 @@ State as of 2026-11-11 (TASK-012 corrective sequence, Production
 Production's ledger records 0005 and 0006 as applied, but their schema
 content was never created there (a read-only catalog comparison against the
 migration files lists 12 missing objects — see
-`.pif/inbox/task-012-corrective-report.md` for the full list and evidence).
+`docs/migration-equivalence-2026-11-11.md` for the full list and method, and
+`.pif/inbox/TASK-012-delivery.md` for the audit submission).
 
 Consequences on Production today: no username-change cooldown trigger, no
 message block-check trigger, no account-deletion scheduling RPCs, no
@@ -41,18 +43,28 @@ Because the ledger already claims 0005/0006, the CLI will never re-apply
 them. Two options, both requiring Product Owner approval (Production writes
 are ledger-only by default):
 
-1. **Backfill with a new migration** (e.g. `0015_…`) written idempotently
+1. **Backfill with a new migration** — a timestamp-prefixed file (for example
+   `20261111090000_backfill_profile_settings.sql`) written idempotently
    (`if not exists`, `drop … if exists` before `create`) so it is a no-op on
    environments where 0005/0006 already applied. This is the only option that
-   restores the intended features to Production.
+   restores the intended features to Production. The existing `000N_` series
+   is not extended.
 2. **Accept the drift** and record it as a known Production gap.
 
-Why 0005 never applied on Production (root cause, verified): 0005 and 0007
-rewrite `public.create_direct_chat_request` by exact text match against
-`pg_get_functiondef()` output using LF-only needles. A CRLF working tree
-stores CRLF inside the function body, the match fails, and 0005 aborts with
-`Unexpected create_direct_chat_request definition; migration stopped`. The
-migration files are committed with LF and `.gitattributes` enforces
-`supabase/migrations/*.sql text eol=lf`; `scripts/db-guard.mjs` now blocks a
-write when a checked-out migration file contains CRLF. See
-`docs/staging-migrations-report.md`.
+Why 0005 was never applied on Production (verified): it was never run there.
+`0009_device_fingerprint.sql` records the same fact in its header, and 0006
+depends on a column only 0005 creates. A read-only probe shows Production's
+`create_direct_chat_request` body is LF-clean and still contains **both** of
+0005's exact-text needles, so 0005 would have applied successfully against
+Production's body.
+
+The related CRLF hazard is a different failure: 0005 and 0007 rewrite
+`public.create_direct_chat_request` by exact text match against
+`pg_get_functiondef()` output with LF-only needles, so a function body that
+was stored with CRLF line endings (because the migration file that created it
+had CRLF) makes the match fail and 0005 aborts with `Unexpected
+create_direct_chat_request definition; migration stopped`. That is what
+blocked 0005 on Staging. The migration files are committed with LF and
+`.gitattributes` enforces `supabase/migrations/*.sql text eol=lf`;
+`scripts/db-guard.mjs` now blocks a write when a checked-out migration file
+contains CRLF. See `docs/staging-migrations-report.md`.
