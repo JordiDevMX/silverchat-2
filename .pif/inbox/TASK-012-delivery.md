@@ -11,6 +11,7 @@
 - `de86468635f0897241024082e7429b246a516bc1` — `fix(db): harden the write-target guard after review`
 - `629dd31aeb98d88bd4df2f021e1fd6e6940e2f3b` — `chore(db): commit the migration equivalence tool and its 2026-11-11 result`
 - `60f58ccaf29667d2895f0f0853c319da1eacbf8e` — `docs(db): correct the migration documentation after review`
+- `b78d66d` — `feat(db): backfill the 0005/0006 content gap on Production` (the corrective migration + the verification-tool fix)
 - `docs(pif): submit TASK-012 corrective delivery for Guardian audit` — the commit that contains this file (its SHA is reported to the Product Owner separately; it cannot be self-referenced)
 
 **Claim status:** `REPORTED` (Engineer claims below are individually classified; Guardian to re-check). Working tree clean except untracked `.superpowers/` (task working notes) and `graphify-out/cache/last_query_stamp` (pre-existing, untouched).
@@ -29,7 +30,15 @@ The PO authorized five corrective items for `RISK-001`:
 4. **Safeguards** (repository changes, on the branch).
 5. **Guardian delivery** via this file.
 
-Scope kept as authorized: **no schema DDL was executed on Production**; `db push` against Production was never run; migration file contents were not modified; canonical `.pif/` records were not touched (only this inbox file is written).
+A second Product Owner authorization (2026-11-11, after the 12 discrepancies
+were reported) extended the scope to **execute the corrective schema change on
+Production** so that the discrepancies are closed rather than only documented.
+That work is covered below under "Reconciliation".
+
+Scope kept as authorized: the first pass executed **no schema DDL on
+Production**; the reconciliation executed only the 12 discrepancies in scope
+(and nothing else); canonical `.pif/` records were not touched (only this
+inbox file is written); nothing was pushed, merged or deployed.
 
 ---
 
@@ -51,6 +60,17 @@ Scope kept as authorized: **no schema DDL was executed on Production**; `db push
 |---|---|---|
 | Production `lmzbaxlojgsdwgcxkmzx` | `npx supabase migration repair --status applied 0008 0009 0010 0011 0012 0013 0014` | Ledger now records 0001–0014. **Ledger metadata only — no DDL** (verified below). |
 | Staging `gffdrrtatxdiucigtwdn` | Dropped all app objects, reverted stale ledger rows, `npx supabase db push --linked` | 0001–0014 applied from scratch in order. Staging data destroyed (authorized). |
+| Staging `gffdrrtatxdiucigtwdn` (reconciliation) | `npx supabase db push --linked` with the corrective migration | Applied cleanly and changed nothing — the idempotency proof before touching Production. Ledger 14 → 15. |
+| Production `lmzbaxlojgsdwgcxkmzx` (reconciliation) | `npx supabase db push --linked` with the corrective migration (link asserted, dry run first) | The 12 discrepancies closed. Ledger 15 versions, local == remote, equivalence comparison **0 findings**. |
+
+### Reconciliation — new files
+
+| Path | Change |
+|---|---|
+| `supabase/migrations/20261111103000_backfill_profile_settings.sql` | **New.** Idempotent corrective migration creating exactly the 12 missing objects (0005/0006 content), re-applying 0005's two `create_direct_chat_request` rewrites, and appending `avatar_initials` to `profiles_visible`. Recovery SQL is documented in its header. |
+| `scripts/verify-migrations/verify-migrations.mjs` | The 0005/0007 rewrite handler now applies the rewrites based on the **body** rather than the statement text, so a corrective migration that repeats 0005's rewrite leaves an already-rewritten body untouched (same guard the migration itself uses). |
+| `docs/migration-equivalence-2026-11-11.md` | Records the reconciliation and its result; the pre-reconciliation state is kept below it. |
+| `docs/FASE-2.md` | The "Production is missing the content of 0005 and 0006" item becomes **RESOLVED**. |
 
 ### Working-tree hygiene change (not committed)
 
@@ -73,33 +93,39 @@ Scope kept as authorized: **no schema DDL was executed on Production**; `db push
 | CRLF root cause | Read-only `position(<needle> in pg_get_functiondef(...))` on staging | **PASS (reproduced)** — both 0005 needles returned `0`; the stored body contains `\r\n` while the needles are LF-only | `probe-fn.sql`, `fn-raw.json` |
 | Guard unit tests | `node --experimental-strip-types --test tests/db-guard.test.ts` | **PASS** — 15/15 | this session |
 | Guard live behavior | `node scripts/db-guard.mjs --expect <ref> [--allow-production]` | **PASS** — exit 0 on match (+flag for prod); exit 1 on mismatch or missing flag; exit 2 on usage error; also verified through a directory-junction invocation and from a subdirectory | this session |
-| Full test suite | `pnpm test` | **PASS** — 81/81 (72 pre-existing + 9 new) | this session |
+| Full test suite | `pnpm test` | **PASS** — 87/87 (72 pre-existing + 15 guard cases) | this session |
 | Type check | `pnpm typecheck` | **PASS** — exit 0 | this session |
-| Biome on changed files | `npx biome check scripts/db-guard.mjs tests/db-guard.test.ts biome.json` | **PASS** | this session |
+| Biome on changed files | `npx biome check scripts tests/db-guard.test.ts` | **PASS** | this session |
 | Repo-wide lint | `pnpm lint` | **FAIL — pre-existing, not a regression**: ~405 formatting diagnostics in untouched files (CRLF working-tree copies of `src/`, `netlify/`, `package.json`, `tsconfig*.json`). Already tracked as `RISK-004`. Changed files are clean. | this session; `RISK-004` in `.pif/state.md` |
 
 ### Verification method (for reproducibility)
 
 Engineer built a parser that reads all 14 migration files into a final-state inventory and diffs it against a read-only catalog dump of the linked project (`npx supabase db query --linked`, every statement a `SELECT`). The tool is committed at `scripts/verify-migrations/` (with `README.md` describing the method and how to read its output); the result of the 2026-11-11 runs is committed at `docs/migration-equivalence-2026-11-11.md`; the raw per-target dumps and reports stay local under `.migration-verification/` (gitignored). Compared: function bodies/signatures/attributes, tables and columns, constraints (named by name; CHECK by count per table; FK/UNIQUE/PK by column set and FK actions), policies (including expression text), triggers, indexes, privileges, RLS enablement, enum types and labels, extensions, views (options, owner, output columns), cron jobs (command **and** schedule), publication membership, function and view ownership, and `app_config` seed rows.
 
-### Findings — Production differs from the migration files (12 objects, all 0005/0006)
+### Findings — Production differed from the migration files (12 objects, all 0005/0006) — RESOLVED
 
-`VERIFIED` by read-only catalog comparison against the files:
+State before the reconciliation; every row was confirmed present afterwards by a
+read-only probe and the equivalence comparison now returns 0 findings.
 
-| # | Missing on Production | Migration |
-|---|---|---|
-| 1 | `public.profiles.username_changed_at` | 0005 |
-| 2 | `public.profiles.scheduled_deletion_at` | 0005 |
-| 3 | `idx_profiles_pending_deletion` | 0005 |
-| 4 | `public.validate_username_change()` | 0005 |
-| 5 | trigger `profiles_username_change_validation` | 0005 |
-| 6 | `public.check_blocked_on_message_insert()` | 0005 |
-| 7 | trigger `messages_block_check` | 0005 |
-| 8 | view `public.profiles_blocked` | 0005 |
-| 9 | `public.profiles_visible.avatar_initials` column (0005's redefinition not applied; Production still has 0004's view) | 0005 |
-| 10 | `public.create_direct_chat_request` body — 0005's two `pg_get_functiondef()` rewrites not applied (Production still raises `'Initial message cannot be empty'`) | 0005 |
-| 11 | `public.schedule_account_deletion()` | 0006 |
-| 12 | `public.cancel_account_deletion()` | 0006 |
+| # | Was missing on Production | Migration | Resolved by |
+|---|---|---|---|
+| 1 | `public.profiles.username_changed_at` | 0005 | `ADD COLUMN IF NOT EXISTS` |
+| 2 | `public.profiles.scheduled_deletion_at` | 0005 | `ADD COLUMN IF NOT EXISTS` |
+| 3 | `idx_profiles_pending_deletion` | 0005 | `CREATE INDEX IF NOT EXISTS` |
+| 4 | `public.validate_username_change()` | 0005 | `CREATE OR REPLACE FUNCTION` (0005's body verbatim) |
+| 5 | trigger `profiles_username_change_validation` | 0005 | `DROP TRIGGER IF EXISTS` + `CREATE TRIGGER` |
+| 6 | `public.check_blocked_on_message_insert()` | 0005 | `CREATE OR REPLACE FUNCTION` (0005's body verbatim) |
+| 7 | trigger `messages_block_check` | 0005 | `DROP TRIGGER IF EXISTS` + `CREATE TRIGGER` |
+| 8 | view `public.profiles_blocked` | 0005 | `CREATE OR REPLACE VIEW` + owner/revoke/grant |
+| 9 | `public.profiles_visible.avatar_initials` column (Production had 0004's view) | 0005 | `CREATE OR REPLACE VIEW` with 0005's definition (column appended at the end) |
+| 10 | `public.create_direct_chat_request` body — 0005's two `pg_get_functiondef()` rewrites | 0005 | guarded `pg_get_functiondef` rewrite (skips when already applied) |
+| 11 | `public.schedule_account_deletion()` | 0006 | `CREATE OR REPLACE FUNCTION` (0006's body verbatim) |
+| 12 | `public.cancel_account_deletion()` | 0006 | `CREATE OR REPLACE FUNCTION` (0006's body verbatim) |
+
+Privileges were restored to what the files specify: EXECUTE revoked from
+`public`/`anon`/`authenticated` on the two trigger functions, and EXECUTE granted
+to `authenticated` (and revoked from `public`/`anon`/`service_role`) on the two
+deletion RPCs — both confirmed by probe.
 
 Corroboration (`VERIFIED`): `0009_device_fingerprint.sql` header states *"Migration 0005 was never applied to the remote database"*; Production still has 0004's `profiles_visible` definition and the pre-0005 `create_direct_chat_request` body, while 0007's rewrite — which is independent of 0005 — **is** applied.
 
@@ -148,27 +174,28 @@ production gap list are accurate.
 
 ## Risks / open gates
 
-1. **`RISK-001` — ledger desync: RESOLVED for the ledger.** Production records 0001–0014 and `db push` is no longer needed or safe there (`VERIFIED`). *Residual, below, is a different risk.*
-2. **OPEN — Production is missing the content of 0005 and 0006 while its ledger claims them applied.** The CLI will therefore never re-apply them. Options (both need PO approval; Production writes are ledger-only by default): (a) backfill with a new **idempotent** migration (e.g. `0015_…`) that restores the intended features; (b) accept and record the drift. Until then, Production lacks the username-change cooldown, the message block-check trigger, account-deletion scheduling, the `profiles_blocked` management view, and `profiles_visible.avatar_initials`, and `create_direct_chat_request` still behaves as pre-0005.
-3. **OPEN — `RISK-002` and other milestone-scoped gates remain untouched by this delivery.** No application behavior changed; no feature was accepted.
+1. **`RISK-001` — ledger desync: RESOLVED.** Production records 0001–0014 plus the corrective migration `20261111103000` (15 versions, local == remote) and `db push` is no longer needed there (`VERIFIED`).
+2. **RESOLVED — Production was missing the content of 0005 and 0006 while its ledger claimed them applied.** Closed under Product Owner authorization with the idempotent corrective migration `supabase/migrations/20261111103000_backfill_profile_settings.sql`; the equivalence comparison against Production now returns 0 findings and each of the 12 objects was confirmed present by probe (`VERIFIED`). Production now enforces the username-change cooldown and the message block check, and exposes the account-deletion RPCs, `profiles_blocked` and `profiles_visible.avatar_initials`.
+3. **OPEN — `RISK-002` and other milestone-scoped gates remain untouched by this delivery.** No application behavior was exercised; no feature was accepted.
 4. **`RISK-004` (repo-wide Biome drift) is pre-existing** and was not addressed; the changed files pass Biome individually.
 5. **Staging data was destroyed** (authorized). Storage buckets / Auth email templates on staging still need manual setup (pre-existing item in `docs/staging-migrations-report.md`).
-6. **Evidence freshness:** the Production dump (`dump-lmzbaxlojgsdwgcxkmzx.json`) and Staging dump were taken 2026-11-11; they are valid until the next schema change on either project.
+6. **Evidence freshness:** the Production and Staging dumps under `.migration-verification/` were taken 2026-11-11 after the reconciliation; they are valid until the next schema change on either project.
 7. **Scope note:** the equivalence tool canonicalizes SQL expressions (casts, parentheses, `IN`↔`= ANY`, interval literals, relation qualification, subquery aliases). Any residual difference would have been reported; none remained. CHECK constraints are verified by count per table (postgres auto-generates names for inline CHECKs), and FK/UNIQUE/PK by column set and FK actions rather than by constraint name; view bodies are verified by output columns + options + owner rather than full text.
+8. **Behavioral note:** the reconciliation is schema-level. Two guards now fire on Production for the first time — the username-change cooldown trigger and the blocked-user message check. Engineer verified their presence and definitions, not their runtime behavior against live accounts (the platform is pre-launch, and no application test run was authorized).
 
 ## Human verification needed
 
 Do not mark these PASS without confirmation:
 
-1. **Product Owner decision** on the 0005/0006 content gap (backfill vs accept) — recorded in `docs/FASE-2.md`.
-2. **Product Owner / developer** to confirm that the two commits on `engineering/migration-reconciliation` are merged to `main` (Engineer did not merge; no branch was pushed).
+1. **Product Owner / developer** to confirm that the commits on `engineering/migration-reconciliation` are merged to `main` (Engineer did not merge; no branch was pushed).
+2. Optional manual smoke test of the two newly active guards on Staging or Production (username change within 30 days; message to a blocked user) — Engineer verified the schema, not the runtime behavior.
 3. Optional manual smoke test of Staging (rebuilt from scratch) by the developer — Engineer performed only catalog-level verification, not application-level behavior.
 
 ## Requested Guardian action
 
 - Audit the evidence above and create `AUD-…` findings; compare against `RISK-001` and the gate table in `.pif/state.md`.
-- Propose (or perform, if authorized) the canonical status updates: `RISK-001` → resolved for the ledger with the 0005/0006 content gap recorded as a new risk; `G5` (delivery readiness) reconsideration; `TASK-012` state transition. **Engineer has not modified any canonical record.**
-- Note that the verification tool (`scripts/verify-migrations/`) and the equivalence result (`docs/migration-equivalence-2026-11-11.md`) are committed, so the DB facts asserted in the documentation have a committed, re-runnable source.
+- Propose (or perform, if authorized) the canonical status updates: `RISK-001` → resolved (ledger and content); `G5` (delivery readiness) reconsideration; `TASK-012` state transition. **Engineer has not modified any canonical record.**
+- Note that the verification tool (`scripts/verify-migrations/`) and the equivalence result (`docs/migration-equivalence-2026-11-11.md`) are committed, so the DB facts asserted in the documentation have a committed, re-runnable source, and the corrective migration that produced them is in the repository (`supabase/migrations/20261111103000_backfill_profile_settings.sql`).
 
 ---
 

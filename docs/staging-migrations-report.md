@@ -236,5 +236,11 @@ exactly.
 Production's ledger was repaired the same day with
 `npx supabase migration repair --status applied 0008 0009 0010 0011 0012 0013 0014`
 (no schema DDL; verified by a before/after read-only catalog comparison).
-Production still lacks the *content* of 0005/0006 — see `docs/FASE-2.md` for
-the open Product Owner decision.
+
+Production then still lacked the *content* of 0005/0006; with the Product
+Owner's authorization that gap was closed later the same day by
+`supabase/migrations/20261111103000_backfill_profile_settings.sql`, an
+idempotent corrective migration that was applied to Staging first (where it
+changed nothing) and then to Production. The result is recorded in
+`docs/migration-equivalence-2026-11-11.md`; both projects now show 0 findings
+against the migration files.

@@ -26,34 +26,31 @@ State as of 2026-11-11 (TASK-012 corrective sequence, Production
 - The repair rule still holds: do **not** re-apply migrations, modify
   applied migration files, or touch the DB to "fix" history.
 
-## OPEN (2026-11-11): Production is missing the content of 0005 and 0006
+## RESOLVED (2026-11-11, later the same day): Production was missing the content of 0005 and 0006
 
-Production's ledger records 0005 and 0006 as applied, but their schema
-content was never created there (a read-only catalog comparison against the
-migration files lists 12 missing objects — see
-`docs/migration-equivalence-2026-11-11.md` for the full list and method, and
+Production's ledger recorded 0005 and 0006 as applied, but their schema
+content was never created there — a read-only catalog comparison against the
+migration files listed 12 missing objects (see
+`docs/migration-equivalence-2026-11-11.md` for the list and method, and
 `.pif/inbox/TASK-012-delivery.md` for the audit submission).
 
-Consequences on Production today: no username-change cooldown trigger, no
-message block-check trigger, no account-deletion scheduling RPCs, no
-`profiles_blocked` management view, no `profiles_visible.avatar_initials`
-column, and `create_direct_chat_request` still behaves as pre-0005.
+With the Product Owner's authorization, those 12 discrepancies were closed on
+Production by `supabase/migrations/20261111103000_backfill_profile_settings.sql`
+(applied with `npx supabase db push --linked` after `db push --dry-run` showed
+that single pending migration, with the linked project ref asserted). The
+migration is idempotent — it was applied to Staging first, where it changed
+nothing — and it creates exactly the missing objects.
 
-Because the ledger already claims 0005/0006, the CLI will never re-apply
-them. Two options, both requiring Product Owner approval (Production writes
-are ledger-only by default):
-
-1. **Backfill with a new migration** — a timestamp-prefixed file (for example
-   `20261111090000_backfill_profile_settings.sql`) written idempotently
-   (`if not exists`, `drop … if exists` before `create`) so it is a no-op on
-   environments where 0005/0006 already applied. This is the only option that
-   restores the intended features to Production. The existing `000N_` series
-   is not extended.
-2. **Accept the drift** and record it as a known Production gap.
+After the push the equivalence comparison against Production returns **0
+findings**, and each of the 12 objects was confirmed present by a direct
+read-only probe. Production now has the username-change cooldown trigger, the
+message block-check trigger, the account-deletion scheduling RPCs, the
+`profiles_blocked` management view, `profiles_visible.avatar_initials`, and a
+`create_direct_chat_request` that behaves as 0005 specifies.
 
 Why 0005 was never applied on Production (verified): it was never run there.
 `0009_device_fingerprint.sql` records the same fact in its header, and 0006
-depends on a column only 0005 creates. A read-only probe shows Production's
+depends on a column only 0005 creates. A read-only probe showed Production's
 `create_direct_chat_request` body is LF-clean and still contains **both** of
 0005's exact-text needles, so 0005 would have applied successfully against
 Production's body.

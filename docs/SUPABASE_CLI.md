@@ -107,8 +107,8 @@ must show `w/lf`.
 
 | Environment | Project ref              | Notes                                             |
 | ----------- | ------------------------ | ------------------------------------------------- |
-| Production  | `lmzbaxlojgsdwgcxkmzx`   | Ledger repaired 2026-11-11: 14/14 versions recorded |
-| Staging     | `gffdrrtatxdiucigtwdn`   | Rebuilt 2026-11-11: 0001–0014 applied from scratch  |
+| Production  | `lmzbaxlojgsdwgcxkmzx`   | Ledger 2026-11-11: 15/15 versions recorded (0001–0014 + the corrective backfill) |
+| Staging     | `gffdrrtatxdiucigtwdn`   | Rebuilt 2026-11-11: 0001–0014 applied from scratch, plus the same corrective migration (a no-op there) |
 
 ## Rules for migration files
 

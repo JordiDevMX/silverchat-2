@@ -1,6 +1,6 @@
 # Migration equivalence report — 2026-11-11
 
-Result of the `TASK-012` corrective verification: what `supabase/migrations/0001`–`0014`
+Result of the `TASK-012` corrective verification: what the migration files
 describe versus what the databases actually contain.
 
 - Tool: `scripts/verify-migrations/` (read-only; every remote statement is a `SELECT`).
@@ -19,7 +19,32 @@ same files yield zero findings against a database that was applied from those
 files. That is what makes the Production findings attributable to the database
 rather than to the comparison.
 
-## Production — 12 findings
+## Reconciliation (2026-11-11, later the same day)
+
+The Product Owner authorized closing the 12 discrepancies on Production. They
+were closed with `supabase/migrations/20261111103000_backfill_profile_settings.sql`,
+applied through `npx supabase db push --linked` against Production
+`lmzbaxlojgsdwgcxkmzx` (link asserted before the push; `db push --dry-run`
+first showed exactly that one pending migration).
+
+The corrective migration is idempotent and was applied to Staging first, where
+it changed nothing (Staging stayed at 0 findings and its ledger moved from 14
+to 15 versions). It creates the objects below, re-applies 0005's two rewrites to
+`create_direct_chat_request`, and adds `avatar_initials` to
+`profiles_visible`.
+
+After the Production push the comparison returns **0 findings**, and each of
+the 12 objects was confirmed present by a direct read-only probe
+(`profiles.username_changed_at`, `profiles.scheduled_deletion_at`,
+`idx_profiles_pending_deletion`, `validate_username_change()`,
+`profiles_username_change_validation`, `check_blocked_on_message_insert()`,
+`messages_block_check`, `profiles_blocked`, `profiles_visible.avatar_initials`,
+the rewritten `create_direct_chat_request` body, `schedule_account_deletion()`,
+`cancel_account_deletion()`), together with the expected privileges.
+
+The sections below record the state **before** the reconciliation.
+
+## Production — 12 findings (resolved by the corrective migration)
 
 All of them are objects that migrations 0005 and 0006 create.
 
