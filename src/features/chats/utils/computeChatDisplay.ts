@@ -97,3 +97,16 @@ export function computeChatDisplay(chat: Chat, draft?: Draft) {
 export function badgeText(count: number) {
   return count > 99 ? "99+" : String(count);
 }
+/** Navigation badge totals. Community chats belong to the Communities tab; the rest to Chats. */
+export function navigationUnread(
+  chats: Pick<Chat, "type" | "unreadCount" | "archivedAt" | "mutedUntil">[],
+) {
+  let chatUnread = 0;
+  let communityUnread = 0;
+  for (const chat of chats) {
+    if (chat.archivedAt || isMuted(chat)) continue;
+    if (chat.type === "community_chat") communityUnread += chat.unreadCount;
+    else chatUnread += chat.unreadCount;
+  }
+  return { chatUnread, communityUnread };
+}
