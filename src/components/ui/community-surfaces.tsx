@@ -9,35 +9,46 @@ export function CommunityCardSurface({
   avatar,
   expanded,
   onToggle,
+  toggleLabel,
   panelId,
   children,
 }: {
-  name: string;
+  /** Adapter-rendered name; keep the link outside the toggle so both stay reachable. */
+  name: ReactNode;
   description?: string | null;
   members: ReactNode;
   avatar: ReactNode;
   expanded: boolean;
   onToggle: () => void;
+  /** Accessible name of the header toggle, e.g. "Show chats for Design". */
+  toggleLabel: string;
   panelId: string;
   children: ReactNode;
 }) {
   return (
     <article className="community-card">
-      <button
-        type="button"
-        className="community-card-heading"
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        onClick={onToggle}
-      >
+      <div className="community-card-heading">
         <span className="community-avatar-frame">{avatar}</span>
         <span className="community-card-title">
-          <strong>{name}</strong>
+          {name}
           <span>{description}</span>
           <small>{members}</small>
         </span>
-        {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-      </button>
+        <button
+          type="button"
+          className="community-card-toggle"
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          aria-label={toggleLabel}
+          onClick={onToggle}
+        >
+          {expanded ? (
+            <ChevronUp size={18} aria-hidden="true" />
+          ) : (
+            <ChevronDown size={18} aria-hidden="true" />
+          )}
+        </button>
+      </div>
       <div
         id={panelId}
         className="community-card-chats"

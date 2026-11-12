@@ -1,6 +1,6 @@
 # CSS consumer inventory — Module 6A
 
-All eight requested sheets, 1,295 selector branches (1,061 distinct selectors within their respective sheets). Each row groups selectors with the same representative consumers. Class evidence comes from class-bearing JSX attributes, utility/variant composition, class assignments and dynamic class families; non-class attributes such as `data-slot` are not treated as CSS classes. For a composite selector, the listed files are examples of where its class tokens are emitted, not a claim that every combination matches every route. Native tag rules use real JSX consumers; base rules and dynamic theme/view-transition selectors name their app entry or theme owner. Conditional, interactive and pseudo-element rules were retained rather than inferred dead from a single rendered state. See the [Module 6A evidence](ui-module-6a.md) for browser verification.
+All eight requested sheets, 1,298 selector branches (1,064 distinct selectors within their respective sheets). Each row groups selectors with the same representative consumers. Class evidence comes from class-bearing JSX attributes, utility/variant composition, class assignments and dynamic class families; non-class attributes such as `data-slot` are not treated as CSS classes. For a composite selector, the listed files are examples of where its class tokens are emitted, not a claim that every combination matches every route. Native tag rules use real JSX consumers; base rules and dynamic theme/view-transition selectors name their app entry or theme owner. Conditional, interactive and pseudo-element rules were retained rather than inferred dead from a single rendered state. See the [Module 6A evidence](ui-module-6a.md) for browser verification.
 
 ## src/styles/globals.css (108 distinct selectors)
 
@@ -229,16 +229,16 @@ All eight requested sheets, 1,295 selector branches (1,061 distinct selectors wi
 | `src/components/ui/chat-settings-surfaces.tsx`, `src/features/chat-settings/components/SharedMediaView.tsx` | `.chat-settings-panel .shared-tabs`, `.chat-settings-panel .shared-tabs button`, `.chat-settings-panel .shared-tabs button[aria-selected="true"]` |
 | `src/components/ui/chat-settings-surfaces.tsx`, `src/features/chat-settings/components/ReportModal.tsx`, `src/features/chat-settings/components/AddMembersModal.tsx` | `.chat-settings-dialog :is(textarea, .report-reason, .member-choice)` |
 
-## src/styles/communities.css (56 distinct selectors)
+## src/styles/communities.css (59 distinct selectors)
 
 | Consumer examples | Selectors |
 |---|---|
 | `src/features/communities/components/CommunitiesList.tsx` | `.communities-page`, `.communities-title`, `.community-search`, `.community-cards` |
-| `src/components/ui/community-surfaces.tsx` | `.community-card`, `.community-card-heading`, `.community-card-heading:focus-visible`, `.community-avatar-frame`, `.community-avatar-frame [data-slot="avatar"]`, `.community-card-title`, `.community-card-title strong`, `.community-card-title > span`, `.community-card-title small`, `.community-card-chats`, `.community-card-chats[data-state="open"]`, `.community-card-chats-clip`, `.community-card-chats-content`, `.community-chat-icon`, `.community-chat-copy`, `.community-chat-copy strong`, `.community-chat-copy > span`, `.community-chat-meta` |
+| `src/components/ui/community-surfaces.tsx` | `.community-card`, `.community-card-heading`, `.community-avatar-frame`, `.community-avatar-frame [data-slot="avatar"]`, `.community-card-title`, `.community-card-title strong`, `.community-card-title > span`, `.community-card-title small`, `.community-card-toggle`, `.community-card-toggle:focus-visible`, `.community-card-chats`, `.community-card-chats[data-state="open"]`, `.community-card-chats-clip`, `.community-card-chats-content`, `.community-chat-icon`, `.community-chat-copy`, `.community-chat-copy strong`, `.community-chat-copy > span`, `.community-chat-meta` |
 | `src/components/ui/community-surfaces.tsx`, `src/features/settings/components/shared.tsx` | `.community-avatar-frame .avatar` |
 | `src/features/communities/components/CommunityChatListItem.tsx` | `.community-chat-row`, `.community-chat-row:hover`, `.community-chat-row:focus-visible`, `.community-chat-row[aria-current="page"]`, `.community-unread-dot` |
 | `src/features/communities/components/CommunityChatListItem.tsx`, `src/components/ui/community-surfaces.tsx` | `.community-chat-row[aria-current="page"] .community-chat-icon` |
-| `src/features/communities/components/CommunityCard.tsx` | `.community-view-all` |
+| `src/features/communities/components/CommunityCard.tsx` | `.community-view-all`, `.community-card-name`, `.community-card-name:hover` |
 | `src/features/communities/components/CommunityChatSidebar.tsx` | `.community-sidebar`, `.community-sidebar-header`, `.community-sidebar-footer`, `.community-new-chat` |
 | `src/routes/_authenticated.communities.$communityId.index.tsx` | `.community-empty-pane`, `.community-empty-icon` |
 | `src/features/communities/components/CommunityInfoScreen.tsx` | `.community-info` |
