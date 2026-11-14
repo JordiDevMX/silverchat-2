@@ -151,12 +151,36 @@
   .sidebar-actions .install-button {
     margin-left: auto;
     padding: 0 16px;
-    min-height: 34px;
-    height: 34px;
+    height: 36px;
+    border-radius: 999px;
     border: 1px solid var(--neon);
-    color: var(--foreground);
+    background: color-mix(in oklab, var(--neon) 24%, #111827);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
     box-shadow: var(--shadow-glow);
-    cursor: default;
+    cursor: pointer;
+  }
+  .sidebar-actions .install-button:hover {
+    background: linear-gradient(120deg, color-mix(in oklab, var(--neon) 42%, #111827), #172033);
+    box-shadow: 0 0 24px -2px var(--neon);
+  }
+  .sidebar-actions .install-button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .sidebar-actions .install-button {
+      transition:
+        transform 180ms ease-out,
+        box-shadow 180ms ease-out;
+    }
+    .sidebar-actions .install-button:hover {
+      transform: scale(1.04);
+    }
+    .sidebar-actions .install-button:active {
+      transform: scale(0.97);
+    }
   }
   .chat-list-pane .chat-search {
     margin: 0 16px 14px;

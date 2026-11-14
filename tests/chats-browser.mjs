@@ -424,6 +424,45 @@ try {
   console.log(
     "PASS shell breakpoints, five URLs, single navigation, active state, keyboard labels, unread exclusions and floating-action clearance",
   );
+  const install = page.getByRole("button", { name: "Install SilverChat" });
+  const installDialog = page.getByRole("dialog", { name: "Install SilverChat" });
+  assert.deepEqual(
+    await install.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).cursor]),
+    ["rgb(255, 255, 255)", "pointer"],
+  );
+  await install.click();
+  assert.equal(await installDialog.getByRole("listitem").count(), 3);
+  await installDialog.getByText(/Add to Home Screen/).waitFor();
+  await page.keyboard.press("Escape");
+  await installDialog.waitFor({ state: "hidden" });
+  assert.ok(await install.evaluate((el) => document.activeElement === el));
+  const offerInstall = async (outcome) =>
+    page.evaluate((result) => {
+      const event = new Event("beforeinstallprompt", { cancelable: true });
+      event.prompt = async () => {
+        window.installPromptCalls = (window.installPromptCalls || 0) + 1;
+        if (result === "error") throw new Error("Unavailable");
+      };
+      event.userChoice = Promise.resolve({ outcome: result });
+      window.dispatchEvent(event);
+    }, outcome);
+  await offerInstall("dismissed");
+  await install.click();
+  await installDialog.getByRole("button", { name: "Not now" }).click();
+  await install.click();
+  await installDialog.getByRole("button", { name: "Install", exact: true }).click();
+  await installDialog.waitFor({ state: "hidden" });
+  assert.equal(await page.evaluate(() => window.installPromptCalls), 1);
+  for (const outcome of ["error", "accepted"]) {
+    await offerInstall(outcome);
+    await install.click();
+    await installDialog.getByRole("button", { name: "Install", exact: true }).click();
+    const notice = page
+      .getByRole("status")
+      .filter({ hasText: outcome === "error" ? "could not open" : "Installation accepted" });
+    await notice.getByRole("button", { name: "Dismiss" }).click();
+  }
+  await install.waitFor({ state: "hidden" });
   const theme = page.locator(".sidebar-actions button").first();
   for (const mode of ["Dark", "System", "Light"]) {
     await theme.click();

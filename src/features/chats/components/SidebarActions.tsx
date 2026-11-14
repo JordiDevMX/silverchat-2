@@ -4,6 +4,8 @@ import { useTheme } from "@/app/providers/theme-provider";
 import { NavLink } from "@/features/settings/components/shared";
 import { usePreferences } from "@/features/settings/preferences-provider";
 
+import { InstallPwaButton } from "./InstallPwaButton";
+
 const nextTheme = { light: "dark", dark: "system", system: "light" } as const;
 const label = { light: "Light", dark: "Dark", system: "System" } as const;
 export function SidebarActions() {
@@ -27,9 +29,7 @@ export function SidebarActions() {
         <Settings size={20} aria-hidden="true" />
         <span className="sr-only">{t("Settings")}</span>
       </NavLink>
-      <button className="install-button" type="button" disabled>
-        {t("Install")}
-      </button>
+      <InstallPwaButton />
     </div>
   );
 }
