@@ -27,8 +27,11 @@ export function BrandLockup({ className, ...props }: ComponentProps<"span">) {
       className={cn("inline-flex items-center gap-1.5", className)}
     >
       <BrandMark />
-      <span aria-hidden="true" className="text-2xl font-semibold tracking-tight text-foreground">
-        ilver<span className="text-neon">Chat</span>
+      <span
+        aria-hidden="true"
+        className="text-2xl font-semibold tracking-tight text-foreground"
+      >
+        Silver<span className="text-neon">Chat</span>
       </span>
     </span>
   );

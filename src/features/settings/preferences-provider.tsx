@@ -56,14 +56,15 @@ function AccountPreferences({ children, userId }: PropsWithChildren<{ userId?: s
     },
   });
   const { setTheme, setAccent } = theme;
-  const { setLanguage } = i18n;
+  const { applyLanguage, setLanguage } = i18n;
   useEffect(() => {
     if (query.data) {
       setTheme(optimistic.theme ?? query.data.theme);
       setAccent(optimistic.accent ?? query.data.accent);
-      setLanguage(optimistic.language ?? query.data.language);
+      // The account owns the language while there is a session.
+      applyLanguage(optimistic.language ?? query.data.language);
     }
-  }, [query.data, optimistic, setTheme, setAccent, setLanguage]);
+  }, [query.data, optimistic, setTheme, setAccent, applyLanguage]);
   const flush = () => {
     clearTimeout(timer.current);
     const patch = pending.current;
@@ -115,6 +116,8 @@ function AccountPreferences({ children, userId }: PropsWithChildren<{ userId?: s
   );
   const save = async (patch: SettingsPatch, debounce = false) => {
     if (!userId || !query.data) throw new Error("Settings unavailable");
+    // A language picked in the UI is an explicit choice and stays on this device.
+    if (patch.language) setLanguage(patch.language);
     setOptimistic((old) => ({ ...old, ...patch }));
     cache.setQueryData<Settings>(["preferences", userId], (old) =>
       old ? { ...old, ...patch } : old,

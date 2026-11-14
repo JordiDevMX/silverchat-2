@@ -223,15 +223,16 @@ try {
   await page.waitForURL(/\/chats$/);
   assert.deepEqual(savedPreferences, { theme: "dark", accent: "purple", language: "es" });
   // Return to welcome to verify the independent skip path and persisted theme/accent read.
+  // The account now stores Spanish, so the page follows the account language.
   await page.goto(`${origin}/onboarding/welcome?redirect=%2Fcalls`);
-  await page.getByRole("heading", { name: "Welcome to SilverChat, Alice!" }).waitFor();
-  assert.equal(await page.getByLabel("Appearance", { exact: true }).inputValue(), "dark");
+  await page.getByRole("heading", { name: "¡Bienvenido a SilverChat, Alice!" }).waitFor();
+  assert.equal(await page.getByLabel("Apariencia", { exact: true }).inputValue(), "dark");
   assert.equal(
-    await page.getByRole("button", { name: "purple", exact: true }).getAttribute("aria-pressed"),
+    await page.getByRole("button", { name: "morado", exact: true }).getAttribute("aria-pressed"),
     "true",
   );
-  await page.getByRole("button", { name: "Skip for now" }).click();
-  await page.getByRole("heading", { name: "You’re signed in, Alice." }).waitFor();
+  await page.getByRole("button", { name: "Saltar por ahora" }).click();
+  await page.getByRole("heading", { name: "Has iniciado sesión, Alice." }).waitFor();
   savedPreferences = { theme: "system", accent: "blue", language: "en" };
   await page.goto(`${origin}/chats`);
   await page.getByRole("heading", { name: "Chats", exact: true }).waitFor();

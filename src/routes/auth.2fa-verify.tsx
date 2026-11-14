@@ -4,23 +4,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AuthFrame, CodeInput, InlineError } from "@/features/auth/components";
 import { useMfaVerification } from "@/features/auth/hooks/useMfaVerification";
+import { useAuthText } from "@/features/auth/i18n";
 export function MfaVerifyPage() {
   const { backup, setBackup, register, control, reset, errors, isSubmitting, submit } =
     useMfaVerification();
+  const t = useAuthText();
   return (
     <AuthFrame
-      title="Two-factor authentication"
+      title={t("Two-factor authentication")}
       subtitle={
         backup
-          ? "Enter one of your saved backup codes."
-          : "Enter the 6-digit code from your authenticator app."
+          ? t("Enter one of your saved backup codes.")
+          : t("Enter the 6-digit code from your authenticator app.")
       }
     >
       <LockKeyhole className="feature-icon" size={32} strokeWidth={1.75} aria-hidden="true" />
       <form onSubmit={submit} noValidate>
         {backup ? (
           <>
-            <label htmlFor="backup-code">Backup code</label>
+            <label htmlFor="backup-code">{t("Backup code")}</label>
             <Input
               id="backup-code"
               autoComplete="off"
@@ -45,9 +47,9 @@ export function MfaVerifyPage() {
             )}
           />
         )}
-        <InlineError>{errors.code?.message || errors.root?.message}</InlineError>
+        <InlineError>{t(errors.code?.message || errors.root?.message)}</InlineError>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Verifying…" : "Verify"}
+          {isSubmitting ? t("Verifying…") : t("Verify")}
         </Button>
       </form>
       <Button
@@ -59,7 +61,7 @@ export function MfaVerifyPage() {
           reset({ code: "" });
         }}
       >
-        {backup ? "Use authenticator instead" : "Lost access? Use a backup code instead"}
+        {backup ? t("Use authenticator instead") : t("Lost access? Use a backup code instead")}
       </Button>
     </AuthFrame>
   );

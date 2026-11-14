@@ -3,14 +3,14 @@ import { useEffect, useState } from "react";
 import { useTheme } from "@/app/providers/theme-provider";
 import { safeRedirect, searchParams } from "@/features/auth/navigation";
 import { useAuth } from "@/lib/auth-provider";
+import { detectDeviceLanguage, type Language } from "@/lib/language";
 import { supabase } from "@/lib/supabase";
 export function useOnboardingWelcome() {
   const auth = useAuth();
   const router = useRouter();
   const theme = useTheme();
-  const [language, setLanguage] = useState<"en" | "es">(() =>
-    navigator.language.startsWith("es") ? "es" : "en",
-  );
+  // A new account starts with the language of the device; the account stores it on finish.
+  const [language, setLanguage] = useState<Language>(() => detectDeviceLanguage());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const id = auth.user?.id;

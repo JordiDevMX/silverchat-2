@@ -1,6 +1,7 @@
 import { CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthFrame } from "@/features/auth/components";
+import { useAuthText } from "@/features/auth/i18n";
 import { searchParams } from "@/features/auth/navigation";
 
 const messages: Record<string, string> = {
@@ -12,16 +13,17 @@ const messages: Record<string, string> = {
 };
 export function AuthErrorPage() {
   const code = searchParams().get("code") ?? "unknown";
+  const t = useAuthText();
   return (
-    <AuthFrame title={messages[code] ?? messages.unknown ?? "Something went wrong."}>
+    <AuthFrame title={t(messages[code] ?? messages.unknown ?? "Something went wrong.")}>
       <CircleAlert className="feature-icon" size={40} strokeWidth={1.75} aria-hidden="true" />
-      <p>Request a new magic link to continue.</p>
+      <p>{t("Request a new magic link to continue.")}</p>
       <Button asChild>
-        <a href="/auth/login">Request a new link</a>
+        <a href="/auth/login">{t("Request a new link")}</a>
       </Button>
       {["rate_limited", "unknown"].includes(code) && (
         <Button variant="outline" type="button" onClick={() => window.history.back()}>
-          Go back
+          {t("Go back")}
         </Button>
       )}
     </AuthFrame>

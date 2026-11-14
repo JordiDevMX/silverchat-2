@@ -1,0 +1,73 @@
+{
+  "name": "SilverChat — Privacy-first messaging",
+  "short_name": "SilverChat",
+  "description": "Privacy-first messaging for the conversations that matter.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "/",
+  "id": "/",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "theme_color": "#0082ff",
+  "background_color": "#eff2f6",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "protocol_handlers": [
+    {
+      "protocol": "web+silverchat",
+      "url": "/?deeplink=%s"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/728x410.png",
+      "sizes": "725x408",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "SilverChat on desktop"
+    },
+    {
+      "src": "/screenshots/736x1309.png",
+      "sizes": "734x1312",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "SilverChat on mobile"
+    }
+  ]
+}

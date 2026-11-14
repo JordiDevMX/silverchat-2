@@ -2,15 +2,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AuthFrame, InlineError } from "@/features/auth/components";
 import { usePickUsername } from "@/features/auth/hooks/usePickUsername";
+import { useAuthText } from "@/features/auth/i18n";
 export function PickUsernamePage() {
   const { register, errors, isSubmitting, username, submit } = usePickUsername();
+  const t = useAuthText();
   return (
     <AuthFrame
-      title="Pick your username"
-      subtitle="This is how others will find you. You can’t change it easily."
+      title={t("Pick your username")}
+      subtitle={t("This is how others will find you. You can’t change it easily.")}
     >
       <form onSubmit={submit} noValidate>
-        <label htmlFor="username">Username</label>
+        <label htmlFor="username">{t("Username")}</label>
         <div className="input-with-icon">
           <span aria-hidden="true">@</span>
           <Input
@@ -24,13 +26,13 @@ export function PickUsernamePage() {
           />
         </div>
         <p id="username-help" className="quiet-note">
-          Your handle: @{username || "your_name"}
+          {t("Your handle:")} @{username || "your_name"}
         </p>
         <div id="username-error">
-          <InlineError>{errors.username?.message || errors.root?.message}</InlineError>
+          <InlineError>{t(errors.username?.message || errors.root?.message)}</InlineError>
         </div>
         <Button disabled={isSubmitting} type="submit">
-          {isSubmitting ? "Saving…" : "Continue"}
+          {isSubmitting ? t("Saving…") : t("Continue")}
         </Button>
       </form>
     </AuthFrame>
