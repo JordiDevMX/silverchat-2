@@ -286,14 +286,25 @@ async function setup(context) {
     }),
   );
 }
-let diagnosticPage;
-try {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await setup(context);
-  const page = await context.newPage();
-  diagnosticPage = page;
-  page.setDefaultTimeout(10000);
-  page.on("pageerror", (e) => errors.push(e.message));
+async function checkComingSoon(page) {
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const path of [
+      "/communities",
+      `/communities/${cid}`,
+      `/communities/${cid}/info`,
+      `/communities/${cid}/chats/${general}`,
+      `/communities/${cid}/chats/${general}/media`,
+    ]) {
+      await page.goto(origin + path);
+      await page.getByRole("heading", { name: "Coming soon", exact: true }).waitFor();
+      await page.getByText("Work in progress 👷 🚧", { exact: true }).waitFor();
+      await page.getByRole("link", { name: "Communities" }).waitFor();
+    }
+  }
+}
+
+async function checkActiveCommunities(page) {
   await page.goto(`${origin}/communities`);
   await page.getByText("You're not in any communities yet.", { exact: false }).waitFor();
   await page.getByRole("button", { name: "New community", exact: true }).click();
@@ -562,6 +573,19 @@ try {
   console.log(
     "Communities browser checks passed: creation/crop/focus, retries, list/search/persistence, desktop/mobile, messages/menu/read, shared settings/members, mute, admin controls, succession warning, delete and access redirect.",
   );
+}
+
+let diagnosticPage;
+try {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await setup(context);
+  const page = await context.newPage();
+  diagnosticPage = page;
+  page.setDefaultTimeout(10000);
+  page.on("pageerror", (e) => errors.push(e.message));
+  if (process.env.TEST_ACTIVE_COMMUNITIES === "1") await checkActiveCommunities(page);
+  else await checkComingSoon(page);
+  assert.deepEqual(errors, []);
   await context.close();
 } catch (error) {
   if (diagnosticPage) {

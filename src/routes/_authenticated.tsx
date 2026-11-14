@@ -28,16 +28,30 @@ export function requireAuthentication(auth: AuthState, href: string, pathname: s
 }
 export function AuthenticatedLayout() {
   const auth = useAuth();
-  const onboarding = useRouterState({
-    select: (state) => state.location.pathname.startsWith("/onboarding"),
+  const section = useRouterState({
+    select: (state) => state.location.pathname.split("/")[1]?.toLowerCase(),
   });
   if (!auth.user || auth.mfaRequired) return <AppSkeleton />;
-  if (onboarding)
+  if (section === "onboarding")
     return (
       <>
         <PendingDeletionBanner />
         <Outlet />
       </>
+    );
+  if (section === "communities")
+    return (
+      <ChatLayout>
+        <main
+          id="main"
+          className="grid min-h-[calc(100dvh-var(--shell-tab-height))] place-content-center gap-2 px-6 text-center"
+        >
+          <h1 className="text-3xl font-semibold">Coming soon</h1>
+          <p className="text-muted-foreground">
+            Work in progress <span aria-hidden="true">👷 🚧</span>
+          </p>
+        </main>
+      </ChatLayout>
     );
   return <SectionLayout />;
 }
