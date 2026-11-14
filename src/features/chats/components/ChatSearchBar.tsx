@@ -26,6 +26,7 @@ export function ChatSearchBar({
   const label = t(archived ? "Search archived…" : "Search chats…");
   return (
     <SearchField
+      outlined
       className="chat-search"
       label={label}
       clearLabel={t("Clear search")}

@@ -79,7 +79,11 @@ export function useChatsPage() {
   const pullHandlers = {
     onTouchStart: (e: TouchEvent<HTMLElement>) => {
       const touch = e.touches[0];
-      if (window.scrollY === 0 && touch && !(e.target instanceof HTMLInputElement))
+      if (
+        e.currentTarget.closest(".chat-list-pane")?.scrollTop === 0 &&
+        touch &&
+        !(e.target instanceof HTMLInputElement)
+      )
         pullOrigin.current = { x: touch.clientX, y: touch.clientY };
     },
     onTouchMove: (e: TouchEvent<HTMLElement>) => {

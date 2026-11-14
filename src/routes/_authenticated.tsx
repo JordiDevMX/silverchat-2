@@ -1,10 +1,14 @@
 import { Outlet, redirect, useRouterState } from "@tanstack/react-router";
-import { ShellBackdrop } from "@/components/ui/shell-backdrop";
 import { AppSkeleton } from "@/features/auth/components";
 import { nextDestination, safeRedirect } from "@/features/auth/navigation";
 import type { AuthState } from "@/features/auth/types";
-import { AppNavigation } from "@/features/chats/components/AppNavigation";
+import { ChatDetailsPanel } from "@/features/chats/components/ChatDetailsPanel";
+import { ChatLayout } from "@/features/chats/components/ChatLayout";
+import { ChatList } from "@/features/chats/components/ChatList";
+import { CommunityChatSidebar } from "@/features/communities/components/CommunityChatSidebar";
+import { useCommunity } from "@/features/communities/hooks/useCommunity";
 import { PendingDeletionBanner } from "@/features/settings/components/PendingDeletionBanner";
+import { QueryState } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
 export function requireAuthentication(auth: AuthState, href: string, pathname: string) {
   if (auth.sessionExpired) return;
@@ -27,16 +31,59 @@ export function AuthenticatedLayout() {
   const onboarding = useRouterState({
     select: (state) => state.location.pathname.startsWith("/onboarding"),
   });
-  return !auth.user || auth.mfaRequired ? (
-    <AppSkeleton />
-  ) : (
-    <div className={onboarding ? undefined : "app-shell"}>
-      {!onboarding && <AppNavigation />}
-      <div className={onboarding ? undefined : "authenticated-content"}>
-        {!onboarding && <ShellBackdrop />}
+  if (!auth.user || auth.mfaRequired) return <AppSkeleton />;
+  if (onboarding)
+    return (
+      <>
         <PendingDeletionBanner />
         <Outlet />
-      </div>
-    </div>
+      </>
+    );
+  return <SectionLayout />;
+}
+
+function SectionLayout() {
+  const params = useRouterState({ select: (state) => state.matches.at(-1)?.params });
+  const communityId = params && "communityId" in params ? params.communityId : undefined;
+  const chatId = params && "chatId" in params ? params.chatId : undefined;
+  const path = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") });
+  const community = useCommunity(communityId ?? "");
+  if (communityId && !community.data)
+    return (
+      <ChatLayout>
+        <main id="main" className="p-6">
+          <QueryState
+            loading={community.isPending}
+            error={community.error}
+            retry={() => void community.refetch()}
+          />
+        </main>
+      </ChatLayout>
+    );
+  if (!communityId && path !== "/chats" && !chatId)
+    return (
+      <ChatLayout>
+        <Outlet />
+      </ChatLayout>
+    );
+  const listOnly = path === "/chats" || path === `/communities/${communityId}`;
+  return (
+    <ChatLayout
+      listOnly={listOnly}
+      list={
+        community.data && communityId ? (
+          <CommunityChatSidebar
+            key={communityId}
+            community={community.data}
+            activeChatId={chatId}
+          />
+        ) : (
+          <ChatList activeChatId={chatId} />
+        )
+      }
+      details={chatId && <ChatDetailsPanel chatId={chatId} communityId={communityId} />}
+    >
+      <Outlet />
+    </ChatLayout>
   );
 }

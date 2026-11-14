@@ -15,6 +15,7 @@ import { AuthFrame, InlineError, SessionExpiredModal } from "@/features/auth/com
 import { useDestinationActions } from "@/features/auth/hooks/useDestinationActions";
 import { useAuthText } from "@/features/auth/i18n";
 import type { AuthState } from "@/features/auth/types";
+import { ChatEmptyPane } from "@/features/chats/components/ChatLayout";
 import { validateChatSearch } from "@/features/chats/utils/chatSearch";
 import { AuthenticatedLayout, requireAuthentication } from "@/routes/_authenticated";
 import { RouteErrorState } from "./route-error-state";
@@ -193,25 +194,32 @@ const settingsChildren = [
   }),
   createRoute({ getParentRoute: () => settings, path: "security", component: SecurityPage }),
 ];
-const communityLayout = createRoute({
+const communityRoute = createRoute({
   getParentRoute: () => authenticated,
   path: "/communities/$communityId",
-  component: lazyRouteComponent(
-    () => import("@/routes/_authenticated.communities.$communityId"),
-    "CommunityLayout",
-  ),
 });
+const sharedMediaPage = {
+  component: lazyRouteComponent(
+    () => import("@/routes/_authenticated.chats.$chatId.media"),
+    "SharedMediaPage",
+  ),
+  validateSearch: (search: Record<string, unknown>): { tab: "media" | "files" } => ({
+    tab: search.tab === "files" ? "files" : "media",
+  }),
+};
 const communityChildren = [
   createRoute({
-    getParentRoute: () => communityLayout,
-    path: "/",
-    component: lazyRouteComponent(
-      () => import("@/routes/_authenticated.communities.$communityId.index"),
-      "CommunityIndexPage",
-    ),
+    getParentRoute: () => communityRoute,
+    path: "chats/$chatId/media",
+    ...sharedMediaPage,
   }),
   createRoute({
-    getParentRoute: () => communityLayout,
+    getParentRoute: () => communityRoute,
+    path: "/",
+    component: ChatEmptyPane,
+  }),
+  createRoute({
+    getParentRoute: () => communityRoute,
     path: "chats/$chatId",
     validateSearch: (search: Record<string, unknown>): { scrollTo?: string } => ({
       scrollTo:
@@ -225,7 +233,7 @@ const communityChildren = [
     ),
   }),
   createRoute({
-    getParentRoute: () => communityLayout,
+    getParentRoute: () => communityRoute,
     path: "info",
     component: lazyRouteComponent(
       () => import("@/routes/_authenticated.communities.$communityId.info"),
@@ -242,7 +250,7 @@ const protectedRoutes = [
       "CommunitiesPage",
     ),
   }),
-  communityLayout.addChildren(communityChildren),
+  communityRoute.addChildren(communityChildren),
   createRoute({
     getParentRoute: () => authenticated,
     path: "/onboarding/pick-username",
@@ -292,7 +300,7 @@ const protectedRoutes = [
     path: "/chats",
     validateSearch: validateChatSearch,
     search: { middlewares: [stripSearchParams({ filter: "all", q: "", selectedIds: "" })] },
-    component: lazyRouteComponent(() => import("@/routes/_authenticated.chats"), "ChatsPage"),
+    component: ChatEmptyPane,
   }),
   createRoute({
     getParentRoute: () => authenticated,
@@ -313,13 +321,7 @@ const protectedRoutes = [
   createRoute({
     getParentRoute: () => authenticated,
     path: "/chats/$chatId/media",
-    component: lazyRouteComponent(
-      () => import("@/routes/_authenticated.chats.$chatId.media"),
-      "SharedMediaPage",
-    ),
-    validateSearch: (search: Record<string, unknown>): { tab: "media" | "files" } => ({
-      tab: search.tab === "files" ? "files" : "media",
-    }),
+    ...sharedMediaPage,
   }),
   createRoute({
     getParentRoute: () => authenticated,

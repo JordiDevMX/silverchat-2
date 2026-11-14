@@ -2,7 +2,6 @@ import { useMessageText } from "@/features/messages/i18n";
 import { NavLink, QueryState } from "@/features/settings/components/shared";
 import { Conversation } from "@/routes/_authenticated.chats.$chatId";
 import { useCommunityConversation } from "../hooks/useCommunityConversation";
-import { CommunityChatHeader } from "./CommunityChatHeader";
 export function CommunityChatView({
   communityId,
   chatId,
@@ -33,7 +32,7 @@ export function CommunityChatView({
           {say("Unable to mark read. Retry", "No se pudo marcar como leído. Reintentar")}
         </button>
       )}
-      <Conversation key={chatId} chatId={chatId} Header={CommunityChatHeader} scrollTo={scrollTo} />
+      <Conversation key={chatId} chatId={chatId} scrollTo={scrollTo} />
     </div>
   );
 }

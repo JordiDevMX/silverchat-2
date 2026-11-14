@@ -2,6 +2,7 @@ import type { ChatDetails } from "../../messages/types.ts";
 export type ChatAction =
   | "view_profile"
   | "view_group_info"
+  | "change_chat_photo"
   | "view_community_info"
   | "search_in_chat"
   | "mute"
@@ -32,7 +33,12 @@ export function getAvailableChatActions(chat: ChatDetails): ChatAction[] {
     "clear_chat",
   ];
   if (chat.type === "direct") return ["view_profile", ...common, "block", "report"];
-  if (chat.type === "community_chat") return ["view_community_info", ...common];
+  if (chat.type === "community_chat")
+    return [
+      "view_community_info",
+      ...(chat.own?.role === "admin" ? ["change_chat_photo" as const] : []),
+      ...common,
+    ];
   return [
     "view_group_info",
     ...common,

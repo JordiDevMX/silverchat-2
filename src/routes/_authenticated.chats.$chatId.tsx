@@ -1,5 +1,5 @@
 import { useParams, useRouter, useSearch } from "@tanstack/react-router";
-import { type ComponentType, useEffect } from "react";
+import { useEffect } from "react";
 import { AppSkeleton, Modal } from "@/features/auth/components";
 import { ChatSettingsLayer } from "@/features/chat-settings/components/ChatSettingsLayer";
 import { ChatHeader } from "@/features/messages/components/ChatHeader";
@@ -10,7 +10,6 @@ import { MessageList } from "@/features/messages/components/MessageList";
 import { PinnedMessagesBar } from "@/features/messages/components/PinnedMessagesBar";
 import { useChat } from "@/features/messages/hooks/useChat";
 import { useConversationController } from "@/features/messages/hooks/useConversationController";
-import type { ChatDetails } from "@/features/messages/types";
 import "@/styles/messages.css";
 export function ChatPage() {
   const { chatId } = useParams({ from: "/_authenticated/chats/$chatId" });
@@ -28,15 +27,7 @@ export function ChatPage() {
   if (communityId) return null;
   return <Conversation key={chatId} chatId={chatId} scrollTo={scrollTo} />;
 }
-export function Conversation({
-  chatId,
-  scrollTo,
-  Header = ChatHeader,
-}: {
-  chatId: string;
-  scrollTo?: string;
-  Header?: ComponentType<{ chat: ChatDetails; onSearch: () => void }>;
-}) {
+export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: string }) {
   const {
     chat,
     send,
@@ -89,7 +80,7 @@ export function Conversation({
             }}
           />
         ) : (
-          <Header chat={details} onSearch={() => setSearchOpen(true)} />
+          <ChatHeader chat={details} onSearch={() => setSearchOpen(true)} />
         )}
         <PinnedMessagesBar chatId={chatId} />
         <ChatSettingsLayer chat={details} onSearch={() => setSearchOpen(true)} />

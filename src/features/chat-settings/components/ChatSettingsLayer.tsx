@@ -1,3 +1,4 @@
+import { CommunityChatPhotoPicker } from "@/features/communities/components/CommunityChatPhotoPicker";
 import { useMessageText } from "@/features/messages/i18n";
 import type { ChatDetails } from "@/features/messages/types";
 import { BlockUserModal } from "@/features/settings/components/BlockUserModal";
@@ -58,6 +59,10 @@ export function ChatSettingsLayer({
           onClose={ui.close}
         />
       );
+    case "photo":
+      return chat.type === "community_chat" && chat.own?.role === "admin" ? (
+        <CommunityChatPhotoPicker chat={chat} onClose={ui.close} />
+      ) : null;
     case "contact":
       return <ContactProfileModal userId={modal.userId} chat={chat} />;
     case "block":

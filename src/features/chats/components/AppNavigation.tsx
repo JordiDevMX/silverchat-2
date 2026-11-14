@@ -1,7 +1,9 @@
 import { useRouterState } from "@tanstack/react-router";
-import { MessageCircle, Phone, Radio, Settings, Users } from "lucide-react";
+import { LogOut, MessageCircle, Phone, Radio, Settings, Users } from "lucide-react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { BrandMark } from "@/components/ui/brand-lockup";
+import { LogoutConfirmModal } from "@/features/settings/components/LogoutConfirmModal";
 import { NavLink } from "@/features/settings/components/shared";
 import { useAppNavigation } from "../hooks/useAppNavigation";
 import { useChatText } from "../i18n";
@@ -10,6 +12,7 @@ export function AppNavigation() {
   const { unread, communityUnread } = useAppNavigation();
   const t = useChatText();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [logout, setLogout] = useState(false);
   const items = [
     { icon: MessageCircle, label: "Chats", href: "/chats", unread },
     { icon: Radio, label: "Updates", href: "/novedades", unread: 0 },
@@ -27,7 +30,7 @@ export function AppNavigation() {
             pathname.startsWith(href) ||
             (href === "/novedades" && pathname.startsWith("/channels"));
           return (
-            <li key={href}>
+            <li key={href} className={href === "/settings" ? "nav-settings" : undefined}>
               <NavLink
                 href={href}
                 className={`app-nav-link ${active ? "active" : ""}`}
@@ -55,7 +58,16 @@ export function AppNavigation() {
             </li>
           );
         })}
+        <li className="nav-logout">
+          <button type="button" className="app-nav-link" onClick={() => setLogout(true)}>
+            <span className="app-nav-icon">
+              <LogOut size={20} />
+            </span>
+            <span className="app-nav-label">{t("Log out", "Cerrar sesión")}</span>
+          </button>
+        </li>
       </ul>
+      {logout && <LogoutConfirmModal onClose={() => setLogout(false)} />}
     </nav>
   );
 }

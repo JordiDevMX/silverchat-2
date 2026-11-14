@@ -381,14 +381,12 @@ try {
   assert.equal(await navigation.locator('a[href="/chats"]').getByRole("img").count(), 1);
   for (const width of [390, 767, 768, 1023, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    assert.equal(await page.locator(".chats-header button").count(), 0);
+    assert.equal(await page.locator(".sidebar-actions .install-button").isVisible(), true);
+    assert.equal(await navigation.locator(".nav-logout").isVisible(), width >= 1024);
+    assert.equal(await navigation.locator(".nav-settings").isVisible(), width < 1024);
     assert.equal(
-      await page.locator(".chats-header [data-slot=brand-lockup]").getAttribute("aria-label"),
-      "SilverChat",
-    );
-    assert.equal(
-      await page.getByRole("searchbox").evaluate((el) => getComputedStyle(el).borderWidth),
-      "0px",
+      await page.locator(".chat-search").evaluate((el) => getComputedStyle(el).borderTopWidth),
+      "1px",
     );
     const frame = await navigation.boundingBox();
     const content = await page.locator(".authenticated-content").boundingBox();
@@ -426,12 +424,13 @@ try {
   console.log(
     "PASS shell breakpoints, five URLs, single navigation, active state, keyboard labels, unread exclusions and floating-action clearance",
   );
-  await page.evaluate(() => {
-    document.documentElement.dataset.theme = "dark";
-  });
-  await page.evaluate(() => {
-    document.documentElement.dataset.theme = "light";
-  });
+  const theme = page.locator(".sidebar-actions button").first();
+  for (const mode of ["Dark", "System", "Light"]) {
+    await theme.click();
+    await page.getByRole("button", { name: new RegExp(`Theme · ${mode} →`) }).waitFor();
+  }
+  await navigation.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
   console.log(
     "PASS batched unread pagination, receipt rendering, request collapse, muted/global badges",
   );
@@ -561,10 +560,7 @@ try {
   // A new community message raises the Communities badge without touching the Chats badge.
   unreadCounts.set(uid(109), 4);
   realtime("messages", { id: uid(209), chat_id: uid(109), sender_id: uid(8) });
-  await page
-    .locator('a[href="/communities"]')
-    .getByRole("img", { name: "4 Unread" })
-    .waitFor();
+  await page.locator('a[href="/communities"]').getByRole("img", { name: "4 Unread" }).waitFor();
   requests.push({
     id: uid(399),
     sender_id: uid(8),
@@ -605,6 +601,12 @@ try {
       "Conversation canvas clears navigation at every breakpoint",
     );
   }
+  const listSearch = page.locator(".chat-list-pane input[type=search]");
+  await listSearch.fill("Sofia");
+  await page.waitForURL(
+    (url) => url.pathname === `/chats/${uid(120)}` && url.searchParams.get("q") === "Sofia",
+  );
+  await page.locator(".chat-content-pane .conversation-page").waitFor();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('.app-navigation a[href="/chats"]').click();
   await row(120).waitFor();

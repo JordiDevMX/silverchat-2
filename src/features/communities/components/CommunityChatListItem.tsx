@@ -1,8 +1,8 @@
-import { BellOff } from "lucide-react";
+import { BellOff, Pin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CommunityChatRowContent } from "@/components/ui/community-surfaces";
 import { useMessageText } from "@/features/messages/i18n";
-import { NavLink } from "@/features/settings/components/shared";
+import { Avatar, NavLink } from "@/features/settings/components/shared";
 import { formatCommunityTimestamp } from "../lib/communityActions";
 import type { CommunityChat } from "../types";
 export function CommunityChatListItem({
@@ -23,6 +23,15 @@ export function CommunityChatListItem({
     >
       <CommunityChatRowContent
         name={chat.name}
+        avatar={
+          chat.avatar_url && (
+            <Avatar
+              profile={{ id: chat.id, display_name: chat.name, avatar_url: chat.avatar_url }}
+              size="small"
+            />
+          )
+        }
+        pinned={chat.membership.pinned_at && <Pin size={14} aria-label={say("Pinned", "Fijado")} />}
         preview={chat.last_message_preview ?? say("No messages yet", "Aún no hay mensajes")}
         timestamp={formatCommunityTimestamp(chat.last_message_at, language)}
         status={

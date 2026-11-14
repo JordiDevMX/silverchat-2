@@ -9,6 +9,7 @@ export function SearchField({
   onChange,
   onClear,
   className,
+  outlined = false,
 }: {
   label: string;
   clearLabel: string;
@@ -16,12 +17,14 @@ export function SearchField({
   onChange: (value: string) => void;
   onClear: () => void;
   className?: string;
+  outlined?: boolean;
 }) {
   return (
     <div
       data-slot="search-field"
       className={cn(
-        "flex min-h-11 items-center gap-2.5 rounded-xl border-0 bg-gradient-silver px-3 text-muted-foreground focus-within:ring-2 focus-within:ring-ring",
+        "flex min-h-11 items-center gap-2.5 rounded-xl px-3 text-muted-foreground focus-within:ring-2 focus-within:ring-ring",
+        outlined ? "border border-border bg-background" : "border-0 bg-gradient-silver",
         className,
       )}
     >

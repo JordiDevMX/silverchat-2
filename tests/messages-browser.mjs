@@ -329,7 +329,7 @@ await setup(context);
 const page = await context.newPage();
 page.on("pageerror", (e) => errors.push(e.message));
 const goto = async (id = chatId, search = "") => {
-  await page.goto(`http://127.0.0.1:5173/chats/${id}${search}`);
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats/${id}${search}`);
   await page.locator(".message-list").waitFor();
   await page.waitForTimeout(400);
 };
@@ -394,7 +394,7 @@ try {
     .fill("Draft survives navigation");
   await page.waitForTimeout(650);
   await page.getByRole("link", { name: "Chats", exact: true }).first().click();
-  await page.goto(`http://127.0.0.1:5173/chats/${chatId}`);
+  await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats/${chatId}`);
   await page.getByRole("textbox", { name: "Message", exact: true }).waitFor();
   assert.equal(
     await page.getByRole("textbox", { name: "Message", exact: true }).inputValue(),
@@ -675,7 +675,7 @@ try {
   });
   await setup(mobile);
   const mp = await mobile.newPage();
-  await mp.goto(`http://127.0.0.1:5173/chats/${groupId}`);
+  await mp.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats/${groupId}`);
   await mp.getByRole("textbox", { name: "Message", exact: true }).waitFor();
   await mp.waitForTimeout(400);
   assert.equal(

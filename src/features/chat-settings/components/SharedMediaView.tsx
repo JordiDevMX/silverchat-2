@@ -1,4 +1,4 @@
-import { useRouter, useSearch } from "@tanstack/react-router";
+import { useRouter } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatSettingsScreenSurface } from "@/components/ui/chat-settings-surfaces";
@@ -9,17 +9,28 @@ import { useSharedMedia } from "../hooks/useSharedMedia";
 import { ChatSettingsLayer, ChatSettingsLoading } from "./ChatSettingsLayer";
 import { SharedFilesTab } from "./SharedFilesTab";
 import { SharedMediaTab } from "./SharedMediaTab";
-export function SharedMediaView({ chatId }: { chatId: string }) {
+export function SharedMediaView({
+  chatId,
+  tab,
+  communityId,
+}: {
+  chatId: string;
+  tab: "media" | "files";
+  communityId?: string;
+}) {
   const chat = useChat(chatId);
   const { say } = useMessageText();
   const router = useRouter();
-  const { tab } = useSearch({ from: "/_authenticated/chats/$chatId/media" });
-  const media = useSharedMedia(chatId, "media", !!chat.data && tab === "media");
-  const files = useSharedMedia(chatId, "files", !!chat.data && tab === "files");
+  const base = communityId ? `/communities/${communityId}/chats/${chatId}` : `/chats/${chatId}`;
+  const available = !!chat.data && (!communityId || chat.data.communityId === communityId);
+  const changeTab = (value: "media" | "files") =>
+    void router.navigate({ href: `${base}/media?tab=${value}` });
+  const media = useSharedMedia(chatId, "media", available && tab === "media");
+  const files = useSharedMedia(chatId, "files", available && tab === "files");
   const query = tab === "media" ? media : files;
   const marker = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!chat.data || !["media", "files"].includes(tab)) return;
+    if (!available) return;
     const el = marker.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -41,17 +52,16 @@ export function SharedMediaView({ chatId }: { chatId: string }) {
     query.isFetching,
     query.isFetchNextPageError,
     query.fetchNextPage,
-    tab,
-    chat.data,
+    available,
   ]);
-  if (!chat.data) return <ChatSettingsLoading query={chat} />;
+  if (!available || !chat.data) return <ChatSettingsLoading query={chat} />;
   const messages = [...new Map((query.data?.pages.flat() ?? []).map((m) => [m.id, m])).values()];
   return (
     <ChatSettingsScreenSurface
       className="shared-media-screen"
       header={
         <>
-          <NavLink href={`/chats/${chatId}`}>← {say("Back to chat", "Volver al chat")}</NavLink>
+          <NavLink href={base}>← {say("Back to chat", "Volver al chat")}</NavLink>
           <h1>{say("Shared media", "Archivos compartidos")}</h1>
         </>
       }
@@ -69,21 +79,11 @@ export function SharedMediaView({ chatId }: { chatId: string }) {
             aria-controls="shared-panel"
             id={`shared-${value}`}
             key={value}
-            onClick={() =>
-              void router.navigate({
-                to: "/chats/$chatId/media",
-                params: { chatId },
-                search: { tab: value },
-              })
-            }
+            onClick={() => changeTab(value)}
             onKeyDown={(e) => {
               if (["ArrowLeft", "ArrowRight"].includes(e.key)) {
                 const next = value === "media" ? "files" : "media";
-                void router.navigate({
-                  to: "/chats/$chatId/media",
-                  params: { chatId },
-                  search: { tab: next },
-                });
+                changeTab(next);
                 document.getElementById(`shared-${next}`)?.focus();
               }
             }}
@@ -93,7 +93,6 @@ export function SharedMediaView({ chatId }: { chatId: string }) {
         ))}
       </div>
       <section
-        key={tab}
         className="shared-content-panel"
         id="shared-panel"
         role="tabpanel"

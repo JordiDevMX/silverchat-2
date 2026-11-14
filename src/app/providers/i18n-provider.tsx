@@ -29,6 +29,7 @@ const spanish: Record<string, string> = {
   Security: "Seguridad",
   Back: "Volver",
   "Back to chats": "Volver a chats",
+  Install: "Instalar",
   "Log out": "Cerrar sesión",
   Cancel: "Cancelar",
   Save: "Guardar",
