@@ -1,5 +1,18 @@
-import { createContext, type PropsWithChildren, useContext, useEffect, useState } from "react";
-import { readPreference, writePreference } from "@/lib/preferences";
+import {
+  createContext,
+  type PropsWithChildren,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { registerBeforeSignOut } from "@/lib/auth";
+import {
+  detectDeviceLanguage,
+  type Language,
+  readChosenLanguage,
+  rememberChosenLanguage,
+} from "@/lib/language";
 
 const spanish: Record<string, string> = {
   Settings: "Ajustes",
@@ -137,25 +150,53 @@ const spanish: Record<string, string> = {
     "Tu cuenta se eliminará permanentemente tras un plazo de 30 días. Durante este tiempo puedes cancelarlo desde cualquier dispositivo.",
   "Your messages will remain visible to other users in your conversations but attributed to “Deleted User”. Your profile, avatar, and personal data will be removed.":
     "Tus mensajes seguirán visibles para otros usuarios como «Usuario eliminado». Se eliminarán tu perfil, avatar y datos personales.",
+  "Log in": "Iniciar sesión",
+  "Get started": "Empezar",
+  "Good conversations": "Las buenas conversaciones",
+  "need their own space.": "merecen su propio espacio.",
+  "SilverChat — Privacy-first messaging.": "SilverChat — Mensajería con privacidad primero.",
+  "A place to catch up, share a moment, and feel closer to your people.":
+    "Un lugar para ponerte al día, compartir un momento y sentirte más cerca de tu gente.",
+  "Your email is all you need to begin.": "Solo necesitas tu correo para empezar.",
+  "An illustration of a private conversation": "Ilustración de una conversación privada",
+  "Got a minute?": "¿Tienes un minuto?",
+  "For you? Always.": "¿Para ti? Siempre.",
+  "Let’s catch up.": "Pongámonos al día.",
+  "A little closer, wherever you are.": "Un poco más cerca, estés donde estés.",
+  "Made for the conversations that matter.": "Hecho para las conversaciones que importan.",
+  "Return home": "Volver al inicio",
 };
 const I18nContext = createContext<{
-  language: "en" | "es";
-  setLanguage: (value: "en" | "es") => void;
+  language: Language;
+  /** An explicit choice by the user: applied and remembered on this device. */
+  setLanguage: (value: Language) => void;
+  /** A resolved value from the account: applied now, never remembered as a choice. */
+  applyLanguage: (value: Language) => void;
   t: (value: string) => string;
 } | null>(null);
+
+/** Anonymous resolution: an explicit choice, otherwise the language of the device. */
+function resolveLanguage(): Language {
+  return readChosenLanguage() ?? detectDeviceLanguage();
+}
 export function I18nProvider({ children }: PropsWithChildren) {
-  const [language, setLanguage] = useState<"en" | "es">(() =>
-    readPreference("language", ["en", "es"], "en"),
-  );
+  const [language, setLanguageState] = useState<Language>(resolveLanguage);
+  const setLanguage = useCallback((value: Language) => {
+    setLanguageState(value);
+    rememberChosenLanguage(value);
+  }, []);
+  const applyLanguage = useCallback((value: Language) => setLanguageState(value), []);
   useEffect(() => {
     document.documentElement.lang = language;
-    writePreference("language", language);
   }, [language]);
+  // Without an account the device language applies again.
+  useEffect(() => registerBeforeSignOut(async () => setLanguageState(resolveLanguage())), []);
   return (
     <I18nContext.Provider
       value={{
         language,
         setLanguage,
+        applyLanguage,
         t: (value) => (language === "es" ? (spanish[value] ?? value) : value),
       }}
     >

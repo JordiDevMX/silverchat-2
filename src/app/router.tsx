@@ -9,14 +9,15 @@ import {
 } from "@tanstack/react-router";
 import { InfrastructureNotice } from "@/components/ui/auth-surfaces";
 import { Button } from "@/components/ui/button";
-import { RouteErrorState } from "@/components/ui/route-error-state";
 import { ChatSettingsNotice } from "@/features/chat-settings/components/ChatSettingsNotice";
 import "@/styles/chat-settings.css";
 import { AuthFrame, InlineError, SessionExpiredModal } from "@/features/auth/components";
 import { useDestinationActions } from "@/features/auth/hooks/useDestinationActions";
+import { useAuthText } from "@/features/auth/i18n";
 import type { AuthState } from "@/features/auth/types";
 import { validateChatSearch } from "@/features/chats/utils/chatSearch";
 import { AuthenticatedLayout, requireAuthentication } from "@/routes/_authenticated";
+import { RouteErrorState } from "./route-error-state";
 
 const MfaVerifyPage = lazyRouteComponent(() => import("@/routes/auth.2fa-verify"), "MfaVerifyPage");
 const CheckEmailPage = lazyRouteComponent(
@@ -35,10 +36,11 @@ const PickUsernamePage = lazyRouteComponent(
 const WelcomePage = lazyRouteComponent(() => import("@/routes/onboarding.welcome"), "WelcomePage");
 const SecurityPage = lazyRouteComponent(() => import("@/routes/settings.security"), "SecurityPage");
 function Root() {
+  const t = useAuthText();
   return (
     <>
       <a className="skip-link" href="#main">
-        Skip to content
+        {t("Skip to content")}
       </a>
       <Outlet />
       <SessionExpiredModal />
@@ -49,24 +51,26 @@ function Root() {
 // Auth landing destination only; messaging and the devices UI belong to later prompts.
 function AuthenticatedDestination() {
   const { auth, busy, error, signOut } = useDestinationActions();
+  const t = useAuthText();
+  const name = auth.profile?.display_name ?? "friend";
   return (
     <AuthFrame
-      title={`You’re signed in, ${auth.profile?.display_name ?? "friend"}.`}
-      subtitle="Your SilverChat account is ready."
+      title={t(`You’re signed in, ${name}.`, `Has iniciado sesión, ${name}.`)}
+      subtitle={t("Your SilverChat account is ready.")}
     >
       {auth.user?.user_metadata.requires_reenrollment &&
         !auth.user.factors?.some((factor) => factor.status === "verified") && (
           <InfrastructureNotice>
-            Backup code used. Please re-enable 2FA in settings.
+            {t("Backup code used. Please re-enable 2FA in settings.")}
           </InfrastructureNotice>
         )}
       <Button asChild>
-        <a href="/settings">Settings</a>
+        <a href="/settings">{t("Settings")}</a>
       </Button>
       <Button variant="outline" type="button" disabled={busy} onClick={signOut}>
-        {busy ? "Signing out…" : "Sign out"}
+        {busy ? t("Signing out…") : t("Sign out")}
       </Button>
-      <InlineError>{error}</InlineError>
+      <InlineError>{t(error)}</InlineError>
     </AuthFrame>
   );
 }
@@ -81,14 +85,17 @@ const root = createRootRouteWithContext<{ auth: AuthState }>()({
       requireAuthentication(context.auth, location.href, location.pathname);
     }
   },
-  notFoundComponent: () => (
-    <AuthFrame title="Page not found">
-      <InfrastructureNotice>This page could not be found.</InfrastructureNotice>
-      <Button asChild>
-        <a href="/">Return home</a>
-      </Button>
-    </AuthFrame>
-  ),
+  notFoundComponent: () => {
+    const t = useAuthText();
+    return (
+      <AuthFrame title={t("Page not found")}>
+        <InfrastructureNotice>{t("This page could not be found.")}</InfrastructureNotice>
+        <Button asChild>
+          <a href="/">{t("Return home")}</a>
+        </Button>
+      </AuthFrame>
+    );
+  },
 });
 const publicRoutes = [
   createRoute({ getParentRoute: () => root, path: "/", component: LandingPage }),

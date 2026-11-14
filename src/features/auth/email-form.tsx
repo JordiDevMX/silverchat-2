@@ -4,20 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEmailForm } from "@/features/auth/hooks/useEmailForm";
 import { AuthFrame, InlineError } from "./components";
+import { useAuthText } from "./i18n";
 export function EmailForm({ signup = false }: { signup?: boolean }) {
   const { widget, setToken, token, register, errors, isSubmitting, redirect, submit } =
     useEmailForm({ signup });
+  const t = useAuthText();
   return (
     <AuthFrame
-      title={signup ? "Create your account" : "Welcome back"}
+      title={signup ? t("Create your account") : t("Welcome back")}
       subtitle={
         signup
-          ? "We’ll send you a magic link — no password needed."
-          : "Your next conversation starts here. Sign in with your email."
+          ? t("We’ll send you a magic link — no password needed.")
+          : t("Your next conversation starts here. Sign in with your email.")
       }
     >
       <form onSubmit={submit} noValidate>
-        <label htmlFor="email">Email address</label>
+        <label htmlFor="email">{t("Email address")}</label>
         <div className="input-with-icon">
           <Mail aria-hidden="true" size={20} strokeWidth={1.75} />
           <Input
@@ -31,7 +33,7 @@ export function EmailForm({ signup = false }: { signup?: boolean }) {
           />
         </div>
         <div id="email-error">
-          <InlineError>{errors.email?.message}</InlineError>
+          <InlineError>{t(errors.email?.message)}</InlineError>
         </div>
         {signup &&
           (import.meta.env.VITE_TURNSTILE_SITE_KEY ? (
@@ -45,22 +47,26 @@ export function EmailForm({ signup = false }: { signup?: boolean }) {
             />
           ) : (
             <InlineError>
-              Account creation is temporarily unavailable. Please try again later.
+              {t("Account creation is temporarily unavailable. Please try again later.")}
             </InlineError>
           ))}
-        <InlineError>{errors.root?.message}</InlineError>
+        <InlineError>{t(errors.root?.message)}</InlineError>
         <Button disabled={isSubmitting || (signup && !token)} type="submit">
-          {isSubmitting ? "Sending your link…" : signup ? "Create account" : "Send magic link"}
+          {isSubmitting
+            ? t("Sending your link…")
+            : signup
+              ? t("Create account")
+              : t("Send magic link")}
           <ArrowRight aria-hidden="true" size={18} />
         </Button>
       </form>
       <p className="form-footer">
-        {signup ? "Already have an account?" : "Don’t have an account?"}{" "}
+        {signup ? t("Already have an account?") : t("Don’t have an account?")}{" "}
         <a href={`/auth/${signup ? "login" : "signup"}?${new URLSearchParams({ redirect })}`}>
-          {signup ? "Log in" : "Sign up"}
+          {signup ? t("Log in") : t("Sign up")}
         </a>
       </p>
-      <p className="quiet-note">No passwords to remember. Just you and your inbox.</p>
+      <p className="quiet-note">{t("No passwords to remember. Just you and your inbox.")}</p>
     </AuthFrame>
   );
 }
