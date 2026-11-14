@@ -45,10 +45,16 @@ export function CommunityChatSidebar({
           retry={() => void chats.refetch()}
         />
         {visible?.map((chat) => (
-          <CommunityChatListItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} />
+          <CommunityChatListItem
+            key={chat.id}
+            chat={chat}
+            isActive={chat.id === activeChatId}
+          />
         ))}
         {chats.isSuccess && !chats.data.length && (
-          <p className="p-4 text-muted-foreground">{say("No chats yet", "Aún no hay chats")}</p>
+          <p className="p-4 text-muted-foreground">
+            {say("No chats yet", "Aún no hay chats")}
+          </p>
         )}
         {chats.isSuccess && !!chats.data.length && !visible?.length && (
           <p className="p-4 text-muted-foreground">
@@ -56,21 +62,16 @@ export function CommunityChatSidebar({
           </p>
         )}
         {community.role === "admin" && (
-          <button type="button" className="community-new-chat" onClick={() => setCreate(true)}>
+          <button
+            type="button"
+            className="community-new-chat"
+            onClick={() => setCreate(true)}
+          >
             <Plus size={18} />
             {say("New chat", "Nuevo chat")}
           </button>
         )}
       </nav>
-      <footer className="community-sidebar-footer">
-        <NavLink className="community-info-link" href={`/communities/${community.id}/info`}>
-          <Info size={18} />
-          {say("Community info", "Información de la comunidad")}
-        </NavLink>
-      </footer>
-      {create && community.role === "admin" && (
-        <CreateCommunityChatModal communityId={community.id} onClose={() => setCreate(false)} />
-      )}
     </aside>
   );
 }
