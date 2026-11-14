@@ -159,7 +159,9 @@
     font-family: var(--font-sans);
     font-size: 14px;
     font-weight: 600;
-    box-shadow: 0 1px 4px rgb(48 119 215 / 12%);
+    box-shadow: var(--shadow-glow);
+    position: relative;
+    isolation: isolate;
     cursor: pointer;
   }
   :root[data-theme="dark"] .install-button {
@@ -167,8 +169,21 @@
     --install-text: white;
     --install-outline: #589fff;
   }
+  .sidebar-actions .install-button::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background-image: var(--gradient-neon);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sidebar-actions .install-button:hover::before {
+    opacity: 1;
+  }
   .sidebar-actions .install-button:hover {
-    background-color: var(--primary);
+    background-color: var(--install-background, white);
     color: white;
   }
   .sidebar-actions .install-button:focus-visible {
@@ -177,9 +192,10 @@
   }
   @media (prefers-reduced-motion: no-preference) {
     .sidebar-actions .install-button {
-      transition:
-        background-color 160ms ease-out,
-        color 160ms ease-out;
+      transition: color 160ms ease-out;
+    }
+    .sidebar-actions .install-button::before {
+      transition: opacity 160ms ease-out;
     }
   }
   .chat-list-pane .chat-search {

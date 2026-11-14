@@ -430,27 +430,46 @@ try {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const fill = () => install.evaluate((el) => getComputedStyle(el).backgroundColor);
   const verifyInstallColors = async (background, text, border) => {
+    const { gradient, glow } = await install.evaluate((el) => {
+      const probe = document.createElement("span");
+      probe.style.backgroundImage = "var(--gradient-neon)";
+      probe.style.boxShadow = "var(--shadow-glow)";
+      el.append(probe);
+      const style = getComputedStyle(probe);
+      const tokens = { gradient: style.backgroundImage, glow: style.boxShadow };
+      probe.remove();
+      return tokens;
+    });
+    assert.match(gradient, /^linear-gradient/);
+    assert.notEqual(glow, "none");
     const colors = () =>
       install.evaluate(async (el) => {
-        await Promise.all(el.getAnimations().map((animation) => animation.finished));
+        await Promise.all(
+          el.getAnimations({ subtree: true }).map((animation) => animation.finished),
+        );
         const style = getComputedStyle(el);
-        return [style.backgroundColor, style.color, style.borderTopColor, style.borderTopWidth];
+        const overlay = getComputedStyle(el, "::before");
+        return [
+          style.backgroundColor,
+          style.color,
+          style.borderTopColor,
+          style.borderTopWidth,
+          style.boxShadow,
+          overlay.backgroundImage,
+          overlay.opacity,
+        ];
       });
-    assert.deepEqual(await colors(), [background, text, border, "1px"]);
+    assert.deepEqual(await colors(), [background, text, border, "1px", glow, gradient, "0"]);
     await install.hover();
-    const primary = await install.evaluate((el) =>
-      getComputedStyle(el).getPropertyValue("--primary").trim(),
-    );
-    // Resolve the token through the same CSS property to normalize browser color serialization.
-    const hoverFill = await page.evaluate((value) => {
-      const probe = document.createElement("span");
-      probe.style.backgroundColor = value;
-      document.body.append(probe);
-      const result = getComputedStyle(probe).backgroundColor;
-      probe.remove();
-      return result;
-    }, primary);
-    assert.deepEqual(await colors(), [hoverFill, "rgb(255, 255, 255)", border, "1px"]);
+    assert.deepEqual(await colors(), [
+      background,
+      "rgb(255, 255, 255)",
+      border,
+      "1px",
+      glow,
+      gradient,
+      "1",
+    ]);
     await theme.hover();
   };
   const lightFill = "rgb(255, 255, 255)";
