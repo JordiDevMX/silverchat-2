@@ -67,8 +67,9 @@ in the confirmation dialog for retry.
 Filters, query and selection live in `/chats` search parameters. Search waits
 150 ms and applies after the selected filter. Selection supports Shift ranges;
 selection changes replace history while filter changes remain navigable with
-Back. The global numeric badge counts actual unread receipts in unmuted,
-unarchived active chats; manual dots don't invent unread messages.
+Back. The numeric badges count actual unread receipts in unmuted, unarchived
+active chats; community chats count on the Communities badge instead of the
+Chats one; manual dots don't invent unread messages.
 
 Draft keys remain `silverchat_draft_{chat_id}`. Values use the specified shape,
 with optional `failed`, `pending` and `ownerId`. New writes carry `ownerId` to

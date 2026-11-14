@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { cleanupDrafts } from "../drafts";
-import { isMuted } from "../utils/computeChatDisplay";
+import { navigationUnread } from "../utils/computeChatDisplay";
 import { useChats, useChatsRealtime } from "./useChats";
 
 /** One subscription owner for both responsive navigation presentations. */
@@ -15,9 +15,7 @@ export function useAppNavigation() {
     }
   }, []);
   // Muted/archived chats don't produce tab notifications; manual dots aren't messages.
-  const unread = data.reduce(
-    (sum, c) => sum + (!c.archivedAt && !isMuted(c) ? c.unreadCount : 0),
-    0,
-  );
-  return { unread };
+  // Community chats notify the Communities tab, every other chat the Chats tab.
+  const { chatUnread, communityUnread } = navigationUnread(data);
+  return { unread: chatUnread, communityUnread };
 }

@@ -89,6 +89,7 @@ let memberships = [
   membership(4, null, "direct", "Thanks for the photos!"),
   membership(5, null, "direct", "The final files are ready."),
   membership(6, null, "direct", "Catch you later."),
+  membership(9, "General", "community_chat", "Welcome to the community."),
 ];
 memberships[0].pinned_at = ago(3);
 memberships[1].favorited_at = ago(2);
@@ -112,6 +113,7 @@ const unreadCounts = new Map([
   [uid(101), 1025],
   [uid(103), 3],
   [uid(106), 8],
+  [uid(109), 3],
 ]);
 let failId = null,
   failAction = null,
@@ -353,7 +355,7 @@ try {
   await page.goto(`${process.env.UI_BASE_URL ?? "http://127.0.0.1:5173"}/chats`);
   await row(101).waitFor();
   assert.equal(await page.locator(".chat-filters button").count(), 7);
-  assert.equal(await page.locator(".chat-list-item").count(), 5);
+  assert.equal(await page.locator(".chat-list-item").count(), 6);
   assert.equal(await row(101).locator(".chat-badge").textContent(), "99+");
   assert.equal(await row(106).locator(".chat-badge").count(), 0);
   assert.equal(await page.locator(".request-row").count(), 0);
@@ -368,6 +370,15 @@ try {
   );
   assert.equal(await navigation.locator('[aria-current="page"]').getAttribute("href"), "/chats");
   assert.equal(await navigation.getByRole("img", { name: "1028 Unread" }).textContent(), "99+");
+  // Community chats notify the Communities tab, never the Chats tab.
+  assert.equal(
+    await navigation
+      .locator('a[href="/communities"]')
+      .getByRole("img", { name: "3 Unread" })
+      .textContent(),
+    "3",
+  );
+  assert.equal(await navigation.locator('a[href="/chats"]').getByRole("img").count(), 1);
   for (const width of [390, 767, 768, 1023, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     assert.equal(await page.locator(".chats-header button").count(), 0);
@@ -426,12 +437,12 @@ try {
   );
   for (const [name, count] of [
     ["Favorites", 1],
-    ["Unread", 3],
-    ["Groups", 1],
+    ["Unread", 4],
+    ["Groups", 2],
     ["Archived", 1],
     ["Muted", 1],
     ["Blocked", 0],
-    ["All", 5],
+    ["All", 6],
   ]) {
     await filter(name).click();
     await page.waitForFunction(
@@ -547,6 +558,13 @@ try {
   realtime("messages", { id: uid(208), chat_id: uid(108), sender_id: uid(8) });
   await row(108).waitFor();
   assert.ok(mainReads > before);
+  // A new community message raises the Communities badge without touching the Chats badge.
+  unreadCounts.set(uid(109), 4);
+  realtime("messages", { id: uid(209), chat_id: uid(109), sender_id: uid(8) });
+  await page
+    .locator('a[href="/communities"]')
+    .getByRole("img", { name: "4 Unread" })
+    .waitFor();
   requests.push({
     id: uid(399),
     sender_id: uid(8),

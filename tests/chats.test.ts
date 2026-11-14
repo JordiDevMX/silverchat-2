@@ -9,6 +9,7 @@ import {
   badgeText,
   computeChatDisplay,
   isMuted,
+  navigationUnread,
   orderChats,
   receiptStatus,
 } from "../src/features/chats/utils/computeChatDisplay.ts";
@@ -61,6 +62,19 @@ test("seven filters scope local search; archived and blocked semantics", () => {
   assert.equal(applySearch(rows, "caroline")[0]?.id, "c");
   assert.equal(isMuted({ ...chat, mutedUntil: "2020-01-01" }), false);
   assert.equal(badgeText(100), "99+");
+});
+test("navigation badges split community chats and skip muted or archived chats", () => {
+  const rows = [
+    { ...chat, id: "a", unreadCount: 4 },
+    { ...chat, id: "b", type: "community_chat" as const, unreadCount: 3 },
+    { ...chat, id: "c", type: "community_chat" as const, unreadCount: 5, mutedUntil: "9999-12-31" },
+    { ...chat, id: "d", type: "community_chat" as const, unreadCount: 2, archivedAt: "2026-01-01" },
+    { ...chat, id: "e", unreadCount: 7, mutedUntil: "9999-12-31" },
+    { ...chat, id: "f", type: "group" as const, unreadCount: 6, manuallyUnread: true },
+  ];
+  const totals = navigationUnread(rows);
+  assert.equal(totals.chatUnread, 10);
+  assert.equal(totals.communityUnread, 3);
 });
 test("pin timestamp wins; equal pin falls back to last message and null sorts last", () => {
   const rows = [
