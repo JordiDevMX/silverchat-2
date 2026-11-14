@@ -382,6 +382,7 @@ try {
   for (const width of [390, 767, 768, 1023, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     assert.equal(await page.locator(".sidebar-actions .install-button").isVisible(), true);
+    assert.equal(await page.locator(".chat-details-pane").count(), 0);
     assert.equal(await navigation.locator(".nav-logout").isVisible(), width >= 1024);
     assert.equal(await navigation.locator(".nav-settings").isVisible(), width < 1024);
     assert.equal(
@@ -425,6 +426,29 @@ try {
     "PASS shell breakpoints, five URLs, single navigation, active state, keyboard labels, unread exclusions and floating-action clearance",
   );
   const install = page.getByRole("button", { name: "Install SilverChat" });
+  const theme = page.locator(".sidebar-actions button").first();
+  const fill = () => install.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const lightFill = await fill();
+  await theme.locator(".lucide-sun").waitFor();
+  await theme.click();
+  await theme.locator(".lucide-moon").waitFor();
+  const darkFill = await fill();
+  assert.notEqual(darkFill, lightFill);
+  await theme.click();
+  await theme.locator(".lucide-monitor").waitFor();
+  for (const [colorScheme, expected] of [
+    ["light", lightFill],
+    ["dark", darkFill],
+  ]) {
+    await page.emulateMedia({ colorScheme });
+    await page.waitForFunction(
+      (mode) => document.documentElement.dataset.theme === mode,
+      colorScheme,
+    );
+    assert.equal(await fill(), expected);
+  }
+  await theme.click();
+  await theme.locator(".lucide-sun").waitFor();
   const installDialog = page.getByRole("dialog", { name: "Install SilverChat" });
   assert.deepEqual(
     await install.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).cursor]),
@@ -463,11 +487,6 @@ try {
     await notice.getByRole("button", { name: "Dismiss" }).click();
   }
   await install.waitFor({ state: "hidden" });
-  const theme = page.locator(".sidebar-actions button").first();
-  for (const mode of ["Dark", "System", "Light"]) {
-    await theme.click();
-    await page.getByRole("button", { name: new RegExp(`Theme · ${mode} →`) }).waitFor();
-  }
   await navigation.getByRole("button", { name: "Log out" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
   console.log(

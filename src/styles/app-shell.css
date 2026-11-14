@@ -154,15 +154,23 @@
     height: 36px;
     border-radius: 999px;
     border: 1px solid var(--neon);
-    background: color-mix(in oklab, var(--neon) 24%, #111827);
+    --install-accent: oklch(from var(--neon) min(l, 0.48) c h);
+    background: color-mix(in oklab, var(--install-accent) 94%, var(--card));
     color: white;
     font-size: 14px;
     font-weight: 600;
     box-shadow: var(--shadow-glow);
     cursor: pointer;
   }
+  :root[data-theme="dark"] .install-button {
+    --install-accent: color-mix(in oklab, var(--neon) 32%, var(--card));
+  }
   .sidebar-actions .install-button:hover {
-    background: linear-gradient(120deg, color-mix(in oklab, var(--neon) 42%, #111827), #172033);
+    background: linear-gradient(
+      120deg,
+      var(--install-accent),
+      color-mix(in oklab, var(--install-accent) 90%, var(--card))
+    );
     box-shadow: 0 0 24px -2px var(--neon);
   }
   .sidebar-actions .install-button:focus-visible {
@@ -265,6 +273,9 @@
       left: 50%;
     }
   }
+  .chat-workspace:has(> .chat-details-pane) {
+    grid-template-columns: var(--list-width) minmax(0, 1fr) clamp(192px, 18vw, 320px);
+  }
   @media (width >= 1024px) {
     .app-shell {
       --shell-rail-width: 68px;
@@ -272,7 +283,7 @@
     }
     .chat-workspace {
       --list-width: clamp(244px, 24vw, 360px);
-      grid-template-columns: var(--list-width) minmax(0, 1fr) clamp(192px, 18vw, 320px);
+      grid-template-columns: var(--list-width) minmax(0, 1fr);
     }
     .chat-list-pane {
       border-right: 1px solid var(--border);

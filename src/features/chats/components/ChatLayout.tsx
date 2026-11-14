@@ -5,11 +5,18 @@ import { useMessageText } from "@/features/messages/i18n";
 import { PendingDeletionBanner } from "@/features/settings/components/PendingDeletionBanner";
 import { AppNavigation } from "./AppNavigation";
 
-const desktopQuery = "(min-width: 1024px)";
-function subscribeDesktop(notify: () => void) {
-  const query = window.matchMedia(desktopQuery);
-  query.addEventListener("change", notify);
-  return () => query.removeEventListener("change", notify);
+const desktop = matchMedia("(min-width: 1024px)");
+const wide = matchMedia("(min-width: 80rem)");
+function subscribeViewport(notify: () => void) {
+  desktop.addEventListener("change", notify);
+  wide.addEventListener("change", notify);
+  return () => {
+    desktop.removeEventListener("change", notify);
+    wide.removeEventListener("change", notify);
+  };
+}
+function viewport() {
+  return wide.matches ? "wide" : desktop.matches ? "desktop" : "mobile";
 }
 
 export function ChatLayout({
@@ -22,8 +29,7 @@ export function ChatLayout({
   listOnly?: boolean;
   details?: ReactNode;
 }>) {
-  const desktop = useSyncExternalStore(subscribeDesktop, () => matchMedia(desktopQuery).matches);
-  const { say } = useMessageText();
+  const size = useSyncExternalStore(subscribeViewport, viewport);
   return (
     <div className="app-shell">
       <AppNavigation />
@@ -32,20 +38,15 @@ export function ChatLayout({
         <PendingDeletionBanner />
         {list ? (
           <div className="chat-workspace">
-            {(desktop || listOnly) && (
+            {(size !== "mobile" || listOnly) && (
               <div id={listOnly ? "main" : undefined} className="chat-list-pane">
                 {list}
               </div>
             )}
-            {(desktop || !listOnly) && <div className="chat-content-pane">{children}</div>}
-            {desktop && (
-              <aside
-                className="chat-details-pane"
-                aria-label={say("Chat details", "Detalles del chat")}
-              >
-                {details || <h2>{say("Chat details", "Detalles del chat")}</h2>}
-              </aside>
+            {(size !== "mobile" || !listOnly) && (
+              <div className="chat-content-pane">{children}</div>
             )}
+            {size === "wide" && details}
           </div>
         ) : (
           children

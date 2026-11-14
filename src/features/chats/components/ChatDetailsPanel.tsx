@@ -16,7 +16,7 @@ export function ChatDetailsPanel({
   if (!chat.data || (communityId && chat.data.communityId !== communityId)) return null;
   const base = communityId ? `/communities/${communityId}/chats/${chatId}` : `/chats/${chatId}`;
   return (
-    <>
+    <aside className="chat-details-pane" aria-label={say("Chat details", "Detalles del chat")}>
       <h2>{say("Chat details", "Detalles del chat")}</h2>
       <PinnedSection chatId={chatId} base={base} />
       <NavLink className="detail-heading" href={`${base}/media?tab=media`}>
@@ -38,7 +38,7 @@ export function ChatDetailsPanel({
           </ul>
         </details>
       )}
-    </>
+    </aside>
   );
 }
 

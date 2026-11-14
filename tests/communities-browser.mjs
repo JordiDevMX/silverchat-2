@@ -376,13 +376,20 @@ try {
   );
   await page.getByRole("button", { name: "Cancel reply", exact: true }).click();
   assert.equal(await page.locator(".reply-bar").count(), 0);
-  await page.setViewportSize({ width: 1024, height: 820 });
+  await page.setViewportSize({ width: 1279, height: 820 });
+  await page.locator(".chat-details-pane").waitFor({ state: "detached" });
+  assert.equal(
+    await page.locator(".chat-content-pane").evaluate((el) => el.getBoundingClientRect().right),
+    1279,
+  );
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await page.locator(".chat-details-pane").waitFor();
   const panes = page.locator(".chat-workspace > :visible");
   const bounds = await panes.evaluateAll((els) =>
     els.map((el) => el.getBoundingClientRect().toJSON()),
   );
   assert.equal(bounds.length, 3);
-  assert.ok(bounds.every((box) => box.width > 0 && box.right <= 1024));
+  assert.ok(bounds.every((box) => box.width > 0 && box.right <= 1280));
   assert.equal(bounds[1].left, bounds[0].right);
   assert.equal(bounds[2].left, bounds[1].right);
   await page.getByRole("button", { name: "Log out", exact: true }).waitFor();
@@ -424,6 +431,7 @@ try {
   await page.locator(".community-chat-row [aria-label=Pinned]").waitFor();
   await page.getByRole("link", { name: "Shared media", exact: true }).click();
   await page.waitForURL(`**/communities/${cid}/chats/${general}/media?tab=media`);
+  await page.locator(".chat-details-pane").waitFor({ state: "detached" });
   await page.getByRole("tab", { name: "Files" }).click();
   await page.getByRole("link", { name: "Back to chat" }).click();
   await page.waitForURL(`**/communities/${cid}/chats/${general}`);

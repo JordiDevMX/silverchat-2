@@ -66,6 +66,9 @@ function SectionLayout() {
         <Outlet />
       </ChatLayout>
     );
+  const conversationPath = communityId
+    ? `/communities/${communityId}/chats/${chatId}`
+    : `/chats/${chatId}`;
   const listOnly = path === "/chats" || path === `/communities/${communityId}`;
   return (
     <ChatLayout
@@ -81,7 +84,10 @@ function SectionLayout() {
           <ChatList activeChatId={chatId} />
         )
       }
-      details={chatId && <ChatDetailsPanel chatId={chatId} communityId={communityId} />}
+      details={
+        chatId &&
+        path === conversationPath && <ChatDetailsPanel chatId={chatId} communityId={communityId} />
+      }
     >
       <Outlet />
     </ChatLayout>
