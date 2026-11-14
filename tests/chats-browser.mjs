@@ -427,13 +427,39 @@ try {
   );
   const install = page.getByRole("button", { name: "Install SilverChat" });
   const theme = page.locator(".sidebar-actions button").first();
+  await page.emulateMedia({ reducedMotion: "reduce" });
   const fill = () => install.evaluate((el) => getComputedStyle(el).backgroundColor);
-  const lightFill = await fill();
+  const verifyInstallColors = async (background, text, border) => {
+    const colors = () =>
+      install.evaluate(async (el) => {
+        await Promise.all(el.getAnimations().map((animation) => animation.finished));
+        const style = getComputedStyle(el);
+        return [style.backgroundColor, style.color, style.borderTopColor, style.borderTopWidth];
+      });
+    assert.deepEqual(await colors(), [background, text, border, "1px"]);
+    await install.hover();
+    const primary = await install.evaluate((el) =>
+      getComputedStyle(el).getPropertyValue("--primary").trim(),
+    );
+    // Resolve the token through the same CSS property to normalize browser color serialization.
+    const hoverFill = await page.evaluate((value) => {
+      const probe = document.createElement("span");
+      probe.style.backgroundColor = value;
+      document.body.append(probe);
+      const result = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return result;
+    }, primary);
+    assert.deepEqual(await colors(), [hoverFill, "rgb(255, 255, 255)", border, "1px"]);
+    await theme.hover();
+  };
+  const lightFill = "rgb(255, 255, 255)";
+  const darkFill = "rgb(16, 18, 22)";
   await theme.locator(".lucide-sun").waitFor();
+  await verifyInstallColors(lightFill, "rgb(0, 0, 0)", "rgb(169, 206, 250)");
   await theme.click();
   await theme.locator(".lucide-moon").waitFor();
-  const darkFill = await fill();
-  assert.notEqual(darkFill, lightFill);
+  await verifyInstallColors(darkFill, "rgb(255, 255, 255)", "rgb(88, 159, 255)");
   await theme.click();
   await theme.locator(".lucide-monitor").waitFor();
   for (const [colorScheme, expected] of [
@@ -452,8 +478,9 @@ try {
   const installDialog = page.getByRole("dialog", { name: "Install SilverChat" });
   assert.deepEqual(
     await install.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).cursor]),
-    ["rgb(255, 255, 255)", "pointer"],
+    ["rgb(0, 0, 0)", "pointer"],
   );
+  await page.emulateMedia({ reducedMotion: null });
   await install.click();
   assert.equal(await installDialog.getByRole("listitem").count(), 3);
   await installDialog.getByText(/Add to Home Screen/).waitFor();
