@@ -19,7 +19,11 @@ export function CommunityCard({ community }: { community: Community }) {
   const chats = useCommunityChats(community.id, expanded);
   return (
     <CommunityCardSurface
-      name={community.name}
+      name={
+        <NavLink className="community-card-name" href={`/communities/${community.id}/info`}>
+          <strong>{community.name}</strong>
+        </NavLink>
+      }
       description={community.description}
       members={
         <>
@@ -38,6 +42,10 @@ export function CommunityCard({ community }: { community: Community }) {
       }
       expanded={expanded}
       panelId={id}
+      toggleLabel={say(
+        expanded ? `Hide chats for ${community.name}` : `Show chats for ${community.name}`,
+        expanded ? `Ocultar chats de ${community.name}` : `Mostrar chats de ${community.name}`,
+      )}
       onToggle={() => {
         setExpanded(!expanded);
         try {

@@ -443,11 +443,26 @@ try {
   await page.getByRole("link", { name: "Back to community", exact: true }).click();
   await page.getByRole("link", { name: /Announcements/ }).waitFor();
   await page.goto(`${origin}/communities`);
+  const nameLink = page.getByRole("link", { name: "Renamed friends", exact: true });
+  assert.equal(await nameLink.getAttribute("href"), `/communities/${cid}/info`);
+  await nameLink.click();
+  await page.waitForURL(`**/communities/${cid}/info`);
+  await page.getByRole("heading", { name: "Community info", exact: true }).waitFor();
+  await page.goto(`${origin}/communities`);
   await page.getByRole("button", { name: /Renamed friends/ }).click();
   await page.getByRole("link", { name: /See all 2 chats/ }).waitFor();
+  const avatar = await page.locator(".community-avatar-frame").boundingBox();
+  await page.mouse.click(avatar.x + avatar.width / 2, avatar.y + avatar.height / 2);
+  assert.equal(
+    await page.locator(".community-card-toggle").getAttribute("aria-expanded"),
+    "false",
+    "Clicking the card header outside the name still toggles the chat preview",
+  );
+  await page.mouse.click(avatar.x + avatar.width / 2, avatar.y + avatar.height / 2);
+  assert.equal(await page.locator(".community-card-toggle").getAttribute("aria-expanded"), "true");
   await page.reload();
   await page.getByRole("link", { name: /See all 2 chats/ }).waitFor();
-  const cardToggle = page.locator(".community-card-heading");
+  const cardToggle = page.locator(".community-card-toggle");
   const cardPanel = page.locator(".community-card-chats");
   await cardToggle.press("Enter");
   assert.equal(await cardToggle.getAttribute("aria-expanded"), "false");
