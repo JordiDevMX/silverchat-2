@@ -5,14 +5,14 @@ import { ChatListItem } from "@/features/chats/components/ChatListItem";
 import { ChatListSkeleton } from "@/features/chats/components/ChatPickerSurfaces";
 import { ChatSearchBar } from "@/features/chats/components/ChatSearchBar";
 import { ChatsEmptyState } from "@/features/chats/components/ChatsEmptyState";
-import { ChatsHeader } from "@/features/chats/components/ChatsHeader";
 import { DeleteChatModal } from "@/features/chats/components/DeleteChatModal";
 import { MessageRequestsSection } from "@/features/chats/components/MessageRequestsSection";
 import { MultiSelectToolbar } from "@/features/chats/components/MultiSelectToolbar";
 import { NewChatFAB } from "@/features/chats/components/NewChatFAB";
 import { useChatsPage } from "@/features/chats/hooks/useChatsPage";
 import { BlockUserModal } from "@/features/settings/components/BlockUserModal";
-export function ChatsPage() {
+import { SidebarActions } from "./SidebarActions";
+export function ChatList({ activeChatId }: { activeChatId?: string }) {
   const {
     t,
     language,
@@ -49,8 +49,8 @@ export function ChatsPage() {
     confirmDeletion,
   } = useChatsPage();
   return (
-    <main
-      id="main"
+    <section
+      aria-label={t("Chats")}
       className="chats-page"
       data-clock={clock}
       aria-busy={query.isFetching || mutations.busy}
@@ -82,7 +82,7 @@ export function ChatsPage() {
             }
           />
         ) : (
-          <ChatsHeader title={t("Chats")} />
+          <SidebarActions />
         )}
         {auth.user?.user_metadata.requires_reenrollment &&
           !auth.user.factors?.some((f) => f.status === "verified") && (
@@ -126,6 +126,7 @@ export function ChatsPage() {
               <ChatListItem
                 key={chat.id}
                 chat={chat}
+                active={chat.id === activeChatId}
                 draft={drafts.get(chat.id)}
                 selecting={!!filters.select}
                 selected={selectedIds.has(chat.id)}
@@ -182,6 +183,6 @@ export function ChatsPage() {
           onConfirm={confirmDeletion}
         />
       )}
-    </main>
+    </section>
   );
 }

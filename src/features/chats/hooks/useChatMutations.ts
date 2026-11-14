@@ -114,6 +114,9 @@ export function useChatMutations() {
       );
       setError(`${failed.size}/${chats.length}`);
     }
+    await Promise.all(
+      chats.map((chat) => cache.invalidateQueries({ queryKey: ["chat-detail", user.id, chat.id] })),
+    );
     await cache.invalidateQueries({ queryKey: key });
     await cache.invalidateQueries({ queryKey: ["community-chats", user.id] });
     locked.current = false;

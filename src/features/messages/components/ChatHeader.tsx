@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { ChevronLeft, MoreVertical, Phone, Search, Users, Video } from "lucide-react";
+import { ChevronLeft, MoreVertical, Phone, Pin, Search, Users, Video } from "lucide-react";
 import { ConversationHeaderSurface } from "@/components/ui/conversation-surface";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
 import { Avatar } from "@/features/settings/components/shared";
@@ -8,6 +8,7 @@ import { useMessageText } from "../i18n";
 import type { ChatDetails } from "../types";
 export function ChatHeader({ chat, onSearch }: { chat: ChatDetails; onSearch: () => void }) {
   const ui = useChatUIStore();
+  const menuOpen = ui.chatId === chat.id && ui.modal?.kind === "menu";
   const router = useRouter();
   const { say, language } = useMessageText();
   const presence = useChatPresence(chat);
@@ -52,7 +53,10 @@ export function ChatHeader({ chat, onSearch }: { chat: ChatDetails; onSearch: ()
         />
       )}
       <span>
-        <strong>{name}</strong>
+        <strong className="chat-title">
+          <span>{name}</span>
+          {chat.own?.pinned_at && <Pin size={14} aria-label={say("Pinned", "Fijado")} />}
+        </strong>
         <small>
           {online && chat.type === "direct" && <i className="presence-dot" />}
           {subtitle}
@@ -62,14 +66,25 @@ export function ChatHeader({ chat, onSearch }: { chat: ChatDetails; onSearch: ()
   );
   return (
     <ConversationHeaderSurface>
-      <Link
-        to="/chats"
-        search={{ filter: "all", q: "", selectedIds: "", select: undefined, notice: undefined }}
-        className="message-icon conversation-back"
-        aria-label={say("Back to chats", "Volver a chats")}
-      >
-        <ChevronLeft />
-      </Link>
+      {chat.type === "community_chat" && chat.communityId ? (
+        <Link
+          to="/communities/$communityId"
+          params={{ communityId: chat.communityId }}
+          className="message-icon conversation-back"
+          aria-label={say("Back to community", "Volver a la comunidad")}
+        >
+          <ChevronLeft />
+        </Link>
+      ) : (
+        <Link
+          to="/chats"
+          search={{ filter: "all", q: "", selectedIds: "", select: undefined, notice: undefined }}
+          className="message-icon conversation-back"
+          aria-label={say("Back to chats", "Volver a chats")}
+        >
+          <ChevronLeft />
+        </Link>
+      )}
       {chat.type === "self" ? (
         <div className="conversation-identity">{identity}</div>
       ) : (
@@ -120,7 +135,14 @@ export function ChatHeader({ chat, onSearch }: { chat: ChatDetails; onSearch: ()
           type="button"
           className="message-icon"
           aria-label={say("Chat options", "Opciones del chat")}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onPointerDown={menuOpen ? (event) => event.stopPropagation() : undefined}
           onClick={(e) => {
+            if (menuOpen) {
+              ui.close();
+              return;
+            }
             const rect = e.currentTarget.getBoundingClientRect();
             ui.open(chat.id, { kind: "menu", x: rect.right - 240, y: rect.bottom + 4 });
           }}

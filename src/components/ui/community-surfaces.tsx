@@ -66,22 +66,31 @@ export function CommunityCardSurface({
 
 export function CommunityChatRowContent({
   name,
+  avatar,
+  pinned,
   preview,
   timestamp,
   status,
 }: {
   name: string | null;
+  avatar?: ReactNode;
+  pinned?: ReactNode;
   preview: string;
   timestamp?: string;
   status?: ReactNode;
 }) {
   return (
     <>
-      <span className="community-chat-icon">
-        <MessageCircle size={20} aria-hidden="true" />
-      </span>
+      {avatar ?? (
+        <span className="community-chat-icon">
+          <MessageCircle size={20} aria-hidden="true" />
+        </span>
+      )}
       <span className="community-chat-copy">
-        <strong>{name}</strong>
+        <strong className="chat-title">
+          <span>{name}</span>
+          {pinned}
+        </strong>
         <span>{preview}</span>
       </span>
       <span className="community-chat-meta">

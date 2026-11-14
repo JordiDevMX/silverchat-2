@@ -65,6 +65,10 @@ export function useChatSettingsLayer(
         });
       return;
     }
+    if (action === "change_chat_photo") {
+      ui.open(chat.id, { kind: "photo" });
+      return;
+    }
     if (action === "view_community_info") {
       await router.navigate({
         href: `/communities/${chat.communityId ?? chat.id}/info`,

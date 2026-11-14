@@ -44,12 +44,16 @@ test("chat menus distinguish direct, self, groups, communities, admins and pendi
   assert.ok(getAvailableChatActions(chat("group", "admin")).includes("add_members"));
   assert.deepEqual(getAvailableChatActions(chat("community_chat", "admin")), [
     "view_community_info",
+    "change_chat_photo",
     "search_in_chat",
     "mute",
     "mark_unread",
     "pin",
     "clear_chat",
   ]);
+  assert.ok(
+    !getAvailableChatActions(chat("community_chat", "member")).includes("change_chat_photo"),
+  );
   const direct = chat();
   if (direct.own) {
     direct.own.pinned_at = "2026-01-01";

@@ -4,7 +4,10 @@ import { createRoot } from "react-dom/client";
 
 import "@/styles/globals.css";
 
+import { listenForPwaInstall } from "@/lib/pwa-install";
 import App from "./App";
+
+listenForPwaInstall();
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {

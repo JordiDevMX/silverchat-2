@@ -2,7 +2,7 @@ import { create } from "zustand";
 export type ChatModal =
   | { kind: "contact" | "report" | "block"; userId: string; name?: string }
   | { kind: "menu"; x: number; y: number }
-  | { kind: "mute" | "add" | "clear" | "leave" };
+  | { kind: "photo" | "mute" | "add" | "clear" | "leave" };
 export const useChatUIStore = create<{
   chatId: string | null;
   modal: ChatModal | null;

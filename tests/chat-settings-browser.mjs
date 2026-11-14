@@ -537,6 +537,7 @@ try {
   await options("Pin");
   await settle();
   assert.ok(pinnedAt);
+  await page.locator(".conversation-identity [aria-label=Pinned]").waitFor();
   await options("Unpin");
   await settle();
   assert.equal(pinnedAt, null);
@@ -560,6 +561,7 @@ try {
   await page.getByRole("button", { name: "Chat options", exact: true }).click();
   assert.equal(await page.getByRole("menuitem").count(), 8);
   await page.keyboard.press("Escape");
+  await page.getByRole("menu").waitFor({ state: "hidden" });
   await options("Clear chat");
   await page.getByRole("dialog").getByRole("button", { name: "Clear chat", exact: true }).click();
   await settle();
@@ -628,6 +630,7 @@ try {
   assert.equal(workflowCalls.filter((c) => c.kind === "self").length, 1);
   await goto(groupId, "/members");
   await page
+    .locator(".chat-settings-screen")
     .getByRole("button", { name: /Sofia Reyes/ })
     .first()
     .click();
@@ -656,6 +659,7 @@ try {
   contactChatAvailable = true;
   await goto(groupId, "/members");
   await page
+    .locator(".chat-settings-screen")
     .getByRole("button", { name: /Sofia Reyes/ })
     .first()
     .click();
@@ -693,7 +697,7 @@ try {
   await settle();
   assert.equal(groupMembers.length, 2);
   await page.getByRole("button", { name: "+ Add", exact: true }).click();
-  await page.getByRole("searchbox").fill("dave");
+  await page.getByRole("dialog").getByRole("searchbox").fill("dave");
   await settle();
   await page.getByRole("checkbox", { name: /Dave Park/ }).check();
   let releaseAdd;

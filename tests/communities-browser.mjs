@@ -135,6 +135,10 @@ async function setup(context) {
         chats.push(next);
         return send(route, next.id);
       }
+      if (rpc === "update_community_chat_avatar") {
+        chats.find((c) => c.id === body.p_chat_id).avatar_url = body.p_avatar_url || null;
+        return send(route, null);
+      }
       if (rpc === "update_community_info") {
         if (failInfo) return send(route, { message: "denied", code: "42501" }, 403);
         for (const key of ["name", "description", "avatar_url"])
@@ -372,25 +376,72 @@ try {
   );
   await page.getByRole("button", { name: "Cancel reply", exact: true }).click();
   assert.equal(await page.locator(".reply-bar").count(), 0);
-  const bounds = await page.locator(".community-layout > div").evaluateAll((els) =>
-    els.map((el) => ({
-      x: el.getBoundingClientRect().x,
-      width: el.getBoundingClientRect().width,
-    })),
+  await page.setViewportSize({ width: 1279, height: 820 });
+  await page.locator(".chat-details-pane").waitFor({ state: "detached" });
+  assert.equal(
+    await page.locator(".chat-content-pane").evaluate((el) => el.getBoundingClientRect().right),
+    1279,
   );
-  assert.equal(bounds[0].width, 320);
-  assert.ok(bounds[1].x >= bounds[0].x + 320);
-  await page.getByRole("button", { name: "Chat options", exact: true }).click();
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await page.locator(".chat-details-pane").waitFor();
+  const panes = page.locator(".chat-workspace > :visible");
+  const bounds = await panes.evaluateAll((els) =>
+    els.map((el) => el.getBoundingClientRect().toJSON()),
+  );
+  assert.equal(bounds.length, 3);
+  assert.ok(bounds.every((box) => box.width > 0 && box.right <= 1280));
+  assert.equal(bounds[1].left, bounds[0].right);
+  assert.equal(bounds[2].left, bounds[1].right);
+  await page.getByRole("button", { name: "Log out", exact: true }).waitFor();
+  const search = page.getByRole("searchbox", { name: community.name, exact: true });
+  await search.fill("absent");
+  assert.equal(await page.locator(".community-chat-row:visible").count(), 0);
+  await search.fill("");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const trigger = page.getByRole("button", { name: "Chat options", exact: true });
+  await trigger.click();
+  await page.getByRole("menu").waitFor();
+  await trigger.click();
+  await page.getByRole("menu").waitFor({ state: "hidden" });
+  await trigger.click();
   assert.equal(
     await page
       .getByRole("menuitem", { name: /Add members|View members|Leave group|Block|Report/ })
       .count(),
     0,
   );
+  await page.getByRole("menuitem", { name: "Change chat photo" }).click();
+  const photo = page.getByRole("dialog", { name: "Change photo" });
+  await photo
+    .locator('input[type="file"]')
+    .first()
+    .setInputFiles({
+      name: "general.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(image, "base64"),
+    });
+  await photo.getByRole("slider").waitFor();
+  await photo.getByRole("button", { name: "Save", exact: true }).click();
+  await photo.waitFor({ state: "hidden" });
+  assert.match(chats[0].avatar_url, new RegExp(`^chat-${general}/group-`));
+  assert.match(community.avatar_url, new RegExp(`^community-${cid}/`));
+  await trigger.click();
+  await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
+  await page.locator(".conversation-identity [aria-label=Pinned]").waitFor();
+  await page.locator(".community-chat-row [aria-label=Pinned]").waitFor();
+  await page.getByRole("link", { name: "Shared media", exact: true }).click();
+  await page.waitForURL(`**/communities/${cid}/chats/${general}/media?tab=media`);
+  await page.locator(".chat-details-pane").waitFor({ state: "detached" });
+  await page.getByRole("tab", { name: "Files" }).click();
+  await page.getByRole("link", { name: "Back to chat" }).click();
+  await page.waitForURL(`**/communities/${cid}/chats/${general}`);
+  await trigger.click();
   await page.getByRole("menuitem", { name: "Community info", exact: true }).click();
   await page.getByLabel("Community name", { exact: true }).fill("Renamed friends");
   await page.getByRole("textbox", { name: /^Description/ }).click();
-  await page.getByRole("heading", { name: "Renamed friends", exact: true }).waitFor();
+  await page
+    .getByRole("searchbox", { name: "Renamed friends", exact: true })
+    .waitFor({ state: "attached" });
   assert.equal(
     await page.locator(".chat-settings-panel .chat-info-card").count(),
     1,

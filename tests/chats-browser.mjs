@@ -381,14 +381,13 @@ try {
   assert.equal(await navigation.locator('a[href="/chats"]').getByRole("img").count(), 1);
   for (const width of [390, 767, 768, 1023, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    assert.equal(await page.locator(".chats-header button").count(), 0);
+    assert.equal(await page.locator(".sidebar-actions .install-button").isVisible(), true);
+    assert.equal(await page.locator(".chat-details-pane").count(), 0);
+    assert.equal(await navigation.locator(".nav-logout").isVisible(), width >= 1024);
+    assert.equal(await navigation.locator(".nav-settings").isVisible(), width < 1024);
     assert.equal(
-      await page.locator(".chats-header [data-slot=brand-lockup]").getAttribute("aria-label"),
-      "SilverChat",
-    );
-    assert.equal(
-      await page.getByRole("searchbox").evaluate((el) => getComputedStyle(el).borderWidth),
-      "0px",
+      await page.locator(".chat-search").evaluate((el) => getComputedStyle(el).borderTopWidth),
+      "1px",
     );
     const frame = await navigation.boundingBox();
     const content = await page.locator(".authenticated-content").boundingBox();
@@ -426,12 +425,116 @@ try {
   console.log(
     "PASS shell breakpoints, five URLs, single navigation, active state, keyboard labels, unread exclusions and floating-action clearance",
   );
-  await page.evaluate(() => {
-    document.documentElement.dataset.theme = "dark";
-  });
-  await page.evaluate(() => {
-    document.documentElement.dataset.theme = "light";
-  });
+  const install = page.getByRole("button", { name: "Install SilverChat" });
+  const theme = page.locator(".sidebar-actions button").first();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const fill = () => install.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const verifyInstallColors = async (background, text, border) => {
+    const { gradient, glow } = await install.evaluate((el) => {
+      const probe = document.createElement("span");
+      probe.style.backgroundImage = "var(--gradient-neon)";
+      probe.style.boxShadow = "var(--shadow-glow)";
+      el.append(probe);
+      const style = getComputedStyle(probe);
+      const tokens = { gradient: style.backgroundImage, glow: style.boxShadow };
+      probe.remove();
+      return tokens;
+    });
+    assert.match(gradient, /^linear-gradient/);
+    assert.notEqual(glow, "none");
+    const colors = () =>
+      install.evaluate(async (el) => {
+        await Promise.all(
+          el.getAnimations({ subtree: true }).map((animation) => animation.finished),
+        );
+        const style = getComputedStyle(el);
+        const overlay = getComputedStyle(el, "::before");
+        return [
+          style.backgroundColor,
+          style.color,
+          style.borderTopColor,
+          style.borderTopWidth,
+          style.boxShadow,
+          overlay.backgroundImage,
+          overlay.opacity,
+        ];
+      });
+    assert.deepEqual(await colors(), [background, text, border, "1px", glow, gradient, "0"]);
+    await install.hover();
+    assert.deepEqual(await colors(), [
+      background,
+      "rgb(255, 255, 255)",
+      border,
+      "1px",
+      glow,
+      gradient,
+      "1",
+    ]);
+    await theme.hover();
+  };
+  const lightFill = "rgb(255, 255, 255)";
+  const darkFill = "rgb(16, 18, 22)";
+  await theme.locator(".lucide-sun").waitFor();
+  await verifyInstallColors(lightFill, "rgb(0, 0, 0)", "rgb(169, 206, 250)");
+  await theme.click();
+  await theme.locator(".lucide-moon").waitFor();
+  await verifyInstallColors(darkFill, "rgb(255, 255, 255)", "rgb(88, 159, 255)");
+  await theme.click();
+  await theme.locator(".lucide-monitor").waitFor();
+  for (const [colorScheme, expected] of [
+    ["light", lightFill],
+    ["dark", darkFill],
+  ]) {
+    await page.emulateMedia({ colorScheme });
+    await page.waitForFunction(
+      (mode) => document.documentElement.dataset.theme === mode,
+      colorScheme,
+    );
+    assert.equal(await fill(), expected);
+  }
+  await theme.click();
+  await theme.locator(".lucide-sun").waitFor();
+  const installDialog = page.getByRole("dialog", { name: "Install SilverChat" });
+  assert.deepEqual(
+    await install.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).cursor]),
+    ["rgb(0, 0, 0)", "pointer"],
+  );
+  await page.emulateMedia({ reducedMotion: null });
+  await install.click();
+  assert.equal(await installDialog.getByRole("listitem").count(), 3);
+  await installDialog.getByText(/Add to Home Screen/).waitFor();
+  await page.keyboard.press("Escape");
+  await installDialog.waitFor({ state: "hidden" });
+  assert.ok(await install.evaluate((el) => document.activeElement === el));
+  const offerInstall = async (outcome) =>
+    page.evaluate((result) => {
+      const event = new Event("beforeinstallprompt", { cancelable: true });
+      event.prompt = async () => {
+        window.installPromptCalls = (window.installPromptCalls || 0) + 1;
+        if (result === "error") throw new Error("Unavailable");
+      };
+      event.userChoice = Promise.resolve({ outcome: result });
+      window.dispatchEvent(event);
+    }, outcome);
+  await offerInstall("dismissed");
+  await install.click();
+  await installDialog.getByRole("button", { name: "Not now" }).click();
+  await install.click();
+  await installDialog.getByRole("button", { name: "Install", exact: true }).click();
+  await installDialog.waitFor({ state: "hidden" });
+  assert.equal(await page.evaluate(() => window.installPromptCalls), 1);
+  for (const outcome of ["error", "accepted"]) {
+    await offerInstall(outcome);
+    await install.click();
+    await installDialog.getByRole("button", { name: "Install", exact: true }).click();
+    const notice = page
+      .getByRole("status")
+      .filter({ hasText: outcome === "error" ? "could not open" : "Installation accepted" });
+    await notice.getByRole("button", { name: "Dismiss" }).click();
+  }
+  await install.waitFor({ state: "hidden" });
+  await navigation.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
   console.log(
     "PASS batched unread pagination, receipt rendering, request collapse, muted/global badges",
   );
@@ -561,10 +664,7 @@ try {
   // A new community message raises the Communities badge without touching the Chats badge.
   unreadCounts.set(uid(109), 4);
   realtime("messages", { id: uid(209), chat_id: uid(109), sender_id: uid(8) });
-  await page
-    .locator('a[href="/communities"]')
-    .getByRole("img", { name: "4 Unread" })
-    .waitFor();
+  await page.locator('a[href="/communities"]').getByRole("img", { name: "4 Unread" }).waitFor();
   requests.push({
     id: uid(399),
     sender_id: uid(8),
@@ -605,6 +705,12 @@ try {
       "Conversation canvas clears navigation at every breakpoint",
     );
   }
+  const listSearch = page.locator(".chat-list-pane input[type=search]");
+  await listSearch.fill("Sofia");
+  await page.waitForURL(
+    (url) => url.pathname === `/chats/${uid(120)}` && url.searchParams.get("q") === "Sofia",
+  );
+  await page.locator(".chat-content-pane .conversation-page").waitFor();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('.app-navigation a[href="/chats"]').click();
   await row(120).waitFor();

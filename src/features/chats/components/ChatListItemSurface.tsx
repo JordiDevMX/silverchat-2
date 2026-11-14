@@ -37,6 +37,7 @@ export function ChatListItemSurface({
   language,
   chat,
   draft,
+  active,
   selecting,
   selected,
   busy,
@@ -50,6 +51,7 @@ export function ChatListItemSurface({
   language: "en" | "es";
   chat: Chat;
   draft?: Draft;
+  active?: boolean;
   selecting: boolean;
   selected: boolean;
   busy: boolean;
@@ -89,6 +91,7 @@ export function ChatListItemSurface({
           <button
             type="button"
             className="chat-row-main"
+            aria-current={active ? "page" : undefined}
             aria-pressed={selecting ? selected : undefined}
             aria-label={`${t(chat.displayName)}${display.state === "failed" ? `. ${t("Tap to retry")}` : ""}`}
             onClick={activate}

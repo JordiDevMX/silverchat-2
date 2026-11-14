@@ -11,7 +11,7 @@ export function useChatPresence(chat: ChatDetails) {
       : chat.members.map((m) => m.user_id);
   return useQuery({
     queryKey: ["chat-presence", user?.id ?? "", chat.id, ids],
-    enabled: ids.length > 0,
+    enabled: chat.type !== "community_chat" && ids.length > 0,
     refetchInterval: chat.type === "direct" ? 30000 : 60000,
     queryFn: async () =>
       (
