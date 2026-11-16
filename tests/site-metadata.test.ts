@@ -18,6 +18,17 @@ test("every public route has a unique title and description", () => {
   assert.equal(descriptions.size, PUBLIC_ROUTES.length);
 });
 
+test("every description fits the social preview limits", () => {
+  // Social preview tools trim the description at ~158 characters on desktop
+  // and after 3 lines on mobile.
+  for (const route of PUBLIC_ROUTES) {
+    assert.ok(
+      route.description.length <= 158,
+      `"${route.title}" description is ${route.description.length} characters; keep it <= 158`,
+    );
+  }
+});
+
 test("every public route is reachable without a session", () => {
   const paths = PUBLIC_ROUTES.map((route) => route.path);
   assert.deepEqual(paths, ["/", "/auth/login", "/auth/signup"]);
@@ -53,6 +64,7 @@ test("the SEO block carries the metadata a scraper reads", () => {
   assert.match(block, /<meta property="og:site_name" content="SilverChat" \/>/);
   assert.match(block, new RegExp(`<meta property="og:image" content="${OG_IMAGE_URL}" \\/>`));
   assert.match(block, /<meta name="twitter:card" content="summary_large_image" \/>/);
+  assert.match(block, new RegExp(`<meta name="twitter:url" content="${ORIGIN}/" />`));
   assert.match(block, /<meta property="og:image:width" content="1200" \/>/);
   assert.match(block, /<meta property="og:image:height" content="630" \/>/);
   assert.match(block, /<script type="application\/ld\+json">/);

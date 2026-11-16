@@ -16,8 +16,13 @@ export const SITE_NAME = "SilverChat";
 
 export const SITE_TAGLINE = "Privacy-first messaging";
 
+/**
+ * Landing description, shared by the SERP snippet, Open Graph and the
+ * structured data. Social previews trim it at ~158 characters on desktop
+ * (~3 mobile lines), so it must stay well below that.
+ */
 export const SITE_DESCRIPTION =
-  "Privacy-first messaging for the conversations that matter. Real-time chats, stories, communities, channels, and voice & video calls in a silver and electric-blue design.";
+  "Privacy-first messaging for the conversations that matter. Real-time chats, stories, communities, and voice & video calls.";
 
 export type PublicRoute = {
   /** Route path, always starting with a slash. */
@@ -157,6 +162,7 @@ export function renderSeoBlock(route: PublicRoute): string {
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="${url}" />
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
     <meta name="twitter:image" content="${OG_IMAGE_URL}" />
