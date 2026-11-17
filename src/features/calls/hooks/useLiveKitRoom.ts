@@ -56,6 +56,10 @@ export function useLiveKitRoom(callId: string, mode: "voice" | "video") {
         })
         .on(RoomEvent.Disconnected, () => {
           // Own socket drop: attempt a graceful end with the honest reason.
+          // Only when THIS call still owns the store (AUD-003, round 3): a
+          // late callback after the modal unmounted and a new call took over
+          // must never tear down the new call.
+          if (useCallStore.getState().call?.id !== callId) return;
           void hangupActiveCall("network_lost");
         });
 
@@ -86,6 +90,9 @@ export function useLiveKitRoom(callId: string, mode: "voice" | "video") {
 
     connect().catch((error) => {
       console.error("[useLiveKitRoom]", error);
+      // Same ownership guard as the Disconnected handler: a failure surfaced
+      // after a newer call claimed the store belongs to a stale room.
+      if (useCallStore.getState().call?.id !== callId) return;
       void hangupActiveCall("network_lost");
     });
 

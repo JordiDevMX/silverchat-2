@@ -123,6 +123,7 @@ export async function hangupActiveCall(
     // Already disconnected (peer race or network drop); the DB write still applies.
   }
   const result = patch ? await updateCall(callId, patch) : ("ok" as const);
+  let outcome = result;
   if (result === "lost-race") {
     // AUD-003 (Guardian round 2): a concurrent winner beat this ending write.
     // Honor the actual winning state instead of blindly resetting to idle:
@@ -131,19 +132,27 @@ export async function hangupActiveCall(
     // otherwise the callee would wait alone for a peer the cleanup cron never
     // sweeps (it only targets ringing rows). Any terminal winner needs no
     // write. Both races converge, in either order.
-    const { data: winner } = await supabase
+    const { data: winner, error: winnerError } = await supabase
       .from("calls")
       .select("status, answered_at")
       .eq("id", callId)
       .maybeSingle();
-    const winnerStatus = (winner?.status ?? null) as CallStatus | null;
-    if (winnerStatus) {
-      const reconciliation = reconcileRacingPatch(winnerStatus, winner?.answered_at ?? null);
-      if (reconciliation) await updateCall(callId, reconciliation);
+    if (winnerError) {
+      // AUD-003 (round 3): a failed reconciliation is never swallowed — the
+      // action reports error so the UI can toast it, while the local reset
+      // below still runs so the client is never stuck on a dead call.
+      console.error("[calls] lost-race reconciliation read failed", winnerError);
+      outcome = "error";
+    } else {
+      const winnerStatus = (winner?.status ?? null) as CallStatus | null;
+      const reconciliation = winnerStatus
+        ? reconcileRacingPatch(winnerStatus, winner?.answered_at ?? null)
+        : null;
+      if (reconciliation) outcome = await updateCall(callId, reconciliation);
     }
   }
   resetCallStoreIfCurrent(callId);
-  return result === "error" ? "error" : "ok";
+  return outcome === "error" ? "error" : "ok";
 }
 
 /** Busy auto-reject (L12): silent conditional DB write, no modal is ever

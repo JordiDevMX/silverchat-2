@@ -1,23 +1,31 @@
--- Prompt #12 calls (Guardian round-2 revision): RLS permissions, realtime
--- publication membership, one-active-call exclusivity incl. the recipient
--- side (AUD-004), MFA gate on the SECURITY DEFINER path (AUD-002),
--- conditional-write races in both orders (AUD-003) and security-boundary-
--- accurate assertions (AUD-005).
+-- Prompt #12 calls (Guardian round-3 revision): RLS permissions, realtime
+-- publication membership, one-active-call exclusivity (AUD-004), MFA gate on
+-- the SECURITY DEFINER path (AUD-002), conditional-write races in both
+-- orders (AUD-003) and security-boundary-accurate assertions (AUD-005).
 --
--- Round-2 corrections per Guardian:
--- - profiles are NOT inserted explicitly: the on_auth_user_created trigger
---   from 0001_initial_schema.sql already creates them from auth.users;
--- - the outsider UPDATE is asserted as an RLS *filter* (RETURNING yields
---   zero rows and the row is invisible in the outsider session, where the
---   scalar lookup is NULL, not a comparable value); unchanged state is then
---   verified under a permitted identity;
--- - direct client INSERTs are asserted against the real boundary: 0002's
---   hardening loop REVOKEs ALL on calls and grants only SELECT, so every
---   client INSERT fails with "permission denied" there is no INSERT grant,
---   making the RPC the single supported write path; the forged-initiator
---   variant is covered at that same boundary;
--- - the missing cancel-then-accept race order is added;
--- - recipient-busy (AUD-004 round 2) is exercised across chats.
+-- Round-3 corrections per Guardian:
+-- - direct client INSERTs are asserted against the REAL privilege boundary:
+--   0002:704-705 grants authenticated INSERT(id,initiator_id,chat_id,type,
+--   livekit_room_name) on calls (the round-2 suite wrongly assumed no INSERT
+--   grant exists — that grant statement is split across lines and was
+--   missed). The one-active-call invariant is therefore exercised through
+--   the unique indexes (a same-chat duplicate INSERT fails with
+--   uq_calls_active_chat; a cross-chat second call fails with
+--   uq_calls_active_initiator), and a forged initiator — inserted by a
+--   DISTINCT member under someone else's identity — fails on the RLS
+--   WITH CHECK (initiator_id = auth.uid()).
+-- - the outsider block no longer demands both "0 visible rows" and
+--   "permission denied" for the same UPDATE: RLS genuinely filters for a
+--   non-member, so only the filtered-state pattern applies.
+-- - per roadmap L12 (round-3 decision), start_call has NO recipient-busy
+--   pre-check: a second call toward a busy callee is inserted and rings,
+--   then the busy callee's client silently rejects it as a missed/busy
+--   write (persisted call-log entry); with the callee offline the stale-ring
+--   cron records it missed. The suite exercises that full path.
+--
+-- Round-2 corrections retained: profiles come from the on_auth_user_created
+-- trigger only; outsider state is verified via filtered row counts and then
+-- re-checked under a member identity; cancel-then-accept race order.
 --
 -- Requires migration 20261116120000 applied. NOT RUN locally: no Postgres
 -- or Docker on the Engineer machine (RISK-003), remotes unauthorized.
@@ -46,7 +54,8 @@ INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES
 -- a111: alice+bob direct (the main call). a222: alice+carol group (direct-only).
 -- a333: bob+carol direct (caller-side busy as the callee of a111).
 -- a444: alice+carol direct (initiator busy across chats).
--- a666: erin+bob direct (recipient-busy, AUD-004 round 2).
+-- a666: erin+bob direct (busy-path L12 flow: the second call rings and the
+--        busy callee's client records it missed/busy).
 INSERT INTO public.chats(id,type,status,direct_pair_key) VALUES
  ('a1111111-1111-4111-8111-111111111111','direct','active','e1111111-1111-4111-8111-111111111111::e2222222-2222-4222-8222-222222222222'),
  ('a2222222-2222-4222-8222-222222222222','group','active',NULL),
@@ -105,23 +114,33 @@ SET LOCAL ROLE authenticated;
 SELECT pg_temp.assert_true(public.start_call('a1111111-1111-4111-8111-111111111111','voice') IS NOT NULL,
   'AAL2 session with an enrolled factor may start a call');
 
--- ─── AUD-005: client write boundary — RPC only ─────────────────────────────
--- 0002's hardening loops REVOKE ALL on calls and grant SELECT (+ the
--- audit's UPDATE column list); there is no INSERT grant, so EVERY client
--- INSERT fails at the privilege check. Alice inserting a second active row
--- for her own chat, and Bob forging Alice as initiator, are both covered
--- by that same real boundary (the unique indexes additionally hold against
--- any future grant-based writer).
+-- ─── AUD-004/005: client INSERT boundary — real grants, real invariants ────
+-- 0002:704-705 grants authenticated INSERT(id,initiator_id,chat_id,type,
+-- livekit_room_name) on calls; RLS lets a chat member insert with
+-- initiator_id = auth.uid(). The one-active-call rule is therefore enforced
+-- by the partial unique indexes on every permitted write path.
+-- (a) A same-chat duplicate while the a111 call is ringing → uq_calls_active_chat.
 SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
   VALUES ('e1111111-1111-4111-8111-111111111111','a1111111-1111-4111-8111-111111111111','voice','call_dup_probe')$q$,
-  'permission denied');
+  'uq_calls_active_chat');
+-- (b) A second ringing call by the same caller in her OTHER chat →
+--     uq_calls_active_initiator (the chat index cannot fire: a444 is idle).
 SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
-  VALUES ('e1111111-1111-4111-8111-111111111111','a1111111-1111-4111-8111-111111111111','voice','call_forged')$q$,
-  'permission denied');
+  VALUES ('e1111111-1111-4111-8111-111111111111','a4444444-4444-4444-8444-444444444444','voice','call_cross_probe')$q$,
+  'uq_calls_active_initiator');
+-- (c) Forged initiator with a DISTINCT actor: chat member Bob inserts a row
+--     claiming Alice as initiator → RLS WITH CHECK initiator_id = auth.uid().
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
+  VALUES ('e1111111-1111-4111-8111-111111111111','a1111111-1111-4111-8111-111111111111','voice','call_forged_by_bob')$q$,
+  'row-level security policy');
+RESET ROLE;
 
--- ─── AUD-004: caller-busy and callee-busy across chats ─────────────────────
--- Alice is the initiator of the active a111 call: starting one in her other
--- direct chat must fail on the initiator check.
+-- ─── AUD-004: caller-busy across chats ──────────────────────────────────────
+-- Alice (back in her own AAL2 session) is the initiator of the active a111
+-- call: starting one in her other direct chat must fail on the caller check.
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
+SET LOCAL ROLE authenticated;
 SELECT pg_temp.rejects($q$SELECT public.start_call('a4444444-4444-4444-8444-444444444444','voice')$q$,'already in a call');
 RESET ROLE;
 -- Bob is the callee of the active a111 call: starting one in his other
@@ -130,12 +149,30 @@ SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-22222222
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.rejects($q$SELECT public.start_call('a3333333-3333-4333-8333-333333333333','voice')$q$,'already in a call');
 RESET ROLE;
--- AUD-004 (round 2): any caller trying to reach the busy callee Bob — here
--- Erin — must get the recipient-busy rejection; Bob's ringing history in
--- a111 stays exactly as the caller left it.
+-- ─── AUD-004 round 3: busy path per roadmap L12 (no recipient pre-check) ───
+-- Erin calls busy Bob: the call is INSERTED and rings (start_call has no
+-- recipient-busy pre-check). Bob's client then silently rejects it — the
+-- conditional missed/busy write IS the persisted call-log entry (L12), and
+-- the original a111 call stays untouched.
 SELECT set_config('request.jwt.claims','{"sub":"e5555555-5555-4555-8555-555555555555","role":"authenticated","aal":"aal1"}',true);
 SET LOCAL ROLE authenticated;
-SELECT pg_temp.rejects($q$SELECT public.start_call('a6666666-6666-4666-8666-666666666666','voice')$q$,'The recipient is already in a call');
+SELECT public.start_call('a6666666-6666-4666-8666-666666666666','voice') AS busy_call \gset
+RESET ROLE;
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  EXISTS (SELECT 1 FROM public.calls WHERE id=:'busy_call' AND status='ringing'),
+  'A second call toward a busy callee rings (no recipient pre-check, L12)');
+WITH updated AS (
+  UPDATE public.calls SET status='missed', decline_reason='busy', ended_at=now()
+  WHERE id=:'busy_call' AND status='ringing'
+  RETURNING id
+) SELECT count(*) AS busy_reject_rows FROM updated \gset
+SELECT pg_temp.assert_true((:'busy_reject_rows'::int)=1,
+  'Busy callee client writes exactly one missed/busy entry (L12 log path)');
+SELECT pg_temp.assert_true(
+  (SELECT decline_reason='busy' FROM public.calls WHERE id=:'busy_call'),
+  'The busy entry is persisted with decline_reason=busy');
 RESET ROLE;
 
 -- ─── start_call validation (SECURITY DEFINER re-checks membership) ─────────
@@ -252,8 +289,6 @@ SELECT pg_temp.assert_true((:'outsider_rows'::int)=0,'Non-member UPDATE affects 
 SELECT pg_temp.assert_true(
   (SELECT count(*)=0 FROM public.calls WHERE id=:'race_call'),
   'Non-member SELECT cannot see the hidden row at all');
-SELECT pg_temp.rejects($q$UPDATE public.calls SET status='answered' WHERE chat_id='a1111111-1111-4111-8111-111111111111'$q$,
-  'permission denied');
 RESET ROLE;
 
 -- The unchanged state is verified under a permitted identity (member).

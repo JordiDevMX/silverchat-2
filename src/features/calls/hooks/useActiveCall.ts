@@ -71,11 +71,19 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
   }, [phase, ringStartedAt]);
 
   // Peer disconnect (9.5): a 3s grace window allows LiveKit reconnection; if
-  // the room stays empty, end the call as peer_hangup.
+  // the room stays empty, end the call as peer_hangup. The INITIAL join gets
+  // a longer window (AUD-003 round 3): a peer that is still minting a token
+  // or connecting is not a disconnect, and must not be labeled peer_hangup.
   useEffect(() => {
     if (phase !== "answered" || !room) return;
+    const JOIN_GRACE_MS = 10_000;
+    const PEER_DISCONNECT_GRACE_MS = 3_000;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const schedulePeerHangup = () => {
+    // A peer that was already in the room when the phase flipped (fast join
+    // racing the render) counts as established from the start.
+    let sawRemote = room.remoteParticipants.size > 0;
+
+    const endIfStillAlone = (graceMs: number) => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         const current = useCallStore.getState();
@@ -85,22 +93,33 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
             if (outcome === "ok") notify.current("peer-hangup");
           });
         }
-      }, 3_000);
+      }, graceMs);
     };
-    const clearPeerHangup = () => clearTimeout(timer);
-    room.on(RoomEvent.ParticipantDisconnected, schedulePeerHangup);
-    room.on(RoomEvent.ParticipantConnected, clearPeerHangup);
-    room.on(RoomEvent.Disconnected, schedulePeerHangup);
-    // Arm the grace window immediately (AUD-003 round 2): a winner that
+    const onPeerConnected = () => {
+      sawRemote = true;
+      clearTimeout(timer);
+    };
+    const onPeerDisconnected = () => {
+      // Only an established peer's exit gets the short reconnect window;
+      // the longer join grace below covers the pre-first-join phase.
+      if (sawRemote || room.remoteParticipants.size > 0) {
+        endIfStillAlone(PEER_DISCONNECT_GRACE_MS);
+      }
+    };
+
+    room.on(RoomEvent.ParticipantDisconnected, onPeerDisconnected);
+    room.on(RoomEvent.ParticipantConnected, onPeerConnected);
+    room.on(RoomEvent.Disconnected, onPeerDisconnected);
+    // Arm the join window immediately (AUD-003 round 2): a winner that
     // answered while this client's ring write lost never joins the room, so
     // no participant event would otherwise fire and the answered client
     // would wait alone forever. If the peer does join, the timer is cleared.
-    schedulePeerHangup();
+    if (!sawRemote) endIfStillAlone(JOIN_GRACE_MS);
     return () => {
       clearTimeout(timer);
-      room.off(RoomEvent.ParticipantDisconnected, schedulePeerHangup);
-      room.off(RoomEvent.ParticipantConnected, clearPeerHangup);
-      room.off(RoomEvent.Disconnected, schedulePeerHangup);
+      room.off(RoomEvent.ParticipantDisconnected, onPeerDisconnected);
+      room.off(RoomEvent.ParticipantConnected, onPeerConnected);
+      room.off(RoomEvent.Disconnected, onPeerDisconnected);
     };
   }, [phase, room]);
 }

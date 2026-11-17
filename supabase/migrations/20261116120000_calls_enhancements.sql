@@ -7,7 +7,7 @@
 -- Timestamped naming after 20261114000000_community_chat_avatar.sql is used
 -- instead (approved by the Product Owner on 2026-11-16).
 --
--- Guardian-audit revisions (2026-11-16, AUD-001..AUD-004):
+-- Guardian-audit revisions (2026-11-16, AUD-001..AUD-007):
 -- - AUD-001: the previous partial index with a now() predicate is removed
 --   (PostgreSQL requires immutable index predicates). No log-scan index is
 --   added: 0001's idx_calls_chat / idx_calls_initiator / idx_calls_ringing
@@ -18,7 +18,19 @@
 -- - AUD-004: one-active-call exclusivity is now enforced by two partial
 --   UNIQUE indexes (per chat, per initiator) as a hard invariant, and
 --   start_call serializes concurrent starts with per-member transaction
---   advisory locks (ordered by user_id to avoid deadlocks).
+--   advisory locks (ordered by user_id to avoid deadlocks). The UPDATE
+--   grant is re-stated with the new reason columns so client lifecycle
+--   writes (busy-reject, decline, hangup) keep their column privileges
+--   (0002's column list predates this table's new columns).
+-- - AUD-007 (round 3): the callee is resolved from typed chat_members rows
+--   instead of string_to_array on direct_pair_key, whose text elements made
+--   uuid comparisons unresolvable (text <> uuid has no operator: start_call
+--   would have failed at runtime for every direct call).
+-- - Per roadmap L12 (round-3 decision): there is NO recipient-busy check
+--   here. A second call toward a busy callee is inserted normally, rings,
+--   and is rejected BY THE CALLEE'S CLIENT as a silent missed/busy write;
+--   if the callee is offline the stale-ring cron records it missed. This
+--   keeps a persisted call-log entry on the busy path, matching L12.
 -- ═══════════════════════════════════════════════════════════════
 
 -- ───────────────────────────────────────────────────────────────
@@ -55,6 +67,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_calls_active_initiator
   ON public.calls(initiator_id)
   WHERE status IN ('ringing', 'answered');
 
+-- 2c. Client lifecycle column privileges (AUD-004, round 3). 0002's
+--     hardening pass granted UPDATE(status,answered_at,ended_at,
+--     duration_seconds) — every column it knew about. The reason columns
+--     added above postdate that grant: without extending it, every client
+--     busy-reject, decline and hangup write fails with permission denied.
+GRANT UPDATE(status,answered_at,ended_at,duration_seconds,decline_reason,ended_reason)
+  ON public.calls TO authenticated;
+
 -- ───────────────────────────────────────────────────────────────
 -- 3. RPC: start_call (atomic room-name generation + insert).
 --    SECURITY DEFINER: the row must be created even though the
@@ -75,7 +95,6 @@ DECLARE
   v_call_id uuid;
   v_room_name text;
   v_member record;
-  v_peer_id uuid;
 BEGIN
   -- MFA gate (AUD-002): the 0004 restrictive table policy enforces MFA on
   -- the RLS path; a SECURITY DEFINER function skips RLS, so the same
@@ -140,32 +159,16 @@ BEGIN
     RAISE EXCEPTION 'You are already in a call';
   END IF;
 
-  -- AUD-004 (Guardian round 2): the RECIPIENT must not be busy either. The
-  -- two checks above cover this chat and the caller's role across chats;
-  -- the callee's role across OTHER chats is only fully visible to the
-  -- definer, so it is re-checked here under the same advisory locks
-  -- (Bob calling Carol while Alice rings Bob must fail the busy checks
-  -- instead of producing two overlapping calls).
-  SELECT
-    CASE
-      WHEN (string_to_array(c.direct_pair_key, '::'))[1] <> auth.uid()
-      THEN (string_to_array(c.direct_pair_key, '::'))[1]
-      ELSE (string_to_array(c.direct_pair_key, '::'))[2]
-    END
-  INTO v_peer_id
-  FROM public.chats c
-  WHERE c.id = p_chat_id AND c.type = 'direct';
-
-  IF v_peer_id IS NOT NULL AND v_peer_id <> auth.uid() AND EXISTS (
-    SELECT 1
-    FROM public.calls c
-    WHERE c.chat_id IN (
-      SELECT chat_id FROM public.chat_members WHERE user_id = v_peer_id
-    )
-      AND c.status IN ('ringing', 'answered')
-  ) THEN
-    RAISE EXCEPTION 'The recipient is already in a call';
-  END IF;
+  -- AUD-004 round 3 / roadmap L12: there is deliberately NO recipient-busy
+  -- pre-check here. A second call toward a busy callee is inserted normally,
+  -- rings, and is rejected BY THE CALLEE'S CLIENT as a silent missed/busy
+  -- write (busyRejectCall) — that write IS the persisted call-log entry L12
+  -- requires; with the callee offline, the stale-ring cron records it
+  -- missed. (The caller-side check above still covers the caller's own
+  -- state across chats. AUD-007 round 3 note: an earlier round-2 attempt
+  -- resolved the callee via string_to_array(direct_pair_key,'::'), whose
+  -- text elements made uuid comparisons unresolvable; that failed approach
+  -- and its check are both gone.)
 
   v_room_name := 'call_' || gen_random_uuid()::text;
 
