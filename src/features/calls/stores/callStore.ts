@@ -51,6 +51,14 @@ export function resetCallStore() {
   useCallStore.setState({ ...defaults, note: useCallStore.getState().note });
 }
 
+/** Reset only when the given call is still the active one. Every post-await
+ * path uses this so a lost race cannot wipe out a newly arrived call
+ * (Guardian round 2, AUD-003). */
+export function resetCallStoreIfCurrent(callId: string): void {
+  if (useCallStore.getState().call?.id !== callId) return;
+  resetCallStore();
+}
+
 /** Set the transient status note. */
 export function notifyCall(note: string | null) {
   useCallStore.setState({ note });

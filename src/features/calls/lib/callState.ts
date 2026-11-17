@@ -46,6 +46,29 @@ export function preconditionFor(patch: CallPatch): CallStatus {
   return patch.status === "ended" ? "answered" : "ringing";
 }
 
+/** Lost-race reconciliation (Guardian round 2, AUD-003). A user whose
+ * "end this call" intent lost a conditional race against a concurrent
+ * terminal write must honor the actual winning state: if the winner
+ * answered, the hangup-intent client closes the call with an honest
+ * ended/hangup patch (duration measured from the winner's answered_at);
+ * any other winning status is already terminal and needs no write. */
+export function reconcileRacingPatch(
+  winnerStatus: CallStatus,
+  answeredAt: string | null,
+  now: Date = new Date(),
+): CallPatch | null {
+  if (winnerStatus !== "answered") return null;
+  const duration = answeredAt
+    ? Math.max(0, Math.floor((now.getTime() - new Date(answeredAt).getTime()) / 1000))
+    : 0;
+  return {
+    status: "ended",
+    ended_reason: "hangup",
+    ended_at: now.toISOString(),
+    duration_seconds: duration,
+  };
+}
+
 /** The phases in which this client still owns a mutable call row. When the
  * phase is idle or ending, a concurrent hangup/decline (including the
  * simultaneous-cancel race) already resolved the call and no patch must be

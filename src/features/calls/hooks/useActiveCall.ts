@@ -91,6 +91,11 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
     room.on(RoomEvent.ParticipantDisconnected, schedulePeerHangup);
     room.on(RoomEvent.ParticipantConnected, clearPeerHangup);
     room.on(RoomEvent.Disconnected, schedulePeerHangup);
+    // Arm the grace window immediately (AUD-003 round 2): a winner that
+    // answered while this client's ring write lost never joins the room, so
+    // no participant event would otherwise fire and the answered client
+    // would wait alone forever. If the peer does join, the timer is cleared.
+    schedulePeerHangup();
     return () => {
       clearTimeout(timer);
       room.off(RoomEvent.ParticipantDisconnected, schedulePeerHangup);

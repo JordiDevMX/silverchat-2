@@ -3,9 +3,14 @@
 // 20261116120000_calls_enhancements.sql, so reason columns are cast here in
 // one place until `pnpm db:types` runs against a migrated environment.
 import { supabase } from "@/lib/supabase";
-import { canFinishLocally, hangupPatch, preconditionFor } from "../lib/callState";
-import { resetCallStore, useCallStore } from "../stores/callStore";
-import type { CallPatch } from "../types";
+import {
+  canFinishLocally,
+  hangupPatch,
+  preconditionFor,
+  reconcileRacingPatch,
+} from "../lib/callState";
+import { resetCallStore, resetCallStoreIfCurrent, useCallStore } from "../stores/callStore";
+import type { CallPatch, CallStatus } from "../types";
 
 export type CallActionOutcome = "ok" | "permission" | "error";
 
@@ -60,13 +65,14 @@ export async function acceptIncomingCall(): Promise<CallActionOutcome> {
   if (granted !== "ok") return granted;
 
   const answeredAt = new Date().toISOString();
-  const outcome = await updateCall(state.call.id, { status: "answered", answered_at: answeredAt });
+  const callId = state.call.id;
+  const outcome = await updateCall(callId, { status: "answered", answered_at: answeredAt });
   if (outcome === "error") return "error";
   if (outcome === "lost-race") {
     // AUD-003: the caller canceled (or the cron swept the row) first. The
     // realtime subscription / local reset closes the loop: end gracefully,
     // never surface an error for a call that is already resolved.
-    resetCallStore();
+    resetCallStoreIfCurrent(callId);
     return "ok";
   }
   useCallStore.setState({
@@ -84,12 +90,16 @@ export async function declineIncomingCall(
   const state = useCallStore.getState();
   if (state.phase !== "incoming-ringing" || !state.call) return "ok";
   useCallStore.setState({ phase: "ending" });
-  const outcome = await updateCall(state.call.id, {
+  const callId = state.call.id;
+  const outcome = await updateCall(callId, {
     status: reason,
     decline_reason: reason,
     ended_at: new Date().toISOString(),
   });
-  resetCallStore();
+  // A "missed" timeout that lost to a peer accept stays passive (Guardian
+  // round 2): the call lives on the OTHER device that answered; this client
+  // just stops ringing. A "declined" that lost is already terminal.
+  resetCallStoreIfCurrent(callId);
   return outcome === "error" ? "error" : "ok";
 }
 
@@ -104,6 +114,7 @@ export async function hangupActiveCall(
     resetCallStore();
     return "ok";
   }
+  const callId = state.call.id;
   const patch = hangupPatch(state.phase, state.answeredAt, reason);
   useCallStore.setState({ phase: "ending" });
   try {
@@ -111,8 +122,27 @@ export async function hangupActiveCall(
   } catch {
     // Already disconnected (peer race or network drop); the DB write still applies.
   }
-  const result = patch ? await updateCall(state.call.id, patch) : ("ok" as const);
-  resetCallStore();
+  const result = patch ? await updateCall(callId, patch) : ("ok" as const);
+  if (result === "lost-race") {
+    // AUD-003 (Guardian round 2): a concurrent winner beat this ending write.
+    // Honor the actual winning state instead of blindly resetting to idle:
+    // when the winner answered, this client's hangup intent still must close
+    // the call (ended/hangup, duration from the winner's answered_at) —
+    // otherwise the callee would wait alone for a peer the cleanup cron never
+    // sweeps (it only targets ringing rows). Any terminal winner needs no
+    // write. Both races converge, in either order.
+    const { data: winner } = await supabase
+      .from("calls")
+      .select("status, answered_at")
+      .eq("id", callId)
+      .maybeSingle();
+    const winnerStatus = (winner?.status ?? null) as CallStatus | null;
+    if (winnerStatus) {
+      const reconciliation = reconcileRacingPatch(winnerStatus, winner?.answered_at ?? null);
+      if (reconciliation) await updateCall(callId, reconciliation);
+    }
+  }
+  resetCallStoreIfCurrent(callId);
   return result === "error" ? "error" : "ok";
 }
 

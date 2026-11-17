@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { requestCallPermissions } from "../lib/callActions";
+import { invokeStartCall } from "../lib/startCallRpc";
 import { enterOutgoingCall } from "../stores/callStore";
 import type { CallParticipant, CallType } from "../types";
 
@@ -19,15 +20,16 @@ export class CallStartError extends Error {
 }
 
 function isBusyError(message: string): boolean {
+  // Covers all three start_call rejections: caller busy ("You are already in
+  // a call"), chat busy ("A call is already in progress in this chat") and
+  // recipient busy ("The recipient is already in a call"), which embeds the
+  // same suffix.
   return message.includes("already in a call") || message.includes("already in progress");
 }
 
-// start_call is created by migration 20261116120000; the generated RPC union
-// lags behind until `pnpm db:types` runs against a migrated environment.
-const rpc = supabase.rpc as unknown as (
-  name: string,
-  args?: Record<string, unknown>,
-) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+// Linting/typing note: the start_call union is absent from the generated
+// types until `pnpm db:types` runs; invokeStartCall (lib/startCallRpc)
+// owns the receiver-safe invocation, which was audited as AUD-006.
 
 interface StartCallInput {
   chatId: string;
@@ -62,7 +64,7 @@ async function startCall(input: StartCallInput, userId: string): Promise<void> {
   const granted = await requestCallPermissions(input.type === "video");
   if (granted !== "ok") throw new CallStartError(granted);
 
-  const { data: callId, error } = await rpc("start_call", {
+  const { data: callId, error } = await invokeStartCall(supabase, {
     p_chat_id: input.chatId,
     p_type: input.type,
   });

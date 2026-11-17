@@ -15,6 +15,7 @@ import {
   mapRemoteEnd,
   noteText,
   preconditionFor,
+  reconcileRacingPatch,
   ringTimeoutOutcome,
 } from "../src/features/calls/lib/callState.ts";
 
@@ -124,6 +125,34 @@ test("every lifecycle patch carries the row-status precondition it may beat", ()
   assert.equal(preconditionFor(busyRejectPatch()), "ringing");
   // Leaving a connected call only applies to an answered row.
   assert.equal(preconditionFor({ status: "ended", ended_reason: "hangup" }), "answered");
+});
+
+// ─── Lost-race reconciliation (Guardian round 2, AUD-003) ───────────────────
+
+test("a lost race against a winner that answered becomes an ended/hangup patch", () => {
+  const answeredAt = new Date(NOW - 30_000).toISOString();
+  const patch = reconcileRacingPatch("answered", answeredAt, new Date(NOW));
+  assert.equal(patch?.status, "ended");
+  assert.equal(patch?.ended_reason, "hangup");
+  assert.equal(patch?.ended_at, new Date(NOW).toISOString());
+  assert.equal(patch?.duration_seconds, 30);
+});
+
+test("duration is clamped at zero when the winner answered after now", () => {
+  const future = new Date(NOW + 10_000).toISOString();
+  assert.equal(reconcileRacingPatch("answered", future, new Date(NOW))?.duration_seconds, 0);
+});
+
+test("a missing answered_at still closes the call with zero duration", () => {
+  const patch = reconcileRacingPatch("answered", null, new Date(NOW));
+  assert.equal(patch?.status, "ended");
+  assert.equal(patch?.duration_seconds, 0);
+});
+
+test("a terminal winning status needs no reconciliation write", () => {
+  for (const status of ["canceled", "declined", "missed", "ended", "failed"] as const) {
+    assert.equal(reconcileRacingPatch(status, new Date(NOW).toISOString(), new Date(NOW)), null);
+  }
 });
 
 // ─── Remote end notifications (outgoing side) ──────────────────────────────

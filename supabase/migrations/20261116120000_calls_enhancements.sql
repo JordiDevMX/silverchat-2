@@ -75,6 +75,7 @@ DECLARE
   v_call_id uuid;
   v_room_name text;
   v_member record;
+  v_peer_id uuid;
 BEGIN
   -- MFA gate (AUD-002): the 0004 restrictive table policy enforces MFA on
   -- the RLS path; a SECURITY DEFINER function skips RLS, so the same
@@ -137,6 +138,33 @@ BEGIN
     WHERE initiator_id = auth.uid() AND status IN ('ringing', 'answered')
   ) THEN
     RAISE EXCEPTION 'You are already in a call';
+  END IF;
+
+  -- AUD-004 (Guardian round 2): the RECIPIENT must not be busy either. The
+  -- two checks above cover this chat and the caller's role across chats;
+  -- the callee's role across OTHER chats is only fully visible to the
+  -- definer, so it is re-checked here under the same advisory locks
+  -- (Bob calling Carol while Alice rings Bob must fail the busy checks
+  -- instead of producing two overlapping calls).
+  SELECT
+    CASE
+      WHEN (string_to_array(c.direct_pair_key, '::'))[1] <> auth.uid()
+      THEN (string_to_array(c.direct_pair_key, '::'))[1]
+      ELSE (string_to_array(c.direct_pair_key, '::'))[2]
+    END
+  INTO v_peer_id
+  FROM public.chats c
+  WHERE c.id = p_chat_id AND c.type = 'direct';
+
+  IF v_peer_id IS NOT NULL AND v_peer_id <> auth.uid() AND EXISTS (
+    SELECT 1
+    FROM public.calls c
+    WHERE c.chat_id IN (
+      SELECT chat_id FROM public.chat_members WHERE user_id = v_peer_id
+    )
+      AND c.status IN ('ringing', 'answered')
+  ) THEN
+    RAISE EXCEPTION 'The recipient is already in a call';
   END IF;
 
   v_room_name := 'call_' || gen_random_uuid()::text;
