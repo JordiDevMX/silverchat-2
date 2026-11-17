@@ -21,10 +21,9 @@ export interface StartCallRpcResult {
   error: { message: string } | null;
 }
 
-/** Generated database types predate migration 20261116120000; the RPC
- * union gains start_call after `pnpm db:types` runs against a migrated
- * environment. Until then the RPC entry point is invoked through this
- * single typed wrapper. */
+/** The generated types now include start_call; this wrapper still owns the
+ * receiver-bound invocation and gives the call site a precise result shape
+ * independent of the generated RPC union. */
 type RpcEntry = (
   this: SupabaseClient,
   fn: string,

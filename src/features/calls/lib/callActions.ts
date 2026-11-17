@@ -1,7 +1,6 @@
 // Call lifecycle actions (9). Each action owns its DB write via a single
-// update helper; the generated Update type predates migration
-// 20261116120000_calls_enhancements.sql, so reason columns are cast here in
-// one place until `pnpm db:types` runs against a migrated environment.
+// update helper; the generated Update type now includes the reason columns
+// and the "ended" status from 20261116120000_calls_enhancements.sql.
 import { supabase } from "@/lib/supabase";
 import {
   canFinishLocally,
@@ -20,16 +19,15 @@ export type CallActionOutcome = "ok" | "permission" | "error";
  * outcome belongs to whichever writer met the precondition. */
 export type CallWriteResult = "ok" | "lost-race" | "error";
 
-/** One cast site for stale generated types (decline_reason / ended_reason /
- * "ended" status). RLS still governs the row: only chat members pass. The
- * UPDATE is conditional on the expected previous status and reports how
- * many rows actually changed (AUD-003). */
+/** RLS still governs the row: only chat members pass. The UPDATE is
+ * conditional on the expected previous status and reports how many rows
+ * actually changed (AUD-003). */
 async function updateCall(id: string, patch: CallPatch): Promise<CallWriteResult> {
   const { data, error } = await supabase
     .from("calls")
-    .update(patch as never)
+    .update(patch)
     .eq("id", id)
-    .eq("status", preconditionFor(patch) as never)
+    .eq("status", preconditionFor(patch))
     .select("id");
   if (error) return "error";
   return data && data.length > 0 ? "ok" : "lost-race";
@@ -165,7 +163,7 @@ export async function busyRejectCall(callId: string): Promise<void> {
       status: "missed",
       decline_reason: "busy",
       ended_at: new Date().toISOString(),
-    } as never)
+    })
     .eq("id", callId)
     .eq("status", "ringing");
   if (error) console.error("[calls] busy-reject failed", error);

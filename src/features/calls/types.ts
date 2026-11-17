@@ -40,8 +40,9 @@ export interface CallParticipant {
   last_seen_at?: string | null;
 }
 
-/** Column patch applied to the calls table. Kept as a loose record because
- * the generated Update type does not yet know the two new reason columns. */
+/** Column patch applied to the calls table. Mirrors the generated Update
+ * shape for the lifecycle columns; kept explicit so the state helpers do not
+ * depend on the generated file. */
 export interface CallPatch {
   status?: CallStatus;
   decline_reason?: string;
