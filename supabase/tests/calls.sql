@@ -1,7 +1,13 @@
--- Prompt #12 calls (Guardian round-4 revision): RLS permissions, realtime
+-- Prompt #12 calls (Guardian round-5 revision): RLS permissions, realtime
 -- publication membership, one-active-call exclusivity (AUD-004), MFA gate on
 -- the SECURITY DEFINER path (AUD-002), conditional-write races in both
 -- orders (AUD-003) and security-boundary-accurate assertions (AUD-005).
+--
+-- Round-5 correction per Guardian:
+-- - fixture labeling only: the forged-initiator case (c) now really switches
+--   to Bob's claims before inserting the row that names Alice (previously the
+--   label said Bob while the session was still Alice's). No assertion changes;
+--   after the REVOKE the denial is the privilege boundary either way.
 --
 -- Round-4 corrections per Guardian:
 -- - direct client INSERTs are REVOKED by the migration (section 2c): the
@@ -134,14 +140,17 @@ SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,liv
 SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
   VALUES ('e1111111-1111-4111-8111-111111111111','a4444444-4444-4444-8444-444444444444','voice','call_cross_probe')$q$,
   'permission denied');
--- (c) Forged initiator: chat member Bob inserts a row claiming Alice.
+-- (c) Forged initiator: chat member Bob inserts a row claiming Alice. The
+--     identity switch is real (Bob's claims, round 5 fixture fix): the denial
+--     is the privilege boundary below, which historically also carried the
+--     RLS WITH CHECK (initiator_id = auth.uid()) for this scenario.
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
 SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
   VALUES ('e1111111-1111-4111-8111-111111111111','a1111111-1111-4111-8111-111111111111','voice','call_forged_by_bob')$q$,
   'permission denied');
 -- (d) Receiver-then-originator on the direct path (AUD-004 round 4): Bob is
 --     the CALLEE of the active a111 call; inserting a call in his idle
 --     a333 chat must be impossible without the RPC's caller-busy check.
-SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
 SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
   VALUES ('e2222222-2222-4222-8222-222222222222','a3333333-3333-4333-8333-333333333333','voice','call_busy_receiver')$q$,
   'permission denied');

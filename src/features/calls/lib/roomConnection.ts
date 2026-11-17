@@ -35,13 +35,14 @@ export interface RoomConnectionDeps {
 }
 
 /** Start the room connection for a call. Returns the dispose function the
- * effect cleanup must call. AUD-003 (round 4): StrictMode — and any
+ * effect cleanup must call. AUD-003 (rounds 4-5): StrictMode — and any
  * remount with the same call id — runs two attempts sharing ONE call id,
  * so a call-id ownership check alone cannot tell a disposed attempt from
- * the live one. Every late callback and every post-await step checks the
- * per-attempt `disposed` flag: a disposed attempt never tears down its
- * replacement, never reports network_lost, and never overwrites the
- * store's room. */
+ * the live one. Every late callback (disconnected, media events, connect
+ * failure), every post-await step and every publish checks the per-attempt
+ * `disposed` flag: a disposed attempt never tears down its replacement,
+ * never reports network_lost, never attaches or clears media state, never
+ * starts another publish, and never overwrites the store's room. */
 export function startRoomConnection(
   callId: string,
   mode: "voice" | "video",
@@ -71,6 +72,11 @@ export function startRoomConnection(
 
     room
       .on("trackSubscribed", (track: unknown) => {
+        // AUD-003 (round 5): media events of a disposed attempt must never
+        // reach the store — a late video subscription from the old room
+        // would overwrite the replacement's tracks (and attach stale audio
+        // to the DOM).
+        if (disposed) return;
         if ((track as { kind?: string }).kind === "video") {
           useCallStore.setState({ remoteVideoTrack: track as RemoteVideoTrack });
         } else if ((track as { kind?: string }).kind === "audio") {
@@ -79,15 +85,24 @@ export function startRoomConnection(
         }
       })
       .on("trackUnsubscribed", (track: unknown) => {
-        if ((track as { kind?: string }).kind === "video") {
-          useCallStore.setState({ remoteVideoTrack: null });
-        }
-        if ((track as { kind?: string }).kind === "audio") {
-          useCallStore.setState({ remoteAudioTrack: null });
+        // AUD-003 (round 5): the probe interleaving — the old room's late
+        // unsubscription nulled the replacement's remoteVideoTrack. Store
+        // writes are per-attempt; the track's own detach still runs so the
+        // disposed room cleans up its own DOM element.
+        if (!disposed) {
+          if ((track as { kind?: string }).kind === "video") {
+            useCallStore.setState({ remoteVideoTrack: null });
+          }
+          if ((track as { kind?: string }).kind === "audio") {
+            useCallStore.setState({ remoteAudioTrack: null });
+          }
         }
         (track as { detach(): void }).detach();
       })
       .on("activeSpeakersChanged", (speakers: unknown) => {
+        // AUD-003 (round 5): a disposed attempt must not drive the
+        // replacement's remote waveform.
+        if (disposed) return;
         // LiveKit's built-in analyser (cheaper than polling): any non-local
         // speaker drives the remote waveform; silence resets it.
         const localIdentity = room?.localParticipant.identity;
@@ -116,6 +131,13 @@ export function startRoomConnection(
 
     // Publish order matters on Safari: mic first, then camera (L-decision).
     await room.localParticipant.setMicrophoneEnabled(true);
+    // AUD-003 (round 5): check between the publishes too — the probe caught
+    // a disposed attempt requesting an obsolete camera enable. A disposed
+    // room unwinds without ever starting the camera.
+    if (disposed) {
+      await teardownRoom();
+      return;
+    }
     await room.localParticipant.setCameraEnabled(mode === "video");
     // Re-check after the awaited publishes: the effect may have been
     // disposed meanwhile; a disposed room must never claim the store.

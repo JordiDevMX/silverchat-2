@@ -1,10 +1,11 @@
-// Regression tests for Guardian round-4 AUD-003: a DISPOSED connection
+// Regression tests for Guardian AUD-003 (rounds 4-5): a DISPOSED connection
 // attempt (StrictMode double-mount, or any remount sharing the same call id)
-// must never tear down its replacement — its late token rejection, its
-// connected-room teardown ("disconnected" event) and its late store write
-// are all ignored, even for identical call ids. Uses the extracted
-// startRoomConnection with injected fakes, mirroring Guardian's offline
-// probe of the hook.
+// must never tear down or corrupt its replacement — its late token rejection,
+// its connected-room teardown ("disconnected" event), its late media events
+// (trackSubscribed/trackUnsubscribed/activeSpeakersChanged), its obsolete
+// camera publish and its late store write are all ignored, even for identical
+// call ids. Uses the extracted startRoomConnection with injected fakes,
+// mirroring Guardian's offline probes of the hook.
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { RoomLike } from "../src/features/calls/lib/roomConnection.ts";
@@ -33,12 +34,19 @@ class FakeRoom {
   handlers = new Map<string, ((...args: unknown[]) => void)[]>();
   connectCalls = 0;
   disconnectCalls = 0;
-  /** Optional gate so a test can dispose between publish and setState. */
+  micEnabledCalls = 0;
+  cameraEnabledCalls = 0;
+  /** Optional gates so a test can dispose between publishes and setState. */
+  micGate: { promise: Promise<void>; resolve: () => void } | null = null;
   cameraGate: { promise: Promise<void>; resolve: () => void } | null = null;
   localParticipant = {
     identity: "local-user",
-    setMicrophoneEnabled: async () => {},
+    setMicrophoneEnabled: async () => {
+      this.micEnabledCalls++;
+      if (this.micGate) await this.micGate.promise;
+    },
     setCameraEnabled: async () => {
+      this.cameraEnabledCalls++;
       if (this.cameraGate) await this.cameraGate.promise;
     },
     getTrackPublication: () => undefined,
@@ -195,6 +203,77 @@ test("a disposed attempt never claims the store's room", async () => {
   assert.equal(useCallStore.getState().room, second.room);
 
   second.dispose();
+});
+
+test("a disposed attempt's late media events cannot corrupt the replacement's store", async () => {
+  const h = makeHarness();
+  // Park the old attempt at its microphone publish (Guardian's round-5 probe).
+  const micGate = deferred<void>();
+  const first = h.start((room) => {
+    room.micGate = { promise: micGate.promise, resolve: micGate.resolve };
+  });
+  const second = h.start();
+
+  first.gate.resolve(TOKEN);
+  await flush();
+  assert.equal(first.room?.micEnabledCalls, 1, "the old attempt reached the mic publish");
+
+  // Dispose the old attempt while its mic enable is pending; the replacement
+  // connects and receives the live video subscription.
+  first.dispose();
+  second.gate.resolve(TOKEN);
+  await flush();
+  assert.equal(useCallStore.getState().room, second.room);
+
+  const liveTrack = { kind: "video" };
+  second.room?.emit("trackSubscribed", liveTrack);
+  assert.equal(useCallStore.getState().remoteVideoTrack, liveTrack);
+
+  // The old room's late unsubscription must NOT clear the replacement's track.
+  let detached = 0;
+  const staleTrack = { kind: "video", detach: () => detached++, attach: () => {} };
+  first.room?.emit("trackUnsubscribed", staleTrack);
+  assert.equal(
+    useCallStore.getState().remoteVideoTrack,
+    liveTrack,
+    "the disposed room's unsubscription must not null the replacement's track",
+  );
+  assert.equal(detached, 1, "the old room still detaches its own track");
+
+  // A disposed room's late audio level must not drive the replacement either.
+  first.room?.emit("activeSpeakersChanged", [{ identity: "remote", audioLevel: 0.9 }]);
+  assert.equal(useCallStore.getState().remoteAudioLevel, 0);
+
+  // Unwinding the parked chain never starts the camera and never writes.
+  micGate.resolve();
+  await flush();
+  assert.equal(first.room?.cameraEnabledCalls, 0, "no obsolete camera publish after dispose");
+  assert.equal(first.room?.disconnectCalls, 1);
+  assert.equal(useCallStore.getState().room, second.room);
+
+  second.dispose();
+});
+
+test("a disposed attempt never issues its camera publish", async () => {
+  const h = makeHarness();
+  const micGate = deferred<void>();
+  const only = h.start((room) => {
+    room.micGate = { promise: micGate.promise, resolve: micGate.resolve };
+  });
+
+  only.gate.resolve(TOKEN);
+  await flush();
+  assert.equal(only.room?.micEnabledCalls, 1);
+
+  // Dispose between the mic and camera publishes, then let the mic finish.
+  only.dispose();
+  micGate.resolve();
+  await flush();
+
+  assert.equal(only.room?.cameraEnabledCalls, 0, "the disposed room must not request the camera");
+  assert.equal(only.room?.disconnectCalls, 1, "the disposed room unwinds with a self-disconnect");
+  assert.equal(useCallStore.getState().room, null);
+  assert.equal(h.lost.count, 0);
 });
 
 test("a LIVE attempt's connect failure still reports network lost", async () => {
