@@ -96,7 +96,11 @@ Deno.serve(async (req) => {
     });
 
     return json(
-      { token: await accessToken.toJwt(), url: Deno.env.get("LIVEKIT_URL"), room: call.livekit_room_name },
+      {
+        token: await accessToken.toJwt(),
+        url: Deno.env.get("LIVEKIT_URL"),
+        room: call.livekit_room_name,
+      },
       200,
     );
   } catch (error) {
