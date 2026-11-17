@@ -38,7 +38,11 @@ export function NovedadesPage() {
       <ChannelsSection search={text} />
       <DiscoverChannelsSection search={text} />
       <footer className="novedades-bottom">
-        <Button asChild variant="outline" className="bg-card/70 text-foreground">
+        <Button
+          asChild
+          variant="outline"
+          className="bg-card/70 text-foreground hover:bg-neon/10 hover:text-foreground"
+        >
           <NavLink href="/novedades/explore">
             <Compass size={17} aria-hidden="true" />
             {say("Explore more", "Explorar más")}
