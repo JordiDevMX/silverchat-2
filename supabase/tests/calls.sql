@@ -3,6 +3,10 @@
 -- the SECURITY DEFINER path (AUD-002), conditional-write races in both
 -- orders (AUD-003) and security-boundary-accurate assertions (AUD-005).
 --
+-- Round-6 (CI automation): the helpers report expected vs actual values and
+-- the suite asserts the effective privileges of the 2c REVOKE directly, so
+-- the G3 privileges probe runs on every CI execution.
+--
 -- Round-5 correction per Guardian:
 -- - fixture labeling only: the forged-initiator case (c) now really switches
 --   to Bob's claims before inserting the row that names Alice (previously the
@@ -35,19 +39,28 @@
 -- trigger only; outsider state is verified via filtered row counts and then
 -- re-checked under a member identity; cancel-then-accept race order.
 --
--- Requires migration 20261116120000 applied. NOT RUN locally: no Postgres
--- or Docker on the Engineer machine (RISK-003), remotes unauthorized.
+-- Requires migration 20261116120000 applied. Runs in CI against a local
+-- Supabase stack with every migration (see .github/workflows/ci.yml and
+-- `pnpm test:db`); locally it needs a reachable Postgres and the psql client.
 BEGIN;
 CREATE FUNCTION pg_temp.assert_true(value boolean, message text) RETURNS void LANGUAGE plpgsql AS $$
-BEGIN IF value IS DISTINCT FROM true THEN RAISE EXCEPTION '%',message; END IF; END $$;
+BEGIN
+  IF value IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'ASSERTION FAILED: % (expected true, got %)',
+      message, coalesce(value::text, 'NULL');
+  END IF;
+END $$;
 CREATE FUNCTION pg_temp.rejects(statement text, expected text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
   BEGIN EXECUTE statement;
   EXCEPTION WHEN OTHERS THEN
-    IF position(expected IN SQLERRM) = 0 THEN RAISE EXCEPTION 'Unexpected failure: %', SQLERRM; END IF;
+    IF position(expected IN SQLERRM) = 0 THEN
+      RAISE EXCEPTION 'ASSERTION FAILED: expected error "%", got "%"', expected, SQLERRM;
+    END IF;
     RETURN;
   END;
-  RAISE EXCEPTION 'Statement unexpectedly succeeded: %',statement;
+  RAISE EXCEPTION 'ASSERTION FAILED: expected error "%", but the statement succeeded: %',
+    expected, statement;
 END $$;
 
 -- Fixtures: alice (caller), bob (callee), carol (outsider for the a111/a222
@@ -94,6 +107,33 @@ SELECT pg_temp.assert_true(
 SELECT pg_temp.assert_true(
   EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='uq_calls_active_initiator'),
   'per-initiator active-call unique index present');
+
+-- ─── AUD-004: effective privileges (G3 probe on a migrated database) ───────
+-- Migration section 2c revokes INSERT from authenticated. PostgreSQL revokes
+-- the matching column-level grants along with the table privilege, so both
+-- the table and the column checks must be false. The lifecycle UPDATE grants
+-- and the RPC execute grants are asserted as the positive counterpart.
+SELECT pg_temp.assert_true(
+  NOT has_table_privilege('authenticated','public.calls','INSERT'),
+  'authenticated has no table-level INSERT on calls (2c REVOKE)');
+SELECT pg_temp.assert_true(
+  NOT has_column_privilege('authenticated','public.calls','initiator_id','INSERT'),
+  'authenticated has no column-level INSERT on calls.initiator_id (2c REVOKE)');
+SELECT pg_temp.assert_true(
+  NOT has_column_privilege('authenticated','public.calls','livekit_room_name','INSERT'),
+  'authenticated has no column-level INSERT on calls.livekit_room_name (2c REVOKE)');
+SELECT pg_temp.assert_true(
+  has_column_privilege('authenticated','public.calls','decline_reason','UPDATE'),
+  'authenticated may update decline_reason (lifecycle grant)');
+SELECT pg_temp.assert_true(
+  has_column_privilege('authenticated','public.calls','ended_reason','UPDATE'),
+  'authenticated may update ended_reason (lifecycle grant)');
+SELECT pg_temp.assert_true(
+  has_function_privilege('authenticated','public.start_call(uuid, public.call_type)','EXECUTE'),
+  'authenticated may execute start_call (single supported creation path)');
+SELECT pg_temp.assert_true(
+  NOT has_function_privilege('anon','public.start_call(uuid, public.call_type)','EXECUTE'),
+  'anon may not execute start_call');
 
 -- ─── AUD-002: MFA boundary on the SECURITY DEFINER start_call ──────────────
 -- AAL1 without any verified enrolled factor is legitimate (0004 policy).

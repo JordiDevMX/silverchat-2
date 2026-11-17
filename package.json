@@ -13,6 +13,7 @@
     "typecheck": "tsc -b",
     "db:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > src/types/database.ts",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:db": "node scripts/run-db-tests.mjs",
     "test:auth": "node --experimental-strip-types --test tests/auth*.test.ts",
     "test:settings": "node --experimental-strip-types --test tests/settings.test.ts",
     "test:chats": "node --experimental-strip-types --test tests/chats.test.ts",
