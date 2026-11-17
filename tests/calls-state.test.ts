@@ -14,6 +14,7 @@ import {
   hangupPatch,
   mapRemoteEnd,
   noteText,
+  preconditionFor,
   ringTimeoutOutcome,
 } from "../src/features/calls/lib/callState.ts";
 
@@ -110,6 +111,19 @@ test("canFinishLocally gates every local write to owned phases", () => {
   assert.equal(canFinishLocally("answered"), true);
   assert.equal(canFinishLocally("ending"), false);
   assert.equal(canFinishLocally("idle"), false);
+});
+
+// ─── Conditional-write preconditions (Guardian AUD-003) ────────────────────
+
+test("every lifecycle patch carries the row-status precondition it may beat", () => {
+  // Accept, decline, cancel, timeout and busy only apply while ringing.
+  assert.equal(preconditionFor({ status: "answered" }), "ringing");
+  assert.equal(preconditionFor({ status: "declined", decline_reason: "declined" }), "ringing");
+  assert.equal(preconditionFor({ status: "canceled", decline_reason: "canceled" }), "ringing");
+  assert.equal(preconditionFor({ status: "missed", decline_reason: "missed" }), "ringing");
+  assert.equal(preconditionFor(busyRejectPatch()), "ringing");
+  // Leaving a connected call only applies to an answered row.
+  assert.equal(preconditionFor({ status: "ended", ended_reason: "hangup" }), "answered");
 });
 
 // ─── Remote end notifications (outgoing side) ──────────────────────────────

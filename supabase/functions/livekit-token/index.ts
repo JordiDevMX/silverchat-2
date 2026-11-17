@@ -35,6 +35,13 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser();
     if (authError || !user) return json({ error: "unauthorized" }, 401);
 
+    // MFA parity with table RLS (AUD-002): the service-role reads below
+    // bypass row policies, so the same public.auth_mfa_satisfied() rule the
+    // 0004 mfa_assurance_required policy enforces (AAL2 session, or no
+    // verified factor enrolled) is checked here with the caller's own JWT.
+    const { data: mfaSatisfied, error: mfaError } = await supabase.rpc("auth_mfa_satisfied");
+    if (mfaError || !mfaSatisfied) return json({ error: "mfa required" }, 403);
+
     const { call_id: callId } = await req.json();
     if (!callId || typeof callId !== "string") {
       return json({ error: "call_id required" }, 400);

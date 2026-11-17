@@ -6,6 +6,19 @@
 -- taken by 0013_optimize_story_viewers.sql (out-of-sequence Prompt 10 work).
 -- Timestamped naming after 20261114000000_community_chat_avatar.sql is used
 -- instead (approved by the Product Owner on 2026-11-16).
+--
+-- Guardian-audit revisions (2026-11-16, AUD-001..AUD-004):
+-- - AUD-001: the previous partial index with a now() predicate is removed
+--   (PostgreSQL requires immutable index predicates). No log-scan index is
+--   added: 0001's idx_calls_chat / idx_calls_initiator / idx_calls_ringing
+--   already cover every access path this feature uses.
+-- - AUD-002: start_call re-checks public.auth_mfa_satisfied() explicitly;
+--   SECURITY DEFINER bypasses table RLS, where the 0004
+--   mfa_assurance_required restrictive policy already enforces MFA.
+-- - AUD-004: one-active-call exclusivity is now enforced by two partial
+--   UNIQUE indexes (per chat, per initiator) as a hard invariant, and
+--   start_call serializes concurrent starts with per-member transaction
+--   advisory locks (ordered by user_id to avoid deadlocks).
 -- ═══════════════════════════════════════════════════════════════
 
 -- ───────────────────────────────────────────────────────────────
@@ -28,19 +41,26 @@ ALTER TABLE public.calls
 COMMENT ON COLUMN public.calls.ended_reason IS
   'Why a connected call finished: hangup | peer_hangup | network_lost | timeout';
 
-CREATE INDEX IF NOT EXISTS idx_calls_chat_started
-  ON public.calls(chat_id, started_at DESC);
+-- ───────────────────────────────────────────────────────────────
+-- 2b. One-active-call exclusivity (AUD-004). Partial UNIQUE indexes are
+--     the hard invariant (they also constrain direct client INSERTs that
+--     the calls_insert policy permits): at most one ringing/answered
+--     call per chat, and at most one per initiator across all chats.
+-- ───────────────────────────────────────────────────────────────
+CREATE UNIQUE INDEX IF NOT EXISTS uq_calls_active_chat
+  ON public.calls(chat_id)
+  WHERE status IN ('ringing', 'answered');
 
-CREATE INDEX IF NOT EXISTS idx_calls_recent
-  ON public.calls(started_at DESC)
-  WHERE started_at > now() - interval '90 days';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_calls_active_initiator
+  ON public.calls(initiator_id)
+  WHERE status IN ('ringing', 'answered');
 
 -- ───────────────────────────────────────────────────────────────
 -- 3. RPC: start_call (atomic room-name generation + insert).
 --    SECURITY DEFINER: the row must be created even though the
 --    calls_insert policy restricts client inserts to initiator_id
---    = auth.uid(); membership and activity are re-checked here so
---    the definer bypass cannot widen access.
+--    = auth.uid(); membership, activity, MFA and call-uniqueness are
+--    re-checked here so the definer bypass cannot widen access.
 -- ───────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.start_call(
   p_chat_id uuid,
@@ -54,7 +74,16 @@ AS $$
 DECLARE
   v_call_id uuid;
   v_room_name text;
+  v_member record;
 BEGIN
+  -- MFA gate (AUD-002): the 0004 restrictive table policy enforces MFA on
+  -- the RLS path; a SECURITY DEFINER function skips RLS, so the same
+  -- public.auth_mfa_satisfied() rule (AAL2, or no verified factor enrolled)
+  -- is re-checked here. Same error contract as the 0004 RPC guards.
+  IF NOT public.auth_mfa_satisfied() THEN
+    RAISE EXCEPTION 'MFA required' USING ERRCODE = '42501';
+  END IF;
+
   -- Must be a chat member
   IF NOT is_chat_member(p_chat_id, auth.uid()) THEN
     RAISE EXCEPTION 'Not a member of this chat';
@@ -73,7 +102,22 @@ BEGIN
     RAISE EXCEPTION 'Calls are only supported in direct chats';
   END IF;
 
-  -- One active call per chat
+  -- Serialize concurrent starts (AUD-004): any two in-flight start_call
+  -- transactions that share a chat member take the same advisory lock, so
+  -- the busy checks below and the INSERT behave atomically against each
+  -- other. Locks are taken in user_id order to keep two overlapping chat
+  -- member lists deadlock-free. The partial UNIQUE indexes above remain the
+  -- hard backstop (they outlive this transaction and also guard non-RPC
+  -- writers).
+  FOR v_member IN
+    SELECT user_id FROM public.chat_members
+    WHERE chat_id = p_chat_id
+    ORDER BY user_id
+  LOOP
+    PERFORM pg_advisory_xact_lock(hashtextextended(v_member.user_id::text, 0));
+  END LOOP;
+
+  -- One active call per chat (lock-protected; unique index backstops it)
   IF EXISTS (
     SELECT 1 FROM public.calls
     WHERE chat_id = p_chat_id AND status IN ('ringing', 'answered')
@@ -81,7 +125,7 @@ BEGIN
     RAISE EXCEPTION 'A call is already in progress in this chat';
   END IF;
 
-  -- The caller must not be busy in another call (as callee or caller)
+  -- A participant must not be busy in another call (as callee or caller)
   IF EXISTS (
     SELECT 1 FROM public.calls c
     JOIN public.chat_members cm ON cm.chat_id = c.chat_id
@@ -97,9 +141,17 @@ BEGIN
 
   v_room_name := 'call_' || gen_random_uuid()::text;
 
-  INSERT INTO public.calls (initiator_id, chat_id, type, status, livekit_room_name)
-  VALUES (auth.uid(), p_chat_id, p_type, 'ringing', v_room_name)
-  RETURNING id INTO v_call_id;
+  BEGIN
+    INSERT INTO public.calls (initiator_id, chat_id, type, status, livekit_room_name)
+    VALUES (auth.uid(), p_chat_id, p_type, 'ringing', v_room_name)
+    RETURNING id INTO v_call_id;
+  EXCEPTION
+    WHEN unique_violation THEN
+      -- AUD-004 backstop: a concurrent committed start won the race despite
+      -- the locks (e.g. a non-RPC writer). Same user-facing contract as the
+      -- pre-checks; the client maps both messages to its busy note.
+      RAISE EXCEPTION 'A call is already in progress in this chat';
+  END;
 
   RETURN v_call_id;
 END;
@@ -136,9 +188,12 @@ GRANT UPDATE(status, answered_at, ended_at, duration_seconds, decline_reason, en
   ON public.calls TO authenticated;
 
 -- ───────────────────────────────────────────────────────────────
--- 6. Stale-call cron: tighten 60s → 20s (slightly above the 15s
---    frontend timeout to tolerate network latency) and record the
---    decline_reason the UI and call log expect.
+-- 6. Stale-call cron: the 20 seconds is an age threshold, not a latency
+--    guarantee (Guardian's timing note). The job runs once per minute and
+--    flips ringing rows older than 20 seconds to missed, so worst-case
+--    cleanup latency after the ring started is ~80s. The frontend gives
+--    up ringing locally at 15s (RING_TIMEOUT_MS) and never relies on the
+--    cron for UI state.
 -- ───────────────────────────────────────────────────────────────
 SELECT cron.unschedule('cleanup_stale_calls');
 

@@ -32,7 +32,8 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
         ({ new: updated }) => {
           const current = useCallStore.getState();
           if (current.call?.id !== callId) return;
-          if (updated.status === "answered" && isOutgoing) {
+          if (updated.status === "answered") {
+            if (!isOutgoing) return; // own accept echo; acceptIncomingCall owns this transition
             useCallStore.setState({
               phase: "answered",
               answeredAt: updated.answered_at ?? new Date().toISOString(),

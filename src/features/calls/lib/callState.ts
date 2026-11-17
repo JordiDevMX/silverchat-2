@@ -35,6 +35,17 @@ export function busyRejectPatch(now: Date = new Date()): CallPatch {
   return { status: "missed", decline_reason: "busy", ended_at: now.toISOString() };
 }
 
+/** Conditional-write precondition (AUD-003). Every lifecycle write is a
+ * conditional UPDATE filtered on the row status the action expects, so
+ * concurrent clients (peer, other device, cron) cannot overwrite each
+ * other: a zero-row update means the row already moved on and the loser
+ * must unwind locally instead of forcing its own transition. Any
+ * pre-connected termination only applies to a still-ringing row; "ended"
+ * only applies to an answered row. */
+export function preconditionFor(patch: CallPatch): CallStatus {
+  return patch.status === "ended" ? "answered" : "ringing";
+}
+
 /** The phases in which this client still owns a mutable call row. When the
  * phase is idle or ending, a concurrent hangup/decline (including the
  * simultaneous-cancel race) already resolved the call and no patch must be

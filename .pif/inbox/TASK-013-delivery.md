@@ -1,113 +1,141 @@
 # Engineer → Guardian Delivery Submission
 
 **Task ID:** `TASK-013` (Prompt 12: Voice & Video Calls — LiveKit Edge Function & Call UI, `FR-012`)
-**Approved plan reference:** `.roadmap/12-calls.md` + Product Owner authorization of 2026-11-16 with three plan adjustments: (a) migration renamed to a timestamp dated after `20261114000000` because the roadmap-locked number `0013` was already taken by an out-of-sequence migration; (b) ring audio stops at 15s (frontend) with DB cleanup of abandoned calls at 20s (cron); (c) Guardian's requested test scenarios (permissions, notification, simultaneous cancel) included; unrunnable checks left pending and reported.
+**Submission:** Corrected delivery honoring Guardian's `CHANGES REQUIRED` audit (`.pif/handoffs/TASK-013-guardian-audit.md`, disposition `CHANGES REQUIRED`, findings AUD-001..AUD-005).
+**Approved plan reference:** `.roadmap/12-calls.md` + Product Owner authorization of 2026-11-16 (timestamped migration after `20261114000000`; 15s frontend ring stop with 20s DB sweep; Guardian's test scenarios included) and the Product Owner's explicit correction authorization of the same date ("Revisa la auditoría de Guardian… Corrige los problemas confirmados…").
 **Branch:** `feature/calls` (from `main` @ `7434e743d6cfba6c30eff8bc46a406e5534d0f35`)
 **Commit SHA(s):**
-- `29d7146eaefea838036e94058a894a0881a6156a` — `feat(calls): voice & video calls via LiveKit (Prompt #12)` (the whole implementation, 38 files)
-- After that commit, the branch also carries `3272a27` `chore: updated pif instructions so agents take a look at "pif-instructions.md" instead of "AGENTS.md"` (2 workflow files). This commit is **outside TASK-013's implementation scope** and is only noted here for baseline transparency; it was not authored by this delivery turn.
-- `docs(pif): submit TASK-013 call-feature delivery for Guardian audit` — the commit that contains this file (its SHA is reported to the Product Owner separately; it cannot be self-referenced).
+- `29d7146eaefea838036e94058a894a0881a6156a` — `feat(calls): voice & video calls via LiveKit (Prompt #12)` (original implementation)
+- The correction commit containing the AUD-001..AUD-005 fixes and this updated report (its SHA is reported to the Product Owner separately; it cannot be self-referenced)
+- `3272a27` (pif-instructions pointer update) is outside TASK-013's implementation scope, as recorded in the first submission.
 
-**Claim status:** `REPORTED` (Engineer claims below are individually classified `REPORTED` vs `VERIFIED`; Guardian to re-check).
+**Claim status:** `REPORTED` (each claim classified; Guardian to re-check).
 **Baseline reference:** `.pif/manifest.json` baseline revision `fceb0e51750eb06ee9f6f18652f7c43f18d11585`.
 
 ---
 
-## Requested behavior and scope
+## Corrections per Guardian finding (this round)
 
-Prompt 12 (`.roadmap/12-calls.md`, `FR-012`): voice & video one-to-one calls over LiveKit.
+### AUD-001 — migration index used `now()` — FIXED
 
-In scope, as authorized by the Product Owner on 2026-11-16:
+- `idx_calls_recent` (partial index whose predicate contained `now() - interval '90 days'`) is **removed**: PostgreSQL requires immutable index predicates, so the statement would have failed.
+- `idx_calls_chat_started` is also removed: it exactly duplicated 0001's `idx_calls_chat (chat_id, started_at DESC)`.
+- **No replacement index was added.** The verification table/log paths used by this feature (per-chat and per-initiator listing, ringing rows) are already served by 0001's `idx_calls_chat`, `idx_calls_initiator` and the partial `idx_calls_ringing`. Complexity was reduced rather than substituted.
+- **Migration application is still NOT RUN** (Guardian asked for a demonstrated application in an authorized disposable/local environment): no local Postgres/psql and no Docker exist on this machine (`RISK-003`), and no remote environment is authorized. The file is byte-level LF (0 CR bytes) but only statically reviewed; the corrected delivery cannot claim a successful application.
 
-1. Migration (timestamp dated after `20261114000000`): `call_status` gains `'ended'`; `decline_reason` / `ended_reason` columns; two indexes; `start_call` RPC; `calls` added to the `supabase_realtime` publication; column-level `GRANT UPDATE` extension; `cleanup_stale_calls` cron re-scheduled to 20s.
-2. LiveKit token Edge Function (Deno).
-3. Frontend feature module: pure call-state machine, actions, store, realtime incoming pipeline, LiveKit room lifecycle, calls-log page, incoming/outgoing/active (voice & video) modals, i18n (en/es), styles, `/calls` route + global provider in the authenticated layout.
-4. Ring window per locked decisions: audio/UI gives up at 15s (`RING_TIMEOUT_MS`); the cron sweeps abandoned `ringing` rows after 20s (`missed`).
-5. Tests covering Guardian's flagged scenarios: permissions, notification, simultaneous cancel (unit); RLS/publication/cancel-race (pgTAP-style integration).
-6. App-scope status `AI VERIFIED` — **not** `ACCEPTED`.
+### AUD-002 — MFA boundary on the privileged entry points — FIXED
 
-Explicitly out of scope this turn (each requires separate Product Owner authorization, per `RISK-006` and the standing operating rules): Staging migration push, remote secrets, `functions deploy`, branch push, pull request, merge, deployment. Nothing was done against any remote environment; only read-only local checks ran.
+- `start_call` (SECURITY DEFINER, bypasses RLS) now re-checks the project's existing MFA policy as its first statement: `IF NOT public.auth_mfa_satisfied() THEN RAISE EXCEPTION 'MFA required' USING ERRCODE = '42501'; END IF;` — the same function and error contract the 0004 RPC guards use. `auth_mfa_satisfied()` permits AAL2 sessions and users with **no verified factor enrolled**, and denies AAL1 sessions with an enrolled, verified factor.
+- `supabase/functions/livekit-token` now performs the equivalent check **with the caller's own JWT** (`supabase.rpc("auth_mfa_satisfied")` against the user-scoped client) *before* any service-role read, returning `403 {"error":"mfa required"}` on failure. The function is already typed in `src/types/database.ts` (generated `auth_mfa_satisfied` RPC), so no cast was needed.
+- Note for re-verification: the table RLS path was already MFA-covered — 0004's `DO` block applied the `mfa_assurance_required` RESTRICTIVE policy to every public table existing at that time **including `calls`**. The finding was therefore about the two definer/service-role bypasses, both now closed. Runtime verification with an AAL1 session holding a verified factor on a migrated instance remains a human/live check (`NOT RUN`).
 
-## Changes made
+### AUD-003 — concurrent call transitions could overwrite each other — FIXED
 
-All under commit `29d7146eaefea838036e94058a894a0881a6156a` (`REPORTED`, in one commit):
+- Every lifecycle write is now a **conditional UPDATE**: `updateCall` filters on `.eq("status", preconditionFor(patch))` and returns the number of rows actually changed.
+- `preconditionFor` (pure, in `lib/callState.ts`): any pre-connected termination (`answered`/`declined`/`canceled`/`missed`) only applies while the row is still `ringing`; `ended` only applies to an `answered` row.
+- A zero-row result is a distinct `lost-race` outcome: the losing client unwinds locally (reset, no error surface) because the authoritative resolution belongs to the writer that met the precondition. Applied to accept (vs caller cancel), decline, hangup/cancel, timeout and busy-reject.
+- Busy-reject is likewise conditional on `ringing`, so a stale busy write can no longer clobber a terminal status.
+- The realtime UPDATE handler no longer resets the incoming side on its own `answered` echo (the accept flow owns that transition), and keeps notifying+resetting the outgoing side when the callee's terminal status arrives.
+- Unit test added: `every lifecycle patch carries the row-status precondition it may beat` (109 tests total, was 108).
+- **Genuinely concurrent DB sessions / two live clients remain NOT RUN** (no migrated instance); the corrected integration suite exercises both race orders sequentially with conditional effects (below).
+
+### AUD-004 — concurrent `start_call` could bypass busy checks — FIXED
+
+- Two partial UNIQUE indexes are now the hard invariant:
+  - `uq_calls_active_chat ON calls(chat_id) WHERE status IN ('ringing','answered')` — one active call per chat;
+  - `uq_calls_active_initiator ON calls(initiator_id) WHERE status IN ('ringing','answered')` — one active call per initiator across all chats.
+  These also constrain direct client INSERTs that the `calls_insert` RLS policy permits.
+- `start_call` additionally takes `pg_advisory_xact_lock` on every member of the target chat (keys via `hashtextextended(user_id::text, 0)`, acquired in `user_id` order so overlapping member sets cannot deadlock). Any two in-flight starts sharing a member serialize, so check-then-insert is atomic between them, including caller-busy and callee-busy across different chats.
+- The INSERT catches `unique_violation` and re-raises `'A call is already in progress in this chat'`, mapping the backstop to the client's existing busy-note matching (`isBusyError`).
+- The integration suite verifies each index deterministically without needing true concurrency (below). Genuinely concurrent sessions remain NOT RUN.
+
+### AUD-005 — evidence did not establish the requested scenarios — FIXED IN THE SUITE; EXECUTION STILL NOT RUN
+
+`supabase/tests/calls.sql` was rewritten so every assertion matches the real security boundary:
+
+- **Conditional races with winner/loser counts** (instead of sequential unconditional writes): callee accept wins (1 row) → caller's late conditional cancel touches **0 rows** and the `answered` status survives; fresh call → callee conditional decline wins (1 row) → caller's conditional cancel touches **0 rows** and the winner's terminal `declined` status stays intact. A stale busy write against a non-ringing row also proves 0-row behavior.
+- **Outsider UPDATE**: RLS *filters* rather than errors — the suite now asserts `UPDATE ... RETURNING` yields **0 rows**, the target row is **unchanged**, and no answered status was fabricated. The old "expect permission denied" assertion is gone.
+- **Forged initiator INSERT**: performed by **Bob (a chat member)** naming **Alice** as initiator, so the failure isolates the `initiator_id = auth.uid()` WITH CHECK (expected `row-level security policy`). The old assertion — Bob inserting with his *own* id, which the policy actually permits — is gone.
+- **MFA (AUD-002)**: AAL1 without enrolled factors → `start_call` succeeds; AAL1 after inserting a verified `totp` factor for Alice → `MFA required`; AAL2 with the factor → succeeds. Fixture shape matches the other suites (`auth.mfa_factors(id,user_id,factor_type,status,created_at,updated_at)`).
+- **AUD-004 index detection**: while the a111 call is ringing, Alice's legitimate RLS-permitted direct INSERT of a second active call in the same chat must fail with `uq_calls_active*`.
+- **Cross-chat exclusivity**: new fixtures a333 (bob+carol, Bob is callee of the active a111 call → `'You are already in a call'`) and a444 (alice+carol, Alice is initiator of the active a111 call → same error), proving both directions across chats.
+- Kept and re-validated: realtime publication membership, callee read path, `ended_reason`/duration writes, non-member `start_call` rejection, direct-only rule.
+- **Execution status: NOT RUN** — no migrated local instance exists (no Postgres, no Docker; `RISK-003`) and no remote environment is authorized. The suite is ready to run; the delivery cannot claim a pass.
+- No outsider token-denial or distinct-client realtime test exists in any runnable form on this machine; both are recorded as pending live checks.
+
+### Timing note (cron) — checklist corrected
+
+The cron runs **once per minute** and selects `ringing` rows **older than 20 seconds** — an age threshold, not a latency bound. Human-checklist expectation corrected to: *"the abandoned row becomes `missed` on the next cron run (every minute, rows older than 20s): up to ~80s worst-case after the ring started; the frontend never waits for the cron — its own 15s timeout drives the UI."* The migration's cron comment now states this explicitly.
+
+### `deno.lock` — resolved
+
+Deleted. It was an untracked byproduct of running `deno check`; the repository has no Deno policy for lockfiles, and the Edge Function's imports are URL-pinned by version in source.
+
+---
+
+## Changes made (this correction round)
 
 | Path | Change |
 |---|---|
-| `supabase/migrations/20261116120000_calls_enhancements.sql` | **New.** Enum value, reason columns, indexes, `start_call` RPC (`SECURITY DEFINER`; re-checks membership, chat activity, direct/self-only, one active call per chat, caller-busy), realtime publication membership, column grants, cron re-schedule. LF-only file (verified). |
-| `supabase/functions/livekit-token/index.ts` | **New.** Edge Function: auth via bearer JWT, service-role call validation (status ∈ {ringing, answered}, ≤5min age), chat-membership check, 15-minute LiveKit JWT. Secrets expected: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (**not set anywhere yet**). |
-| `src/features/calls/**` | **New feature module** (21 files): `types.ts`, `lib/callState.ts` (pure state machine + `noteText` + `CallLogEntry`), `lib/callFormatter.ts`, `lib/callActions.ts` (single cast site for the stale generated DB types), `lib/livekit.ts`, `stores/callStore.ts`, hooks (`useCalls`, `useStartCall`, `useIncomingCall`, `useActiveCall`, `useLiveKitRoom`, `useCallSounds`), components (provider, modals ×4, avatar, controls, log item, new-call modal, page), `i18n.ts` (`useCallText`, mirror of `useChatText`). |
-| `src/styles/calls.css` | **New.** Call overlay styles (pulse ring, waveform, countdown, PiP, glass info). |
-| `src/routes/_authenticated.calls.tsx` | **New.** Lazy `CallsPage` route file. |
-| `src/app/router.tsx` | `/calls` removed from the placeholder map; real lazy route registered. |
-| `src/routes/_authenticated.tsx` | `CallProvider` mounted in `AuthenticatedLayout` so incoming-call realtime stays live in every authenticated section. |
-| `tests/calls-state.test.ts` | **New.** 17 unit tests over the pure modules (no Supabase, no `@/` alias — required by `tsconfig.functions.json`). |
-| `supabase/tests/calls.sql` | **New.** Integration test: publication membership, `start_call` happy/busy/group/non-member paths, callee read/accept/hangup/busy writes (RLS + column grants), simultaneous cancel/decline race convergence, outsider denial, forged direct INSERT rejection. |
-| `public/sounds/ringtone.mp3`, `public/sounds/calling.mp3` | **New.** Generated with ffmpeg (16.4 KB / 12.3 KB). |
-| `.env.example` | Adds `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` **placeholder** entries only (no real values). |
-| `package.json`, `pnpm-lock.yaml` | `livekit-client 2.24.1`, `@livekit/components-react 2.9.25` (dependencies approved by the Product Owner). |
-| `src/features/communities/components/CommunityChatSidebar.tsx` | **Out-of-scope fix, explicitly approved by the Product Owner this turn:** 4 pre-existing unused-import/variable errors on `main` (present at `7434e743`) that broke `pnpm build` repo-wide. Minimal fix: removed unused `Info`/`NavLink`/`CreateCommunityChatModal` imports, `create` → `[, setCreate]`. No behavior change intended. |
+| `supabase/migrations/20261116120000_calls_enhancements.sql` | Removed the `now()` partial index and the duplicate index (AUD-001); added the two partial UNIQUE indexes and per-member advisory locking + `unique_violation` mapping in `start_call` (AUD-004); added the `auth_mfa_satisfied()` gate in `start_call` (AUD-002); corrected cron comment with the latency semantics. |
+| `supabase/functions/livekit-token/index.ts` | Caller-JWT MFA check via `auth_mfa_satisfied` before service-role reads (AUD-002). |
+| `src/features/calls/lib/callState.ts` | New pure `preconditionFor(patch)` (AUD-003). |
+| `src/features/calls/lib/callActions.ts` | `updateCall` conditional + row-count semantics (`ok` / `lost-race` / `error`); all four write paths updated; `busyRejectCall` conditional (AUD-003). |
+| `src/features/calls/hooks/useActiveCall.ts` | Realtime handler ignores the incoming side's own `answered` echo (AUD-003 follow-up). |
+| `tests/calls-state.test.ts` | Precondition-matrix test added (AUD-003). |
+| `supabase/tests/calls.sql` | Fully rewritten per AUD-005 (see above). |
+| `.pif/inbox/TASK-013-delivery.md` | This corrected report. |
+| `deno.lock` (untracked) | Deleted. |
 
-Not touched (protected, per protocol): canonical `.pif/` records other than this inbox file; nothing pushed, merged or deployed; `graphify-out/` working-tree changes left uncommitted (user-owned).
+The original implementation scope (feature module, page, route, provider, i18n, sounds, dependency additions) is unchanged from commit `29d7146…` and its first-submission change table.
 
-## Checks and evidence
+## Checks and evidence (this round, all run locally this session)
 
-| Check | Command / procedure | Result | Classification |
+| Check | Command | Result | Classification |
 |---|---|---|---|
-| Type check | `pnpm typecheck` | **PASS** — exit 0 | `VERIFIED` this session, before and after the final Biome auto-fix |
-| Unit tests (full suite) | `pnpm test` | **PASS** — 108/108 (72+ pre-existing + 17 new call-state) | `VERIFIED` |
-| Call-state tests alone | `npx tsx --test tests/calls-state.test.ts` | **PASS** — 17/17, covering Guardian's three scenarios: permission gating (`CallStartError` kinds, `ringTimeoutOutcome`), notification (`decideIncomingCall` self/stale/status/busy-reject/ring matrix; `noteText` for every end note), simultaneous cancel (second writer no-op: `hangupPatch("ending"|"idle") → null`, `canFinishLocally` gating) | `VERIFIED` |
-| Lint (touched files) | `npx biome check` on `src/features/calls`, `src/routes/_authenticated.calls.tsx`, `_authenticated.tsx`, `router.tsx`, `CommunityChatSidebar.tsx`, `tests/calls-state.test.ts` | **PASS** — exit 0 (after formatter apply-all) | `VERIFIED` |
-| Production build | `pnpm build` | **PASS** — exit 0 (pre-existing chunk-size warning only) | `VERIFIED` |
-| Edge Function type check | `deno check supabase/functions/livekit-token/index.ts` | **PASS** — exit 0 (deno 2.9.8) | `VERIFIED` |
-| Migration line endings | Byte scan of `20261116120000_calls_enhancements.sql` | **PASS** — 0 CR bytes (LF-only; required by `scripts/db-guard.mjs`) | `VERIFIED` |
-| Repo-wide lint | `pnpm lint` | Not re-run this turn; `RISK-004` full-repo Biome drift is pre-existing and untouched. Touched files are clean (row above). | `N/A` (pre-existing) |
-| RLS integration test | Run `supabase/tests/calls.sql` against a migrated instance | **NOT RUN** — requires a migrated Supabase instance; Docker unavailable locally (`RISK-003`). The SQL is written and staged for when an environment exists. | `NOT_RUN` |
-| Live two-browser call flow | Ring → accept → media → hangup, cancel race, busy, permission denial on real devices | **NOT RUN** — Gate 4 human verification (see checklist below) | `NOT_RUN` |
-| `start_call` / realtime / cron on a live DB | Any execution | **NOT RUN** — the migration has not been applied to any environment yet (no remote authorization) | `NOT_RUN` |
+| Type check | `pnpm typecheck` | **PASS** — exit 0 | `VERIFIED` |
+| Unit tests | `pnpm test` | **PASS** — 109/109 (was 108; +1 precondition test) | `VERIFIED` |
+| Lint (touched) | `npx biome check src/features/calls tests/calls-state.test.ts` | **PASS** — exit 0 | `VERIFIED` |
+| Production build | `pnpm build` | **PASS** — exit 0 | `VERIFIED` |
+| Edge Function type check | `deno check supabase/functions/livekit-token/index.ts` | **PASS** — exit 0 | `VERIFIED` |
+| Migration + test file LF | byte scan | **PASS** — 0 CR bytes each | `VERIFIED` |
+| Migration application proof (AUD-001) | apply to disposable env | **NOT RUN** — no local Postgres (`psql` absent), no Docker (`RISK-003`), remotes unauthorized | `NOT_RUN` |
+| `supabase/tests/calls.sql` execution (AUD-005) | pgtap-style run against migrated instance | **NOT RUN** — same environment limits | `NOT_RUN` |
+| Genuinely concurrent DB sessions (AUD-003/004) | two psql sessions racing | **NOT RUN** — same limits; suite covers both race orders sequentially | `NOT_RUN` |
+| Live two-browser flows, MFA runtime probe, outsider token denial, distinct-client realtime | human/live | **NOT RUN** | `NOT_RUN` |
 
-### Known type-lag (documented, intentional)
+Audit still actionable for `G2`: the SQL itself has never executed. Guardian should weigh the corrected suite as REPORTED-only until a migrated instance runs it.
 
-`src/types/database.ts` does not yet know `'ended'`, `decline_reason`, `ended_reason` or the `start_call` RPC; regeneration requires `pnpm db:types` against a migrated environment (blocked by the missing remote authorization). All casts are concentrated in two named sites (`callActions.updateCall`, the `rpc` wrapper in `useStartCall.ts`) so the post-migration regeneration is mechanical.
+## Known type-lag (unchanged)
 
-## Independent review
-
-Not performed this turn (no separate reviewer subagent dispatched for the code diff). Guardian audit is the requested independent review; the unit tests were authored to map one-to-one onto Guardian's previously flagged scenarios.
+`src/types/database.ts` predates the migration (`'ended'`, reason columns, `start_call` RPC); regeneration needs `pnpm db:types` against a migrated environment. Casts remain in the two documented sites.
 
 ## Risks / open gates
 
-1. **Gate status at submission:** `G0 PASS` (isolated branch `feature/calls`, no `main` edits except none — all protected). `G1 PASS` (PO-approved scope + adjustments, 2026-11-16). `G2 REPORTED→PASS-pending-audit`. `G3 PASS` for what ran (typecheck/tests/lint/build/deno/LF) with explicit `NOT_RUN` rows above. `G4 NOT_RUN` (needs two browsers/devices). `G5 BLOCKED` on remote operations. `G6 NOT_RUN`.
-2. **`RISK-006` (operational):** local Supabase CLI is linked to Production (`lmzbaxlojgsdwgcxkmzx`). Before any write targeting Staging (`gffdrrtatxdiucigtwdn`), `node scripts/db-guard.mjs --expect gffdrrtatxdiucigtwdn` must run first (and the link re-pointed). This delivery performed **no** remote operations.
-3. **New operational risk — LiveKit secrets absent:** `LIVEKIT_URL`/`LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` are not set as Edge Function secrets anywhere; until `supabase secrets set` runs (authorized separately), every `livekit-token` request will fail in the `Deno.env.get` path. `.env.example` documents the names only.
-4. **Security-relevant design points for Guardian's attention:** `start_call` is `SECURITY DEFINER` but re-validates membership/chat-activity/call-uniqueness/busy-state inside; EXECUTE granted only to `authenticated`; the Edge Function uses the service role to validate the call (cross-user read the callee's RLS view may block) and then membership. Column grants extend `0002`'s four-column UPDATE grant with the two new reason columns (+ timestamp/duration columns) for both peers of the active call.
-5. **Realtime lag:** catch-up query on subscribe covers INSERT events missed while briefly disconnected; the 15s staleness window bounds late rings. No UPDATE-only catch-up for status transitions of an *incoming* call row (the 15s timeout and cron converge the state anyway).
-6. **Behavioral coverage gaps by design (Fase 2 per spec):** group/community calls rejected by `start_call`; reconnection to an answered call >5min old returns `call expired`.
-7. **Pre-existing, untouched:** `RISK-002` (live runtime checklists), `RISK-003` (Docker suites), `RISK-004` (repo Biome drift), `RISK-005`. The `CommunityChatSidebar` fix removes a build blocker that affected `main`; nothing else pre-existing was modified.
+1. Gate status: `G0 PASS` (isolated `feature/calls`; no push/merge). `G1 REPORTED` (PO authorizations of 2026-11-16; not independently available to this Engineer). `G2`: prior FAIL causes addressed in code; **re-verdict pending on Guardian**, with SQL execution evidence still missing. `G3 BLOCKED` partially (reportable checks pass; DB/live suites NOT RUN). `G4 NOT RUN`. `G5 BLOCKED`. `G6 NOT RUN`.
+2. `RISK-006`: CLI still linked to Production; any Staging write must first run `node scripts/db-guard.mjs --expect gffdrrtatxdiucigtwdn` after re-linking. No remote operation was performed.
+3. LiveKit secrets remain unset; token endpoint fails until authorized `supabase secrets set`.
+4. Branch sits behind the recorded `origin/main` by three commits (per Guardian's observation); reconciliation happens only when integration is authorized.
+5. Pre-existing untouched: `RISK-002`..`RISK-005`.
 
-## Human verification needed
+## Human verification needed (corrected)
 
-Do not mark these PASS without confirmation (Gate 4 checklist, two browsers/devices + two test accounts):
+Do not mark PASS without confirmation (two browsers/devices, two accounts):
 
-1. Incoming call: fullscreen modal, ringtone, 15s countdown drains to zero and stops the ring; timer verified in a second tab.
-2. Accept → both sides transition to the active modals; voice connects (two-way audio); timer runs.
-3. Simultaneous cancel/decline: both peers hang up at once → exactly one terminal DB status, no zombie modal on either side.
-4. Decline → the caller receives the "Call declined" status note; no-answer at 15s → "No answer" locally and the row becomes `missed` via cron within ~20s afterwards.
-5. Busy: a second incoming call while in a call is never shown; row ends `missed` with `decline_reason='busy'`.
-6. Permission denial (browser settings) → status note, no `calls` row created, no LiveKit join.
-7. Video: remote fullscreen (tap toggles cover/contain), draggable local PiP, camera on/off, mic mute, speaker toggle; voice call shows Mic/Speaker/Hangup only (no camera upgrade button).
-8. Calls log: day grouping (Today/Yesterday/date), direction arrows, missed styling, duration for connected calls, callback buttons start a new call.
-9. After the Staging migration is authorized and applied: run `supabase/tests/calls.sql` and regenerate `pnpm db:types`.
+1. Incoming call modal, ringtone, 15s countdown; ring stops at 15s locally.
+2. Abandoned-call cleanup: leave a call ringing; the row becomes `missed` on the **next cron minute-tick with started_at older than 20s** — observed latency up to ~80s worst-case, never driving UI state.
+3. Accept on one side while the caller cancels — in both orders; exactly one terminal DB status; no zombie modal either side.
+4. Decline → "Call declined" note; no-answer → "No answer" at 15s.
+5. Busy second call never renders; row ends `missed`/`busy`.
+6. Permission denial → status note, no `calls` row, no LiveKit join.
+7. Video: PiP drag, cover/contain toggle, camera/mic/speaker toggles; voice: Mic/Speaker/Hangup only.
+8. Calls log: grouping, arrows, missed styling, duration, callback.
+9. After authorized Staging apply: run `supabase/tests/calls.sql`; `pnpm db:types` regeneration; AAL1-with-factor MFA probe against `start_call` and the token function; two-client realtime observation.
 
-## Pending operations (each requires separate Product Owner authorization)
+## Pending operations (separate PO authorization each)
 
-1. Staging migration apply: re-link to `gffdrrtatxdiucigtwdn`, run `node scripts/db-guard.mjs --expect gffdrrtatxdiucigtwdn`, then `npx supabase db push --linked`, then optionally a live probe of `start_call`/publication/cron.
-2. `supabase secrets set` for the three LiveKit variables (Staging or Production per authorized target).
-3. `supabase functions deploy livekit-token`.
-4. Push `feature/calls` and open a PR.
-5. Decide the tracking of the untracked `deno.lock` (generated by `deno check`; repo currently has no `deno.json` policy for it) — commit it, ignore it, or delete it.
+Staging migration apply (db-guard first) · LiveKit secrets · `functions deploy livekit-token` · branch push + PR · decision on `deno.lock` policy (now moot — file deleted).
 
 ## Requested Guardian action
 
-- Audit the evidence above; create `AUD-…` findings; compare against the gate table in `.pif/state.md` and `FR-012`/`TASK-013` in the roadmap.
-- Propose (or perform, if authorized) the canonical updates: `TASK-013` → `IMPLEMENTED`/`AWAITING_VERIFICATION` as Guardian sees fit, `G3` row update distinguishing the executed AI checks from the `NOT_RUN` remote/human rows, and a follow-up entry for the LiveKit-secrets operational blocker. **Engineer has not modified any canonical record.**
-- Note that the app remains `AI VERIFIED`, not `ACCEPTED`: nothing here clears `G4` or `G6`.
+Re-audit the corrections (new implementation diff on `feature/calls`, new delivery revision), create `AUD-…` findings for anything unresolved, and propose canonical updates for `TASK-013` and the gate table. Engineer has not modified canonical `.pif/` records.
