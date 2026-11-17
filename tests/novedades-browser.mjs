@@ -23,7 +23,17 @@ const clip = (seconds) =>
   ]);
 const shortClip = clip(2),
   longClip = clip(16);
-const mediaBytes = new Map();
+const mediaBytes = new Map([
+  [
+    "avatars/sofia.svg",
+    {
+      type: "image/svg+xml",
+      bytes: Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="#38bdf8"/></svg>',
+      ),
+    },
+  ],
+]);
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH ?? "/usr/bin/chromium",
@@ -54,7 +64,7 @@ const profiles = [
     avatar_url: null,
     scheduled_deletion_at: null,
   },
-  { id: other, username: "sofia", display_name: "Sofia", avatar_url: null },
+  { id: other, username: "sofia", display_name: "Sofia", avatar_url: "sofia.svg" },
 ];
 const jwt = `${Buffer.from('{"alg":"HS256"}').toString("base64url")}.${Buffer.from(JSON.stringify({ sub: me, aal: "aal2", exp: Math.floor(Date.now() / 1000) + 3600 })).toString("base64url")}.signature`;
 const story = (n, owner = other) => ({
@@ -398,6 +408,89 @@ const cycleFocus = async (dialog, targetPage = page) => {
     }
   }
 };
+const assertStoryViewerLayout = async (targetPage) => {
+  const headerAvatar = targetPage.locator('.story-viewer-header [data-slot="avatar"]');
+  await headerAvatar.waitFor();
+  const headerImg = headerAvatar.locator("img");
+  await headerImg.waitFor();
+  const avatarBox = await headerAvatar.boundingBox();
+  const imgBox = await headerImg.boundingBox();
+  const avatarClient = await headerAvatar.evaluate((el) => ({
+    width: el.clientWidth,
+    height: el.clientHeight,
+  }));
+  assert.ok(avatarBox && imgBox, "Story viewer header avatar and image must render");
+  assert.ok(
+    Math.abs(avatarBox.width - avatarBox.height) <= 0.5 && avatarBox.width >= 36,
+    `Header avatar must be circular, got ${avatarBox.width}x${avatarBox.height}`,
+  );
+  assert.ok(
+    Math.abs(imgBox.width - avatarClient.width) <= 1 &&
+      Math.abs(imgBox.height - avatarClient.height) <= 1,
+    `Header avatar image must fill container content box, got ${imgBox.width}x${imgBox.height} in ${avatarClient.width}x${avatarClient.height}`,
+  );
+  const avatarStyle = await headerAvatar.evaluate((el) => {
+    const s = getComputedStyle(el);
+    const img = el.querySelector("img");
+    const is = img ? getComputedStyle(img) : null;
+    return {
+      borderRadius: s.borderRadius,
+      overflow: s.overflow,
+      objectFit: is?.objectFit,
+      objectPosition: is?.objectPosition,
+    };
+  });
+  assert.equal(avatarStyle.overflow, "hidden");
+  assert.equal(avatarStyle.objectFit, "cover");
+  assert.equal(avatarStyle.objectPosition, "50% 50%");
+  assert.ok(
+    avatarStyle.borderRadius === "50%" ||
+      Number.parseFloat(avatarStyle.borderRadius) >= avatarBox.width / 2 - 0.5,
+    `Expected circular border-radius, got ${avatarStyle.borderRadius}`,
+  );
+
+  const replyForm = targetPage.locator(".story-reply");
+  const replyInput = replyForm.locator("input");
+  const replySend = replyForm.locator(".story-send");
+  const [formStyle, sendStyle, inputBox, sendBox] = await Promise.all([
+    replyForm.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return {
+        display: s.display,
+        flexDirection: s.flexDirection,
+        alignItems: s.alignItems,
+      };
+    }),
+    replySend.evaluate((el) => ({ borderRadius: getComputedStyle(el).borderRadius })),
+    replyInput.boundingBox(),
+    replySend.boundingBox(),
+  ]);
+  assert.equal(formStyle.display, "flex");
+  assert.equal(formStyle.flexDirection, "row");
+  assert.equal(formStyle.alignItems, "center");
+  assert.ok(inputBox && sendBox, "Reply input and send button must render");
+  assert.ok(
+    inputBox.x + inputBox.width <= sendBox.x + 1,
+    `Send button must sit to the right of input (input right=${inputBox.x + inputBox.width}, send left=${sendBox.x})`,
+  );
+  assert.ok(
+    Math.abs(inputBox.y + inputBox.height / 2 - (sendBox.y + sendBox.height / 2)) <= 2,
+    `Input and send button must align on one horizontal row (input cy=${inputBox.y + inputBox.height / 2}, send cy=${sendBox.y + sendBox.height / 2})`,
+  );
+  assert.ok(
+    inputBox.width > sendBox.width * 2,
+    `Reply input should fill available horizontal space, got ${inputBox.width}px`,
+  );
+  assert.ok(
+    Math.abs(sendBox.width - sendBox.height) <= 0.5 && sendBox.width >= 44,
+    `Send button must be a >=44px circle, got ${sendBox.width}x${sendBox.height}`,
+  );
+  assert.ok(
+    sendStyle.borderRadius === "50%" ||
+      Number.parseFloat(sendStyle.borderRadius) >= sendBox.width / 2 - 0.5,
+    `Expected circular send button border-radius, got ${sendStyle.borderRadius}`,
+  );
+};
 try {
   await goto("/novedades");
   await page.getByRole("button", { name: "My story", exact: true }).waitFor();
@@ -405,6 +498,7 @@ try {
   assert.equal(await page.locator(".discover-channel").count(), 20);
   await page.getByRole("button", { name: "Sofia", exact: true }).click();
   await page.locator(".story-stage").getByText("Story 301", { exact: true }).waitFor();
+  await assertStoryViewerLayout(page);
   const stage = await page.locator(".story-stage").boundingBox();
   await page.mouse.move(stage.x + 50, stage.y + 50);
   await page.mouse.down();
@@ -424,6 +518,7 @@ try {
   failReplyLookupOnce = true;
   await page.locator(".story-reply").getByRole("button", { name: "Send", exact: true }).click();
   await page.getByRole("alert").filter({ hasText: "Reply failed" }).waitFor();
+  await assertStoryViewerLayout(page);
   const replyPaused = await page.locator(".story-progress").innerHTML();
   await page.waitForTimeout(250);
   assert.equal(await page.locator(".story-progress").innerHTML(), replyPaused);
@@ -803,6 +898,7 @@ try {
     ),
   );
   await mp.getByRole("button", { name: "Sofia", exact: true }).click();
+  await assertStoryViewerLayout(mp);
   const swipe = await mp.locator(".story-stage").boundingBox();
   await touchAt("touchStart", swipe.x + swipe.width / 2, swipe.y + 60);
   await mp.waitForTimeout(150);
