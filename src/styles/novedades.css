@@ -5,7 +5,7 @@
     min-width: 0;
     max-width: 940px;
     margin: 0 auto;
-    padding: 32px 28px 125px;
+    padding: 32px 28px 40px;
     min-height: 100dvh;
   }
   .novedades-page .novedades-header {
@@ -148,21 +148,12 @@
     cursor: pointer;
   }
   .novedades-bottom {
-    position: sticky;
-    bottom: 15px;
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
     gap: 12px;
-    padding: 18px;
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    margin-top: 30px;
-    box-shadow: 0 8px 30px #0001;
-    z-index: 5;
-  }
-  .novedades-bottom > * {
-    flex: 1;
-    justify-content: center;
+    margin-top: 24px;
+    padding: 0;
   }
   .channel-list-item,
   .discover-channel {
@@ -531,16 +522,10 @@
   }
   @media (max-width: 640px) {
     .novedades-page {
-      padding: 22px 16px 105px;
+      padding: 22px 16px 28px;
     }
     .novedades-bottom {
-      bottom: 80px;
-      padding: 12px;
-      gap: 8px;
-    }
-    .novedades-bottom .button {
-      font-size: 13px;
-      padding: 12px 8px;
+      gap: 10px;
     }
     .auth-modal.channel-create-modal,
     .auth-modal.story-creator {
@@ -855,13 +840,6 @@
 
 /* Module 3B: broadcast surfaces share the silver shell and primary-fill tokens. */
 @layer components {
-  .novedades-bottom {
-    background: color-mix(in oklab, var(--card) 88%, transparent);
-    backdrop-filter: blur(16px);
-    box-shadow: var(--shadow-silver);
-    padding: 12px;
-    gap: 8px;
-  }
   .channels-section > h2 {
     font-size: 14px;
     font-weight: 600;
@@ -1006,12 +984,6 @@
     }
   }
   @media (max-width: 480px) {
-    .novedades-bottom {
-      flex-wrap: wrap;
-    }
-    .novedades-bottom > * {
-      flex-basis: 140px;
-    }
     .discover-channel {
       gap: 8px;
       padding: 12px 10px;

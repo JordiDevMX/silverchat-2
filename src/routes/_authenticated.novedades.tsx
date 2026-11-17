@@ -38,9 +38,13 @@ export function NovedadesPage() {
       <ChannelsSection search={text} />
       <DiscoverChannelsSection search={text} />
       <footer className="novedades-bottom">
-        <Button asChild variant="outline">
+        <Button
+          asChild
+          variant="outline"
+          className="bg-card/70 text-foreground hover:bg-neon/10 hover:text-foreground"
+        >
           <NavLink href="/novedades/explore">
-            <Compass size={17} />
+            <Compass size={17} aria-hidden="true" />
             {say("Explore more", "Explorar más")}
           </NavLink>
         </Button>
@@ -49,7 +53,7 @@ export function NovedadesPage() {
           variant="neon-outline"
           onClick={() => void router.navigate({ to: "/novedades", search: { create: true } })}
         >
-          <Megaphone size={17} />
+          <Megaphone size={17} aria-hidden="true" />
           {say("Create channel", "Crear canal")}
         </Button>
       </footer>
