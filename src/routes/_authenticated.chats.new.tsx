@@ -56,7 +56,6 @@ export function NewChatPage() {
         </header>
 
         <SearchField
-          outlined
           inputRef={inputRef}
           className="chat-search mt-5"
           label={t("Search by name or @username")}

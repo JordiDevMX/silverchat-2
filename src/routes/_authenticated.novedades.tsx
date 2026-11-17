@@ -26,7 +26,6 @@ export function NovedadesPage() {
         <BrandLockup />
         <h1>{say("Updates", "Novedades")}</h1>
         <SearchField
-          outlined
           label={say("Search stories and channels", "Buscar historias y canales")}
           placeholder={say("Search stories and channels…", "Buscar historias y canales…")}
           clearLabel={say("Clear search", "Limpiar búsqueda")}

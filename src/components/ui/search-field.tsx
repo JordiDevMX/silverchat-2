@@ -12,7 +12,7 @@ export function SearchField({
   onClear,
   inputRef,
   className,
-  outlined = false,
+  outlined = true,
 }: {
   label: string;
   placeholder?: string;

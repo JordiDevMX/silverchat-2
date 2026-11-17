@@ -136,7 +136,6 @@ export function NewGroupPage() {
             )}
 
             <SearchField
-              outlined
               className="chat-search mt-5"
               label={t("Search by name or @username")}
               clearLabel={t("Clear search")}
