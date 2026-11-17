@@ -1,0 +1,142 @@
+/* Prompt #12 — call overlays: fullscreen modals, pulse ring, audio waveform,
+ * countdown and video PiP. Colors reuse the global theme vars. */
+
+.call-modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 100dvh;
+  padding: 24px;
+  text-align: center;
+  color: var(--foreground);
+}
+
+.call-modal-body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    color-mix(in oklab, var(--neon) 14%, transparent),
+    transparent 65%
+  );
+}
+
+dialog.call-modal {
+  max-width: none;
+  max-height: none;
+  width: 100vw;
+  height: 100dvh;
+  border: 0;
+  padding: 0;
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+/* Expanding pulse ring behind the avatar while ringing (CSS-only by design). */
+@keyframes call-pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.call-pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--neon);
+  animation: call-pulse-ring 1.5s var(--ease-out, ease-out) infinite;
+  pointer-events: none;
+}
+
+.call-pulse-ring:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.call-pulse-ring:nth-child(3) {
+  animation-delay: 1s;
+}
+
+/* Concentric waveform rings while the peer is speaking (answered voice). */
+.call-wave-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--neon);
+  transform: scale(1);
+  opacity: 0;
+  transition:
+    transform 120ms linear,
+    opacity 120ms linear;
+  pointer-events: none;
+}
+
+/* Accept button breathing (locked L3). */
+@keyframes call-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.call-breathe {
+  animation: call-breathe 1.8s ease-in-out infinite;
+}
+
+/* Circular countdown around the incoming avatar (SVG ring driven by JS). */
+.call-countdown {
+  position: absolute;
+  inset: -14px;
+  pointer-events: none;
+}
+
+.call-countdown circle {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-pulse-ring,
+  .call-breathe {
+    animation: none;
+  }
+}
+
+/* Local video PiP: fixed on mobile, draggable on desktop (12.2). */
+.call-pip {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, var(--silver, #c0c0c8) 40%, transparent);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 40%);
+  cursor: grab;
+  touch-action: none;
+}
+
+.call-pip:active {
+  cursor: grabbing;
+}
+
+.call-glass-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--background) 55%, transparent);
+  backdrop-filter: blur(12px);
+}

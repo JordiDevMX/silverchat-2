@@ -372,13 +372,18 @@ const protectedRoutes = [
       throw redirect({ to: "/novedades", search: { create: undefined } });
     },
   }),
-  ...["calls", "profile"].map((path) =>
+  ...["profile"].map((path) =>
     createRoute({
       getParentRoute: () => authenticated,
       path: `/${path}`,
       component: AuthenticatedDestination,
     }),
   ),
+  createRoute({
+    getParentRoute: () => authenticated,
+    path: "/calls",
+    component: lazyRouteComponent(() => import("@/routes/_authenticated.calls"), "CallsPage"),
+  }),
 ];
 export const router = createRouter({
   routeTree: root.addChildren([...publicRoutes, authenticated.addChildren(protectedRoutes)]),
