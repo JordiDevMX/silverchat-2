@@ -46,7 +46,7 @@ export function StoryCardSurface({
             <Camera size={26} />
           </span>
         ) : (
-          <span className="story-avatar-ring">{avatar}</span>
+          avatar
         )}
         <strong>{name}</strong>
       </button>
@@ -106,8 +106,9 @@ export function StoryReplySurface({
   onBlur?: () => void;
 }) {
   return (
-    <form className="story-reply" onSubmit={onSubmit}>
+    <form className="story-reply" data-slot="story-reply" onSubmit={onSubmit}>
       <input
+        data-slot="story-reply-input"
         value={text}
         maxLength={500}
         disabled={busy}
