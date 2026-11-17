@@ -1,13 +1,5 @@
 /* Chat-list and picker surfaces (Module 6A). Scoped classes compose shared UI primitives. */
 @layer components {
-  :where(.new-chat-search) > button {
-    background: transparent;
-    color: inherit;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    box-shadow: none;
-  }
   .chats-page {
     max-width: 920px;
     margin: 0 auto;
@@ -819,36 +811,6 @@
     min-height: 48px;
     justify-content: flex-start;
     border-radius: var(--radius-xl);
-  }
-  .new-chat-search {
-    margin-top: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 44px;
-    padding: 0 12px;
-    border-radius: var(--radius-xl);
-    background: var(--gradient-silver);
-    color: var(--muted-foreground);
-  }
-  .new-chat-search:focus-within {
-    outline: 2px solid var(--ring);
-  }
-  .new-chat-search > input {
-    width: 0;
-    min-width: 0;
-    flex: 1;
-    border: 0;
-    box-shadow: none;
-    background: transparent;
-    padding: 0;
-    outline: 0;
-  }
-  .new-chat-search > input:focus-visible {
-    box-shadow: none;
-  }
-  .new-chat-search > svg {
-    flex: none;
   }
   @keyframes chat-list-reveal {
     from {

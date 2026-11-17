@@ -1,6 +1,6 @@
-import { ArrowLeft, MessageSquarePlus, Search, Users, X } from "lucide-react";
+import { ArrowLeft, MessageSquarePlus, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchField } from "@/components/ui/search-field";
 import { ChatContactRow, ChatListSkeleton } from "@/features/chats/components/ChatPickerSurfaces";
 import { useNewChatPage } from "@/features/chats/hooks/useNewChatPage";
 import type { UserSearchResult } from "@/features/chats/hooks/useUserSearch";
@@ -55,30 +55,18 @@ export function NewChatPage() {
           </div>
         </header>
 
-        <div className="chat-search new-chat-search">
-          <Search size={18} aria-hidden="true" />
-          <Input
-            ref={inputRef}
-            type="search"
-            value={query}
-            aria-label={t("Search by name or @username")}
-            placeholder={t("Search by name or @username")}
-            onChange={(event) => changeQuery(event.target.value)}
-          />
-          {query && (
-            <Button
-              variant="ghost"
-              type="button"
-              aria-label={t("Clear search")}
-              onClick={() => {
-                setQuery("");
-                inputRef.current?.focus();
-              }}
-            >
-              <X size={16} />
-            </Button>
-          )}
-        </div>
+        <SearchField
+          inputRef={inputRef}
+          className="chat-search mt-5"
+          label={t("Search by name or @username")}
+          clearLabel={t("Clear search")}
+          value={query}
+          onChange={changeQuery}
+          onClear={() => {
+            setQuery("");
+            inputRef.current?.focus();
+          }}
+        />
 
         {createDirectChat.errorMessage && (
           <div className="chats-error new-chat-alert" role="alert">
