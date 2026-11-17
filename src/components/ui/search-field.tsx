@@ -1,21 +1,26 @@
 import { Search, X } from "lucide-react";
+import type { Ref } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "./input";
 
 export function SearchField({
   label,
+  placeholder,
   clearLabel,
   value,
   onChange,
   onClear,
+  inputRef,
   className,
   outlined = false,
 }: {
   label: string;
+  placeholder?: string;
   clearLabel: string;
   value: string;
   onChange: (value: string) => void;
   onClear: () => void;
+  inputRef?: Ref<HTMLInputElement>;
   className?: string;
   outlined?: boolean;
 }) {
@@ -30,9 +35,10 @@ export function SearchField({
     >
       <Search size={19} aria-hidden="true" className="shrink-0" />
       <Input
+        ref={inputRef}
         type="search"
         aria-label={label}
-        placeholder={label}
+        placeholder={placeholder ?? label}
         maxLength={200}
         value={value}
         onChange={(e) => onChange(e.target.value)}

@@ -1,6 +1,7 @@
-import { ArrowLeft, Search, Users, X } from "lucide-react";
+import { ArrowLeft, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchField } from "@/components/ui/search-field";
 import { ChatContactRow, ChatListSkeleton } from "@/features/chats/components/ChatPickerSurfaces";
 import { MAX_GROUP_MEMBERS, useNewGroupPage } from "@/features/chats/hooks/useNewGroupPage";
 import type { UserSearchResult } from "@/features/chats/hooks/useUserSearch";
@@ -134,26 +135,15 @@ export function NewGroupPage() {
               </ul>
             )}
 
-            <div className="chat-search new-chat-search">
-              <Search size={18} aria-hidden="true" />
-              <Input
-                type="search"
-                value={searchQuery}
-                aria-label={t("Search by name or @username")}
-                placeholder={t("Search by name or @username")}
-                onChange={(event) => setSearchQuery(event.target.value)}
-              />
-              {searchQuery && (
-                <Button
-                  variant="ghost"
-                  type="button"
-                  aria-label={t("Clear search")}
-                  onClick={() => setSearchQuery("")}
-                >
-                  <X size={16} />
-                </Button>
-              )}
-            </div>
+            <SearchField
+              outlined
+              className="chat-search mt-5"
+              label={t("Search by name or @username")}
+              clearLabel={t("Clear search")}
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onClear={() => setSearchQuery("")}
+            />
 
             {contacts.isPending && !search.hasQuery ? (
               <ChatListSkeleton label={t("Loading contacts…")} count={3} />

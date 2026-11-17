@@ -24,7 +24,6 @@
     color: inherit;
     text-decoration: none;
   }
-  :where(.novedades-header) input,
   :where(.novedades-page .field) input,
   :where(.novedades-page .field) textarea,
   .channel-create-modal :where(input:not([type="file"])),
@@ -856,21 +855,6 @@
 
 /* Module 3B: broadcast surfaces share the silver shell and primary-fill tokens. */
 @layer components {
-  .novedades-search {
-    position: relative;
-    display: block;
-  }
-  .novedades-search > svg {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--muted-foreground);
-  }
-  .novedades-search input {
-    padding-left: 42px;
-    background: color-mix(in oklab, var(--card) 70%, transparent);
-  }
   .novedades-bottom {
     background: color-mix(in oklab, var(--card) 88%, transparent);
     backdrop-filter: blur(16px);
