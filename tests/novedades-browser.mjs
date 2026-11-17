@@ -1,6 +1,7 @@
 // Chromium integration tests with mocked HTTP boundaries; SQL authorization is tested separately.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { launchBrowser } from "./lib/browser.mjs";
 
 const clip = (seconds) =>
   execFileSync("ffmpeg", [
@@ -34,12 +35,9 @@ const mediaBytes = new Map([
     },
   ],
 ]);
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? "/usr/bin/chromium",
-  headless: true,
-  args: ["--no-sandbox"],
-});
+
+const browser = await launchBrowser({ args: ["--no-sandbox"] });
+
 const uid = (n) => `${String(n).padStart(8, "0")}-3333-4333-8333-333333333333`;
 const me = uid(1),
   other = uid(2),

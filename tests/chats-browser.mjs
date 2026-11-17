@@ -1,12 +1,8 @@
 // Chromium against mocked HTTP/Realtime boundaries. Never touches remote accounts.
 import assert from "node:assert/strict";
+import { launchBrowser } from "./lib/browser.mjs";
 
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? "/usr/bin/chromium",
-  headless: true,
-  args: ["--no-sandbox"],
-});
+const browser = await launchBrowser({ args: ["--no-sandbox"] });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
 const me = "11111111-1111-4111-8111-111111111111";
 const uid = (n) => `${String(n).padStart(8, "0")}-2222-4222-8222-222222222222`;

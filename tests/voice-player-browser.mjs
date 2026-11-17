@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
+import { launchBrowser } from "./lib/browser.mjs";
 
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? "/usr/bin/chromium",
-  headless: true,
-});
+const browser = await launchBrowser();
 // Silent PCM stays in memory. The manual-review gallery never mounts media elements.
 const wav = Buffer.alloc(44 + 8000 * 8 * 2);
 wav.write("RIFF", 0);
