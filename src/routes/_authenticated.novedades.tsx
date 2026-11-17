@@ -37,20 +37,27 @@ export function NovedadesPage() {
       <StoriesRow search={text} onOpen={setViewer} onCreate={() => setCreator(true)} />
       <ChannelsSection search={text} />
       <DiscoverChannelsSection search={text} />
-      <footer className="novedades-bottom">
-        <Button asChild variant="outline">
+      <footer data-slot="novedades-bottom" className="novedades-bottom">
+        <Button
+          asChild
+          variant="outline"
+          className="novedades-action novedades-action-explore"
+        >
           <NavLink href="/novedades/explore">
-            <Compass size={17} />
-            {say("Explore more", "Explorar más")}
+            <Compass size={17} aria-hidden="true" />
+            <span>{say("Explore more", "Explorar más")}</span>
           </NavLink>
         </Button>
         <Button
           type="button"
           variant="neon-outline"
-          onClick={() => void router.navigate({ to: "/novedades", search: { create: true } })}
+          className="novedades-action novedades-action-create"
+          onClick={() =>
+            void router.navigate({ to: "/novedades", search: { create: true } })
+          }
         >
-          <Megaphone size={17} />
-          {say("Create channel", "Crear canal")}
+          <Megaphone size={17} aria-hidden="true" />
+          <span>{say("Create channel", "Crear canal")}</span>
         </Button>
       </footer>
       {creator && <StoryCreator onClose={() => setCreator(false)} />}{" "}
