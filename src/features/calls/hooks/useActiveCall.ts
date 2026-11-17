@@ -73,7 +73,10 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
   // Peer disconnect (9.5): a 3s grace window allows LiveKit reconnection; if
   // the room stays empty, end the call as peer_hangup. The INITIAL join gets
   // a longer window (AUD-003 round 3): a peer that is still minting a token
-  // or connecting is not a disconnect, and must not be labeled peer_hangup.
+  // or connecting is not a disconnect. The two windows are also honest about
+  // what happened (round 4): an unseen peer's timeout is NOT a peer_hangup —
+  // the row records ended_reason='timeout' and the user sees the failure
+  // note; only the departure of a peer we actually observed is peer_hangup.
   useEffect(() => {
     if (phase !== "answered" || !room) return;
     const JOIN_GRACE_MS = 10_000;
@@ -83,14 +86,16 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
     // racing the render) counts as established from the start.
     let sawRemote = room.remoteParticipants.size > 0;
 
-    const endIfStillAlone = (graceMs: number) => {
+    const endIfStillAlone = (graceMs: number, reason: "peer_hangup" | "timeout") => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         const current = useCallStore.getState();
         if (current.phase !== "answered" || current.room !== room) return;
         if (current.room && current.room.remoteParticipants.size === 0) {
-          void hangupActiveCall("peer_hangup").then((outcome) => {
-            if (outcome === "ok") notify.current("peer-hangup");
+          void hangupActiveCall(reason).then((outcome) => {
+            if (outcome === "ok") {
+              notify.current(reason === "timeout" ? "failed" : "peer-hangup");
+            }
           });
         }
       }, graceMs);
@@ -103,7 +108,7 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
       // Only an established peer's exit gets the short reconnect window;
       // the longer join grace below covers the pre-first-join phase.
       if (sawRemote || room.remoteParticipants.size > 0) {
-        endIfStillAlone(PEER_DISCONNECT_GRACE_MS);
+        endIfStillAlone(PEER_DISCONNECT_GRACE_MS, "peer_hangup");
       }
     };
 
@@ -114,7 +119,7 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
     // answered while this client's ring write lost never joins the room, so
     // no participant event would otherwise fire and the answered client
     // would wait alone forever. If the peer does join, the timer is cleared.
-    if (!sawRemote) endIfStillAlone(JOIN_GRACE_MS);
+    if (!sawRemote) endIfStillAlone(JOIN_GRACE_MS, "timeout");
     return () => {
       clearTimeout(timer);
       room.off(RoomEvent.ParticipantDisconnected, onPeerDisconnected);

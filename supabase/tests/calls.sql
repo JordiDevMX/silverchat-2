@@ -1,19 +1,21 @@
--- Prompt #12 calls (Guardian round-3 revision): RLS permissions, realtime
+-- Prompt #12 calls (Guardian round-4 revision): RLS permissions, realtime
 -- publication membership, one-active-call exclusivity (AUD-004), MFA gate on
 -- the SECURITY DEFINER path (AUD-002), conditional-write races in both
 -- orders (AUD-003) and security-boundary-accurate assertions (AUD-005).
 --
--- Round-3 corrections per Guardian:
--- - direct client INSERTs are asserted against the REAL privilege boundary:
---   0002:704-705 grants authenticated INSERT(id,initiator_id,chat_id,type,
---   livekit_room_name) on calls (the round-2 suite wrongly assumed no INSERT
---   grant exists — that grant statement is split across lines and was
---   missed). The one-active-call invariant is therefore exercised through
---   the unique indexes (a same-chat duplicate INSERT fails with
---   uq_calls_active_chat; a cross-chat second call fails with
---   uq_calls_active_initiator), and a forged initiator — inserted by a
---   DISTINCT member under someone else's identity — fails on the RLS
---   WITH CHECK (initiator_id = auth.uid()).
+-- Round-4 corrections per Guardian:
+-- - direct client INSERTs are REVOKED by the migration (section 2c): the
+--   0002 grant let a chat member bypass start_call's caller-busy invariant
+--   (a receiver of an active call could originate another in a different
+--   chat — neither unique index conflicts) and the direct/self chat-type
+--   restriction. The suite asserts permission denied on every direct
+--   INSERT variant, including the receiver-then-originator path; the RPC
+--   side of that invariant is asserted separately ("already in a call").
+-- - the lifecycle UPDATE column grant pre-existed in the migration's
+--   section 5 (the round-3 delivery wrongly claimed it as a new fix; the
+--   duplicate grant statement added then has been removed).
+--
+-- Round-3 corrections retained:
 -- - the outsider block no longer demands both "0 visible rows" and
 --   "permission denied" for the same UPDATE: RLS genuinely filters for a
 --   non-member, so only the filtered-state pattern applies.
@@ -114,27 +116,38 @@ SET LOCAL ROLE authenticated;
 SELECT pg_temp.assert_true(public.start_call('a1111111-1111-4111-8111-111111111111','voice') IS NOT NULL,
   'AAL2 session with an enrolled factor may start a call');
 
--- ─── AUD-004/005: client INSERT boundary — real grants, real invariants ────
--- 0002:704-705 grants authenticated INSERT(id,initiator_id,chat_id,type,
--- livekit_room_name) on calls; RLS lets a chat member insert with
--- initiator_id = auth.uid(). The one-active-call rule is therefore enforced
--- by the partial unique indexes on every permitted write path.
--- (a) A same-chat duplicate while the a111 call is ringing → uq_calls_active_chat.
+-- ─── AUD-004/005 round 4: client INSERT boundary — deliberately closed ──────
+-- History: the round-2 suite asserted "permission denied" here (correct
+-- boundary, wrong premise — 0002:704-705 DID grant INSERT); round 3 found
+-- the real grant and exercised the unique indexes on it; round 4 closes
+-- the path deliberately (migration section 2c): a direct INSERT bypasses
+-- start_call's caller-busy invariant (a user RECEIVING an active call can
+-- originate another in a different chat — neither unique index conflicts)
+-- and the direct/self chat-type restriction. After the REVOKE, start_call
+-- is the single supported creation path and every direct INSERT fails at
+-- the privilege check.
+-- (a) Same-chat duplicate while the a111 call is ringing.
 SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
   VALUES ('e1111111-1111-4111-8111-111111111111','a1111111-1111-4111-8111-111111111111','voice','call_dup_probe')$q$,
-  'uq_calls_active_chat');
--- (b) A second ringing call by the same caller in her OTHER chat →
---     uq_calls_active_initiator (the chat index cannot fire: a444 is idle).
+  'permission denied');
+-- (b) Second ringing call by the same caller in her OTHER idle chat.
 SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
   VALUES ('e1111111-1111-4111-8111-111111111111','a4444444-4444-4444-8444-444444444444','voice','call_cross_probe')$q$,
-  'uq_calls_active_initiator');
--- (c) Forged initiator with a DISTINCT actor: chat member Bob inserts a row
---     claiming Alice as initiator → RLS WITH CHECK initiator_id = auth.uid().
-SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+  'permission denied');
+-- (c) Forged initiator: chat member Bob inserts a row claiming Alice.
 SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
   VALUES ('e1111111-1111-4111-8111-111111111111','a1111111-1111-4111-8111-111111111111','voice','call_forged_by_bob')$q$,
-  'row-level security policy');
+  'permission denied');
+-- (d) Receiver-then-originator on the direct path (AUD-004 round 4): Bob is
+--     the CALLEE of the active a111 call; inserting a call in his idle
+--     a333 chat must be impossible without the RPC's caller-busy check.
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
+  VALUES ('e2222222-2222-4222-8222-222222222222','a3333333-3333-4333-8333-333333333333','voice','call_busy_receiver')$q$,
+  'permission denied');
 RESET ROLE;
+-- The same invariant through the RPC is asserted below (Bob start_call in
+-- a333 → "already in a call"): both creation paths enforce the rule.
 
 -- ─── AUD-004: caller-busy across chats ──────────────────────────────────────
 -- Alice (back in her own AAL2 session) is the initiator of the active a111

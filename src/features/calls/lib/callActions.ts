@@ -107,7 +107,7 @@ export async function declineIncomingCall(
  * media), then the phase-dependent patch is written; when a concurrent peer
  * action already resolved the call, the patch is null and nothing is written. */
 export async function hangupActiveCall(
-  reason: "hangup" | "peer_hangup" | "network_lost" = "hangup",
+  reason: "hangup" | "peer_hangup" | "network_lost" | "timeout" = "hangup",
 ): Promise<CallActionOutcome> {
   const state = useCallStore.getState();
   if (!state.call || !canFinishLocally(state.phase)) {

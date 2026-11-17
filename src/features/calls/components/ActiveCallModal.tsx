@@ -62,6 +62,15 @@ export function ActiveCallModal() {
     }
   };
 
+  // Guardian round 4 (AUD-003): a failed hangup write is never silently
+  // discarded — the modal closes via the guarded local reset, and the note
+  // surfaces the failure.
+  const hangup = () => {
+    void hangupActiveCall("hangup").then((outcome) => {
+      if (outcome === "error") notifyCall(say("Call failed. Try again."));
+    });
+  };
+
   return (
     <CallModalShell title={`${say("Voice call")} — ${name}`} onClose={() => {}}>
       <CallAvatar
@@ -82,7 +91,7 @@ export function ActiveCallModal() {
           showCamera={false}
           onToggleMic={toggleMic}
           onToggleSpeaker={toggleSpeaker}
-          onHangup={() => void hangupActiveCall("hangup")}
+          onHangup={hangup}
           labels={{
             mute: say("Mute microphone"),
             unmute: say("Unmute microphone"),

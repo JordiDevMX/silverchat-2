@@ -130,6 +130,14 @@ export function ActiveVideoCallModal() {
     }
   };
 
+  // Guardian round 4 (AUD-003): a failed hangup write is never silently
+  // discarded — same feedback pattern as the voice modal.
+  const hangup = () => {
+    void hangupActiveCall("hangup").then((outcome) => {
+      if (outcome === "error") notifyCall(say("Call failed. Try again."));
+    });
+  };
+
   return (
     <CallModalShell title={`${say("Video call")} — ${name}`} onClose={() => {}}>
       <div className="absolute inset-0 -z-[1]">
@@ -191,7 +199,7 @@ export function ActiveVideoCallModal() {
             onToggleMic={toggleMic}
             onToggleSpeaker={toggleSpeaker}
             onToggleCamera={toggleCamera}
-            onHangup={() => void hangupActiveCall("hangup")}
+            onHangup={hangup}
             labels={{
               mute: say("Mute microphone"),
               unmute: say("Unmute microphone"),

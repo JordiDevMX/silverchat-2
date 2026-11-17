@@ -67,10 +67,18 @@ export function IncomingCallModal() {
   const circumference = 2 * Math.PI * 67;
   const name = other.display_name?.trim() || say("Unavailable contact");
 
+  // Guardian round 4 (AUD-003): a failed decline write is never silently
+  // discarded — same feedback pattern as the accept path above.
+  const decline = () => {
+    void declineIncomingCall("declined").then((outcome) => {
+      if (outcome === "error") notifyCall(say("Call failed. Try again."));
+    });
+  };
+
   return (
     <CallModalShell
       title={`${say(call.type === "video" ? "Incoming video call" : "Incoming voice call")} — ${name}`}
-      onClose={() => void declineIncomingCall("declined")}
+      onClose={decline}
     >
       <div className="relative grid place-items-center">
         <CallAvatar participant={other} size={120} mode="pulse" audioLevel={0} />
@@ -103,7 +111,7 @@ export function IncomingCallModal() {
         <ActionButton
           label={say("Decline")}
           className="bg-destructive hover:bg-destructive/90"
-          onClick={() => void declineIncomingCall("declined")}
+          onClick={decline}
         >
           <PhoneOff size={26} />
         </ActionButton>

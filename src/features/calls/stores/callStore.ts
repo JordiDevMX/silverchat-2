@@ -8,7 +8,7 @@ import type {
   Room,
 } from "livekit-client";
 import { create } from "zustand";
-import type { CallParticipant, CallPhase, CallType } from "../types";
+import type { CallParticipant, CallPhase, CallType } from "../types.ts";
 
 export type { CallParticipant };
 

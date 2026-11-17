@@ -18,10 +18,15 @@
 -- - AUD-004: one-active-call exclusivity is now enforced by two partial
 --   UNIQUE indexes (per chat, per initiator) as a hard invariant, and
 --   start_call serializes concurrent starts with per-member transaction
---   advisory locks (ordered by user_id to avoid deadlocks). The UPDATE
---   grant is re-stated with the new reason columns so client lifecycle
---   writes (busy-reject, decline, hangup) keep their column privileges
---   (0002's column list predates this table's new columns).
+--   advisory locks (ordered by user_id to avoid deadlocks).
+-- - Round 4 (AUD-004 residual): direct client INSERTs are REVOKED. The
+--   0002 column-list INSERT grant let a chat member create call rows
+--   bypassing start_call's invariants — most notably the caller-busy
+--   check (a user RECEIVING an active call could originate another in a
+--   different chat: neither unique index conflicts) and the direct/self
+--   chat-type restriction. The application never inserts directly (all
+--   creation goes through the RPC), so start_call is now the single
+--   supported creation path and the indexes remain the hard backstop.
 -- - AUD-007 (round 3): the callee is resolved from typed chat_members rows
 --   instead of string_to_array on direct_pair_key, whose text elements made
 --   uuid comparisons unresolvable (text <> uuid has no operator: start_call
@@ -55,9 +60,11 @@ COMMENT ON COLUMN public.calls.ended_reason IS
 
 -- ───────────────────────────────────────────────────────────────
 -- 2b. One-active-call exclusivity (AUD-004). Partial UNIQUE indexes are
---     the hard invariant (they also constrain direct client INSERTs that
---     the calls_insert policy permits): at most one ringing/answered
---     call per chat, and at most one per initiator across all chats.
+--     the hard invariant behind every creation path: at most one
+--     ringing/answered call per chat, and at most one per initiator
+--     across all chats. (Round 4 note: direct client INSERTs are revoked
+--     in 2c, so the RPC is the only writer — the indexes still backstop
+--     it and any future privileged writer.)
 -- ───────────────────────────────────────────────────────────────
 CREATE UNIQUE INDEX IF NOT EXISTS uq_calls_active_chat
   ON public.calls(chat_id)
@@ -67,13 +74,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_calls_active_initiator
   ON public.calls(initiator_id)
   WHERE status IN ('ringing', 'answered');
 
--- 2c. Client lifecycle column privileges (AUD-004, round 3). 0002's
---     hardening pass granted UPDATE(status,answered_at,ended_at,
---     duration_seconds) — every column it knew about. The reason columns
---     added above postdate that grant: without extending it, every client
---     busy-reject, decline and hangup write fails with permission denied.
-GRANT UPDATE(status,answered_at,ended_at,duration_seconds,decline_reason,ended_reason)
-  ON public.calls TO authenticated;
+-- ───────────────────────────────────────────────────────────────
+-- 2c. Creation-path lock-down (AUD-004, round 4). 0002's column-list
+--     INSERT grant on calls lets any chat member create call rows
+--     directly, bypassing start_call's invariant checks: the caller-busy
+--     rule (a user RECEIVING an active call can originate another in a
+--     different chat — neither the per-chat nor the per-initiator unique
+--     index conflicts) and the direct/self chat-type restriction. The
+--     application never inserts into calls directly (every creation
+--     goes through the RPC), so the direct path is revoked and start_call
+--     becomes the single supported creation path; the partial UNIQUE
+--     indexes above remain the hard backstop behind the RPC.
+--     Lifecycle UPDATE privileges are re-stated in section 5 below
+--     (decline_reason / ended_reason postdate 0002's column list).
+-- ───────────────────────────────────────────────────────────────
+REVOKE INSERT ON public.calls FROM authenticated;
 
 -- ───────────────────────────────────────────────────────────────
 -- 3. RPC: start_call (atomic room-name generation + insert).

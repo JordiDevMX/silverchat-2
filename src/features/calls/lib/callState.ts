@@ -83,7 +83,7 @@ export function canFinishLocally(phase: CallPhase): boolean {
 export function hangupPatch(
   phase: CallPhase,
   answeredAt: string | null,
-  reason: "hangup" | "peer_hangup" | "network_lost" = "hangup",
+  reason: "hangup" | "peer_hangup" | "network_lost" | "timeout" = "hangup",
   now: Date = new Date(),
 ): CallPatch | null {
   switch (phase) {

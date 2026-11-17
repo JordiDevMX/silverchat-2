@@ -4,7 +4,7 @@
 import { PhoneOff } from "lucide-react";
 import { useCallText } from "../i18n";
 import { hangupActiveCall } from "../lib/callActions";
-import { useCallStore } from "../stores/callStore";
+import { notifyCall, useCallStore } from "../stores/callStore";
 import { CallAvatar } from "./CallAvatar";
 import { CallModalShell } from "./CallModalShell";
 
@@ -16,11 +16,17 @@ export function OutgoingCallModal() {
   if (!call || !other) return null;
   const name = other.display_name?.trim() || say("Unavailable contact");
 
+  // Guardian round 4 (AUD-003): a failed cancel write is never silently
+  // discarded — the modal closes via the guarded local reset, and the same
+  // "Call failed" note the other modals use surfaces the failure.
+  const cancel = () => {
+    void hangupActiveCall("hangup").then((outcome) => {
+      if (outcome === "error") notifyCall(say("Call failed. Try again."));
+    });
+  };
+
   return (
-    <CallModalShell
-      title={`${say("Calling…")} — ${name}`}
-      onClose={() => void hangupActiveCall("hangup")}
-    >
+    <CallModalShell title={`${say("Calling…")} — ${name}`} onClose={cancel}>
       <CallAvatar participant={other} size={120} mode="pulse" audioLevel={0} />
       <h2 className="text-2xl font-semibold text-white">{name}</h2>
       <p className="text-sm text-white/70" aria-live="polite">
@@ -30,7 +36,7 @@ export function OutgoingCallModal() {
         <button
           type="button"
           aria-label={say("Cancel")}
-          onClick={() => void hangupActiveCall("hangup")}
+          onClick={cancel}
           className="flex cursor-pointer flex-col items-center gap-1.5"
         >
           <span className="grid size-16 place-items-center rounded-full bg-destructive text-white hover:bg-destructive/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
