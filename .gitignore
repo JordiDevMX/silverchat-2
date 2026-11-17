@@ -28,3 +28,10 @@ Thumbs.db
 
 # Local Netlify folder
 .netlify
+
+# Isolated agent git worktrees
+.worktrees/
+worktrees/
+
+# Local Graphify knowledge graph index (maintained locally, never committed)
+graphify-out/
