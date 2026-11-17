@@ -1,12 +1,8 @@
 // Real browser with mocked BFF, PostgREST, Storage and Phoenix boundaries.
 import assert from "node:assert/strict";
+import { launchBrowser } from "./lib/browser.mjs";
 
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? "/usr/bin/chromium",
-  headless: true,
-  args: ["--no-sandbox"],
-});
+const browser = await launchBrowser({ args: ["--no-sandbox"] });
 const uid = (n) => `${String(n).padStart(8, "0")}-2222-4222-8222-222222222222`;
 const me = uid(1),
   other = uid(2),

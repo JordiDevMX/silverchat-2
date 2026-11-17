@@ -1,11 +1,8 @@
 // Actual React surfaces with mocked BFF/PostgREST/Storage boundaries; no remote writes.
 import assert from "node:assert/strict";
+import { launchBrowser } from "./lib/browser.mjs";
 
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH,
-  headless: true,
-});
+const browser = await launchBrowser();
 const origin = process.env.TEST_ORIGIN ?? "http://127.0.0.1:5175";
 const id = (n) => `${String(n).padStart(8, "0")}-4444-4444-8444-444444444444`;
 const me = id(1),

@@ -54,6 +54,7 @@ These instructions apply to all agents and delegated subagents working in this r
 ## Verification
 
 - Follow the project's available testing conventions and relevant Superpowers TDD workflow. Run focused tests needed to verify the behavior being changed.
+- For browser suites (`tests/*-browser.mjs`), `playwright-core` is declared in `devDependencies` and `tests/lib/browser.mjs` auto-discovers a local Chrome/Edge/Chromium executable (override with `CHROMIUM_PATH` if needed). Start an isolated Vite dev server with disposable `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_TURNSTILE_SITE_KEY` values, then run `node tests/<suite>-browser.mjs` (setting `TEST_BASE_URL`, `UI_BASE_URL`, or `TEST_ORIGIN` when targeting a non-default port such as `5175`; `tests/novedades-browser.mjs` also requires `ffmpeg` on `PATH`).
 - Prefer editor or tool diagnostics for quick feedback on touched files when available. Do not automatically run full lint, typechecking, or broad validation after every small change.
 - Run broader checks, including typechecking, when the owner requests them, when a change poses a concrete technical risk, or when focused diagnostics are insufficient.
 - Do not declare a task complete if requirements are unmet, your changes introduce unresolved failures, or known safety issues caused by the task remain. Distinguish new failures from pre-existing ones.
