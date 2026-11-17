@@ -309,8 +309,15 @@
     gap: 12px;
     flex: none;
   }
-  .story-viewer-header > span:not(.story-pause-indicator) {
+  .story-viewer-header > span:not([data-slot="avatar"]):not(.story-pause-indicator) {
     flex: 1;
+    min-width: 0;
+  }
+  .story-viewer-header > span:not([data-slot="avatar"]):not(.story-pause-indicator) strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .story-viewer-header small {
     display: block;
@@ -369,21 +376,35 @@
     justify-content: space-between;
     flex: none;
   }
+  .story-viewer footer {
+    flex: none;
+    padding: 0;
+  }
   .story-reply {
     display: flex;
-    gap: 10px;
+    flex-direction: row;
     flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
   }
   .story-reply input {
-    flex: 1;
+    flex: 1 1 0%;
     min-width: 0;
-    border-radius: 24px;
-    padding: 12px 16px;
+    width: auto;
+    min-height: 44px;
+    border-radius: 9999px;
+    padding: 10px 16px;
     border: 1px solid #ffffff40;
-    background: #ffffff10;
+    background: #ffffff14;
     color: white;
+    font: inherit;
+    font-size: max(1rem, 1em);
+    line-height: 1.35;
   }
-  .story-reply button,
+  .story-reply input::placeholder {
+    color: #ffffff99;
+  }
   .story-play {
     border: 0;
     border-radius: 24px;
@@ -391,12 +412,14 @@
     color: white;
     padding: 10px 18px;
     cursor: pointer;
-  }
-  .story-play {
     z-index: 2;
   }
   .story-reply p {
+    flex: 1 0 100%;
     width: 100%;
+    margin: 0;
+    font-size: 13px;
+    color: #ff9eaa;
   }
   .story-viewers-sheet {
     max-height: 75dvh;
@@ -663,6 +686,7 @@
   .story-viewer-header button {
     display: grid;
     place-items: center;
+    flex: none;
     padding: 8px;
     border-radius: 50%;
   }
@@ -687,13 +711,6 @@
   }
   .story-owner-views {
     width: 100%;
-  }
-  .story-reply .story-send {
-    width: 44px;
-    height: 44px;
-    padding: 0;
-    border-radius: 50%;
-    color: var(--primary-foreground);
   }
   .story-delete-action {
     background: color-mix(in oklab, var(--destructive) 16%, #101218);
@@ -830,6 +847,34 @@
   }
 }
 
+/* Story viewer header avatar and send-button overrides live in @layer utilities to outrank primitive utility defaults. */
+@layer utilities {
+  .story-viewer-header [data-slot="avatar"] {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    overflow: hidden;
+  }
+  .story-viewer-header [data-slot="avatar"] img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+  .story-reply .story-send {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border-radius: 50%;
+    color: var(--primary-foreground);
+  }
+}
 /* Module 3B: broadcast surfaces share the silver shell and primary-fill tokens. */
 @layer components {
   .novedades-search {
