@@ -46,7 +46,7 @@ export function StoryCardSurface({
             <Camera size={26} />
           </span>
         ) : (
-          <span className="story-avatar-ring">{avatar}</span>
+          avatar
         )}
         <strong>{name}</strong>
       </button>
