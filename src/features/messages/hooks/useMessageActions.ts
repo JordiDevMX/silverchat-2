@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { invalidateActions, type MessagePages, patchMessage } from "../lib/actionCache";
+import { senderProfile } from "../lib/senderProfile";
 import { type Message, messageKey, outboxKey } from "../types";
 
 type Action = {
@@ -110,7 +111,7 @@ export function useMessageActions(chatId: string) {
             channel_id: null,
             reply_to_story_id: null,
             sender_id: userId,
-            sender: profile ?? undefined,
+            sender: profile ? senderProfile(profile) : undefined,
             created_at: new Date().toISOString(),
             edited_at: null,
             forwarded_from_message_id: message.id,

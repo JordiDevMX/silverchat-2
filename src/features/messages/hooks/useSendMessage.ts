@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { readDrafts, writeDraft } from "@/features/chats/drafts";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
+import { senderProfile } from "../lib/senderProfile";
 import { type Message, messageKey, outboxKey, type SendInput } from "../types";
 export function useSendMessage(chatId: string, channelMode = false) {
   const { user, profile } = useAuth();
@@ -40,7 +41,7 @@ export function useSendMessage(chatId: string, channelMode = false) {
         ...fields,
         upload,
         thumbnail,
-        sender: profile ?? undefined,
+        sender: profile ? senderProfile(profile) : undefined,
         receipts: [],
         reactions: [],
         unreadForMe: false,
