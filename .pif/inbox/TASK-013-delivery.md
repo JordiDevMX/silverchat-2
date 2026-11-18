@@ -92,3 +92,39 @@ Staging migration apply (db-guard first) · LiveKit secrets · `functions deploy
 ## Requested Guardian action
 
 Re-audit the round-5 corrections (new diff on `feature/calls`, this delivery revision), create `AUD-…` findings for anything unresolved, and propose canonical updates for `TASK-013` and the gate table. Engineer has not modified canonical `.pif/` records.
+
+---
+
+## Round-6 addendum — CI, regenerated database types, PR #46 (2026-11-18)
+
+Round 6 changes no product behavior. It closes the "no migrated instance available" gap by running the SQL suite in CI on a disposable local Supabase stack, regenerates `src/types/database.ts` from the complete schema, and records the integration state so the next agent resumes from here instead of repeating round 5.
+
+**Branch:** `feature/calls`, HEAD `46f710d9d44fbe83c627707921504625d1f5fabb`.
+
+| Commit | Purpose |
+|---|---|
+| `2814ecf` | Add `.github/workflows/ci.yml`: unit, typecheck, build, scoped lint, `supabase start` with every migration, `supabase/tests/calls.sql`, type generation + equality check, artifact upload. |
+| `73cae37` | Scope the lint step to files changed by the PR (repo-wide biome has pre-existing formatting debt) and format `supabase/functions/livekit-token/index.ts`. |
+| `3452e0c` | WIP snapshot of the calls work; also re-added `graphify-out/` artifacts (see `46f710d`). |
+| `f4879a3` | Fix the three type errors the regenerated types exposed (see below). |
+| `46f710d` | Untrack the local `graphify-out/` index; local files preserved. |
+
+**CI run:** https://github.com/jordidevmx/silverchat-2/actions/runs/44221437398 → **success** on every step: unit 120/120, typecheck, production build, lint of changed files, `supabase start` (all migrations), `pnpm test:db` (`supabase/tests/calls.sql`), type generation, types-diff verification, artifact upload.
+
+**PR:** https://github.com/JordiDevMX/silverchat-2/pull/46 → `OPEN`, `MERGEABLE`, merge state `CLEAN`. The merge is the owner's; the agent does not merge.
+
+**Regenerated types.** `src/types/database.ts` now comes from the complete local schema (all migrations, including `20261114000000_community_chat_avatar.sql`, which Staging does not have yet), so the calls RPCs and the Community types are both present. This **supersedes the "Known type-lag (unchanged)" section above**: the documented casts in `lib/startCallRpc.ts` and `lib/callActions.ts` are gone. Three real errors surfaced and were fixed:
+
+- `lib/communityApi.ts`: `mute_community(p_muted_until)` is nullable in SQL (NULL clears the mute) but the generator exposes function arguments as non-nullable; narrow documented cast.
+- `hooks/useSendMessage.ts`, `hooks/useMessageActions.ts`: the auth `profile` is a `profiles` row while `Message.sender` is the `profiles_visible` projection (which now includes `avatar_initials`); new `lib/senderProfile.ts` maps to the public shape using the existing `getInitials` helper.
+
+**Pending tests / operations (unchanged by round 6):**
+
+1. LiveKit secrets and `functions deploy livekit-token` — separate PO authorization.
+2. Staging apply of the calls migration is done; the Community migration (`20261114000000_community_chat_avatar.sql`) remains pending for its owner.
+3. Environment-bound checks still **NOT RUN**: genuinely concurrent DB sessions, real JWT/PostgREST outsider denial, GoTrue MFA runtime probes, two-device/two-browser call flows, and the StrictMode dev-server remount probe (covered by the extracted-function regression instead).
+4. Human verification items 1–10 above remain the acceptance checklist; item 10 is now partially covered by CI (SQL suite + effective-privileges probe), but still needs a real Staging run.
+
+**Local verification at `46f710d`:** `pnpm test` 120/120, `pnpm typecheck` exit 0, `pnpm build` exit 0, biome clean on the touched files (checked with LF copies, because the Windows checkout is CRLF while CI is LF). `git merge-tree --write-tree origin/main HEAD` exits 0: no code conflicts with `origin/main` @ `e89a04f`.
+
+**Note on history.** `3452e0c` still contains `graphify-out/` artifacts; `46f710d` removes them, so the net merge does not reintroduce the index. Cleaning that commit out of history would require a rewrite and force-push, which needs explicit authorization and was not performed.
