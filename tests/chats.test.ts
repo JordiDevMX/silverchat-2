@@ -260,6 +260,8 @@ test("draft storage tolerates malformed JSON, removes expired entries and isolat
     ownerId: "alice",
   };
   storage.setItem("silverchat_draft_a", JSON.stringify(valid));
+  storage.setItem("silverchat_draft_d", JSON.stringify({ ...valid, pending: true }));
+  storage.setItem("silverchat_draft_e", JSON.stringify({ ...valid, failed: true }));
   storage.setItem("silverchat_draft_b", "broken");
   storage.setItem("silverchat_draft_c", JSON.stringify({ ...valid, updatedAt: "2025-01-01" }));
   storage.setItem("unrelated", "keep");
@@ -269,6 +271,58 @@ test("draft storage tolerates malformed JSON, removes expired entries and isolat
   cleanupDrafts(storage, now);
   assert.equal(storage.length, 2);
   assert.equal(storage.getItem("unrelated"), "keep");
+});
+
+test("computeChatDisplay prioritizes active outbox pending/failed over older messages and drafts", () => {
+  const pendingOutbox = [
+    {
+      status: "pending" as const,
+      createdAt: "2026-01-02T00:00:00.000Z",
+      input: { type: "text" as const, content: "Offline message" },
+    },
+  ];
+  const pendingDisplay = computeChatDisplay(chat, undefined, "en", pendingOutbox);
+  assert.equal(pendingDisplay.state, "pending");
+  assert.equal(pendingDisplay.text, "Offline message");
+  assert.equal(pendingDisplay.translateText, false);
+
+  const photoPending = computeChatDisplay(chat, undefined, "en", [
+    {
+      status: "pending" as const,
+      createdAt: "2026-01-02T00:00:00.000Z",
+      input: { type: "image" as const, content: null },
+    },
+  ]);
+  assert.equal(photoPending.state, "pending");
+  assert.equal(photoPending.text, "Photo");
+  assert.equal(photoPending.translateText, true);
+
+  const failedOutbox = [
+    {
+      status: "failed" as const,
+      createdAt: "2026-01-02T00:00:00.000Z",
+      input: { type: "text" as const, content: "Server rejected" },
+    },
+  ];
+  assert.equal(computeChatDisplay(chat, undefined, "en", failedOutbox).state, "failed");
+
+  const olderDraft = {
+    text: "Stale draft",
+    mediaUrls: [],
+    replyToId: null,
+    updatedAt: "2026-01-01T12:00:00.000Z",
+  };
+  assert.equal(computeChatDisplay(chat, olderDraft, "en", pendingOutbox).state, "pending");
+
+  const newerDraft = {
+    text: "New typed draft",
+    mediaUrls: [],
+    replyToId: null,
+    updatedAt: "2026-01-03T00:00:00.000Z",
+  };
+  const draftDisplay = computeChatDisplay(chat, newerDraft, "en", pendingOutbox);
+  assert.equal(draftDisplay.state, "draft");
+  assert.equal(draftDisplay.text, "New typed draft");
 });
 
 test("URL validation handles TanStack JSON-decoded booleans and numeric searches", () => {

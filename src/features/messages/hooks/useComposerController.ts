@@ -74,7 +74,6 @@ export function useComposerController({
   const trayRef = useRef<HTMLDivElement>(null);
   const emojiBox = useRef<HTMLDivElement>(null);
   const selection = useRef({ start: text.length, end: text.length });
-  const submitted = useRef<{ text: string; failed?: boolean; pending?: boolean } | null>(null);
   const attachmentsRef = useRef<ComposerAttachmentItem[]>(attachmentState.items);
   attachmentsRef.current = attachmentState.items;
   const controllersRef = useRef(new Map<string, AbortController>());
@@ -153,8 +152,6 @@ export function useComposerController({
   }, [chat.id, ownerId]);
 
   useEffect(() => {
-    if (text.trim()) submitted.current = null;
-    const draftText = text.trim() ? text : submitted.current?.text;
     const mediaIds = attachmentState.hydrated
       ? attachmentState.items.map((item) => item.id)
       : initialMediaIdsRef.current;
@@ -163,15 +160,12 @@ export function useComposerController({
     prevMediaSignatureRef.current = mediaSignature;
 
     writer.write(
-      draftText || replyToId || mediaIds.length > 0
+      text.trim() || replyToId || mediaIds.length > 0
         ? {
-            text: draftText ?? "",
+            text: text.trim() ? text : "",
             mediaUrls: mediaIds,
             replyToId,
             updatedAt: new Date().toISOString(),
-            ...(!text.trim() && mediaIds.length === 0
-              ? { failed: submitted.current?.failed, pending: submitted.current?.pending }
-              : {}),
           }
         : null,
     );
@@ -452,19 +446,10 @@ export function useComposerController({
 
     const content = latest.current;
     if (!content.trim()) return;
-    // The outbox keeps a failed message and its retry UUID. Clearing on enqueue
-    // lets the user compose the next message without a delayed response erasing it.
-    submitted.current = { text: content, pending: true };
     setText("");
     latest.current = "";
     setCaret(0);
-    writer.write({
-      text: content,
-      mediaUrls: [],
-      replyToId,
-      updatedAt: new Date().toISOString(),
-      pending: true,
-    });
+    writer.write(null);
     writer.flush();
     setError("");
     try {
@@ -473,34 +458,7 @@ export function useComposerController({
         content: content.trim(),
         mentions: mentionsEnabled ? mentionIds(content, chat.members) : null,
       });
-      if (submitted.current?.text === content) {
-        submitted.current = null;
-        if (!latest.current.trim()) {
-          writer.write(
-            latestReply.current && latestReply.current !== replyToId
-              ? {
-                  text: "",
-                  mediaUrls: [],
-                  replyToId: latestReply.current,
-                  updatedAt: new Date().toISOString(),
-                }
-              : null,
-          );
-          writer.flush();
-        }
-      }
     } catch {
-      if (submitted.current?.text === content && !latest.current.trim()) {
-        submitted.current = { text: content, failed: true };
-        writer.write({
-          text: content,
-          mediaUrls: [],
-          replyToId,
-          updatedAt: new Date().toISOString(),
-          failed: true,
-        });
-        writer.flush();
-      }
       setError(
         say(
           "Message failed to send. Tap its warning to retry.",

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { type MouseEvent, type ReactNode, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
+import type { OutboxEntry } from "@/features/messages/lib/outbox";
 import type { Chat, ChatAction, Draft } from "../types";
 import { badgeText, computeChatDisplay, isMuted } from "../utils/computeChatDisplay";
 import { formatChatTimestamp } from "../utils/formatChatTimestamp";
@@ -37,6 +38,7 @@ export function ChatListItemSurface({
   language,
   chat,
   draft,
+  outbox,
   active,
   selecting,
   selected,
@@ -51,6 +53,7 @@ export function ChatListItemSurface({
   language: "en" | "es";
   chat: Chat;
   draft?: Draft;
+  outbox?: Pick<OutboxEntry, "status" | "createdAt" | "input">[];
   active?: boolean;
   selecting: boolean;
   selected: boolean;
@@ -64,7 +67,7 @@ export function ChatListItemSurface({
   const origin = useRef({ x: 0, y: 0 });
   const consumed = useRef(false);
   useEffect(() => () => clearTimeout(hold.current), []);
-  const display = computeChatDisplay(chat, draft, language),
+  const display = computeChatDisplay(chat, draft, language, outbox),
     muted = isMuted(chat),
     unreadTotal = chat.unreadCount + (chat.unreadReactionCount ?? 0);
   const Media =

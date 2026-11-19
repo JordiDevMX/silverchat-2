@@ -20,6 +20,8 @@ export function readDrafts(storage: Storage, ownerId?: string, now = Date.now())
           (d.replyToId !== null && typeof d.replyToId !== "string") ||
           !Number.isFinite(Date.parse(d.updatedAt)) ||
           now - Date.parse(d.updatedAt) > 30 * 86400000 ||
+          d.pending ||
+          d.failed ||
           (d.ownerId && d.ownerId !== ownerId)
         )
           continue;
@@ -43,7 +45,9 @@ export function cleanupDrafts(storage: Storage, now = Date.now()) {
         if (
           !d ||
           !Number.isFinite(Date.parse(d.updatedAt)) ||
-          now - Date.parse(d.updatedAt) > 30 * 86400000
+          now - Date.parse(d.updatedAt) > 30 * 86400000 ||
+          d.pending ||
+          d.failed
         )
           storage.removeItem(key);
       } catch {

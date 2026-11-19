@@ -9,6 +9,7 @@ import { useMessageRequests } from "@/features/chats/hooks/useMessageRequests";
 import { useChatText } from "@/features/chats/i18n";
 import type { Chat, ChatAction, Draft } from "@/features/chats/types";
 import { applyFilter, applySearch, orderChats } from "@/features/chats/utils/computeChatDisplay";
+import { groupOutboxByChat, outboxEvent, readOutbox } from "@/features/messages/lib/outbox";
 import { useAuth } from "@/lib/auth-provider";
 
 export function useChatsPage() {
@@ -38,9 +39,11 @@ export function useChatsPage() {
     const refresh = () => setDraftVersion((v) => v + 1);
     window.addEventListener("storage", refresh);
     window.addEventListener(draftEvent, refresh);
+    window.addEventListener(outboxEvent, refresh);
     return () => {
       window.removeEventListener("storage", refresh);
       window.removeEventListener(draftEvent, refresh);
+      window.removeEventListener(outboxEvent, refresh);
     };
   }, []);
   let drafts = new Map<string, Draft>();
@@ -49,6 +52,7 @@ export function useChatsPage() {
   } catch {
     /* Optional storage. */
   }
+  const outboxByChat = groupOutboxByChat(readOutbox(undefined, auth.user?.id ?? ""));
   const chats = query.data ?? [];
   const visible = orderChats(applySearch(applyFilter(chats, filters.filter), filters.q));
   const selectedIds = new Set(filters.select ? filters.selectedIds.split(",") : []);
@@ -147,6 +151,7 @@ export function useChatsPage() {
     clock,
     anchor,
     drafts,
+    outboxByChat,
     visible,
     selectedIds,
     selected,
