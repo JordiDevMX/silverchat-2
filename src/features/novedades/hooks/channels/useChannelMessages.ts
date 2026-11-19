@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { enrichMessages } from "@/features/messages/hooks/useMessages";
+import { CHAT_QUERY_OPTIONS, createReconnectRefresh } from "@/features/messages/lib/chatQueryPolicy";
 import { type Cursor, type Message, messageKey, outboxKey } from "@/features/messages/types";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
@@ -11,7 +12,7 @@ export function useChannelMessages(id: string, enabled = true) {
   const query = useInfiniteQuery({
     queryKey: messageKey(uid, id),
     enabled,
-    refetchInterval: 30000,
+    ...CHAT_QUERY_OPTIONS,
     initialPageParam: null as Cursor,
     queryFn: async ({ pageParam }) => {
       let q = supabase
@@ -43,18 +44,19 @@ export function useChannelMessages(id: string, enabled = true) {
     gcTime: Infinity,
   });
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !uid) return;
+    const refresh = () => {
+      void cache.invalidateQueries({ queryKey: messageKey(uid, id) });
+      void cache.invalidateQueries({ queryKey: ["channels", uid] });
+    };
     const channel = supabase
       .channel(`channel:${uid}:${id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `channel_id=eq.${id}` },
-        () => {
-          void cache.invalidateQueries({ queryKey: messageKey(uid, id) });
-          void cache.invalidateQueries({ queryKey: ["channels", uid] });
-        },
+        { event: "*", schema: "public", table: "messages", filter: `channel_id=eq.${id}` },
+        refresh,
       )
-      .subscribe();
+      .subscribe(createReconnectRefresh(refresh));
     return () => {
       void supabase.removeChannel(channel);
     };

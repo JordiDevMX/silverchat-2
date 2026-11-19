@@ -5,6 +5,7 @@ import {
   createReconnectRefresh,
   getPresenceTargetIds,
   PRESENCE_QUERY_OPTIONS,
+  shouldRefreshProfilesForMembershipEvent,
 } from "../src/features/messages/lib/chatQueryPolicy.ts";
 import { formatConversationText } from "../src/features/messages/lib/conversationStrings.ts";
 import {
@@ -231,4 +232,10 @@ test("signed URL retry stops immediately on permanent 4xx errors and storage out
   assert.equal(shouldRetrySignedUrl(0, 500, false), true);
   assert.equal(shouldRetrySignedUrl(1, 500, false), true);
   assert.equal(shouldRetrySignedUrl(2, 500, false), false);
+});
+test("chat_members realtime updates do not trigger global profile and avatar invalidations", () => {
+  assert.equal(shouldRefreshProfilesForMembershipEvent("INSERT"), true);
+  assert.equal(shouldRefreshProfilesForMembershipEvent("DELETE"), true);
+  assert.equal(shouldRefreshProfilesForMembershipEvent("UPDATE"), false);
+  assert.equal(shouldRefreshProfilesForMembershipEvent(undefined), false);
 });

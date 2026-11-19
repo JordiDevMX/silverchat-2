@@ -4,6 +4,10 @@ import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "zustand";
 import { useI18n } from "@/app/providers/i18n-provider";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
+import {
+  createReconnectRefresh,
+  shouldRefreshProfilesForMembershipEvent,
+} from "@/features/messages/lib/chatQueryPolicy";
 import { detailKey, messageKey } from "@/features/messages/types";
 import { inAppNotification, playNotificationSound } from "@/features/settings/notifications";
 import { usePreferences } from "@/features/settings/preferences-provider";
@@ -436,6 +440,7 @@ async function resolveReactionTarget(
 // newly created chats and other recipients' acknowledgements, not just our own.
 export function useChatsRealtime() {
   const { user } = useAuth();
+  const userId = user?.id ?? "";
   const cache = useQueryClient();
   const { settings } = usePreferences();
   const { language } = useI18n();
@@ -448,7 +453,7 @@ export function useChatsRealtime() {
   pathnameRef.current = pathname;
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       reactionNotificationStore.getState().reset();
       if (useChatUIStore.getState().noticeAction?.kind === "reaction") {
         useChatUIStore.getState().notify("");
@@ -458,7 +463,6 @@ export function useChatsRealtime() {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let refreshProfiles = false;
-    let subscribedOnce = false;
     const refresh = (includeProfiles = false) => {
       if (includeProfiles) refreshProfiles = true;
       if (timer) return;
@@ -466,9 +470,9 @@ export function useChatsRealtime() {
         const shouldRefreshProfiles = refreshProfiles;
         timer = undefined;
         refreshProfiles = false;
-        void cache.invalidateQueries({ queryKey: chatKey(user.id) });
-        void cache.invalidateQueries({ queryKey: ["community-chats", user.id] });
-        void cache.invalidateQueries({ queryKey: ["message-requests", user.id] });
+        void cache.invalidateQueries({ queryKey: chatKey(userId) });
+        void cache.invalidateQueries({ queryKey: ["community-chats", userId] });
+        void cache.invalidateQueries({ queryKey: ["message-requests", userId] });
         if (shouldRefreshProfiles) {
           for (const key of [
             "direct-contacts",
@@ -518,7 +522,7 @@ export function useChatsRealtime() {
         const oldRow = payload.old;
         const messageId = typeof oldRow?.message_id === "string" ? oldRow.message_id : "";
         const reactorId = typeof oldRow?.user_id === "string" ? oldRow.user_id : "";
-        if (!messageId || !reactorId || reactorId === user.id) return;
+        if (!messageId || !reactorId || reactorId === userId) return;
         const result = reactionNotificationStore.getState().withdraw(messageId, reactorId);
         refresh(false);
         if (result.wasActiveToast) {
@@ -537,13 +541,13 @@ export function useChatsRealtime() {
       const emoji = typeof newRow?.emoji === "string" ? newRow.emoji : "";
       const createdAt =
         typeof newRow?.created_at === "string" ? newRow.created_at : new Date().toISOString();
-      if (!messageId || !reactorId || !emoji || reactorId === user.id) return;
+      if (!messageId || !reactorId || !emoji || reactorId === userId) return;
 
-      const target = await resolveReactionTarget(cache, user.id, messageId, reactorId);
+      const target = await resolveReactionTarget(cache, userId, messageId, reactorId);
       if (!active || !target) return;
 
       if (isViewingChatPath(pathnameRef.current, target.chatId, document.visibilityState)) {
-        void cache.invalidateQueries({ queryKey: messageKey(user.id, target.chatId) });
+        void cache.invalidateQueries({ queryKey: messageKey(userId, target.chatId) });
         refresh(false);
         return;
       }
@@ -567,7 +571,7 @@ export function useChatsRealtime() {
     };
 
     const channel = supabase
-      .channel(`chats-list:${user.id}`)
+      .channel(`chats-list:${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () =>
         refresh(false),
       )
@@ -578,8 +582,8 @@ export function useChatsRealtime() {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "chat_members", filter: `user_id=eq.${user.id}` },
-        () => refresh(true),
+        { event: "*", schema: "public", table: "chat_members", filter: `user_id=eq.${userId}` },
+        (payload) => refresh(shouldRefreshProfilesForMembershipEvent(payload.eventType)),
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "message_receipts" }, () =>
         refresh(false),
@@ -590,25 +594,20 @@ export function useChatsRealtime() {
           event: "*",
           schema: "public",
           table: "chat_requests",
-          filter: `recipient_id=eq.${user.id}`,
+          filter: `recipient_id=eq.${userId}`,
         },
         () => refresh(true),
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "chat_requests", filter: `sender_id=eq.${user.id}` },
+        { event: "*", schema: "public", table: "chat_requests", filter: `sender_id=eq.${userId}` },
         () => refresh(true),
       )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          if (subscribedOnce) refresh(false);
-          subscribedOnce = true;
-        }
-      });
+      .subscribe(createReconnectRefresh(() => refresh(false)));
     return () => {
       active = false;
       clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
-  }, [cache, user]);
+  }, [cache, userId]);
 }

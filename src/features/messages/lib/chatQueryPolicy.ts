@@ -31,3 +31,9 @@ export function createReconnectRefresh(refresh: () => void): (status: string) =>
     }
   };
 }
+
+// Only membership additions/removals can change contact/avatar visibility;
+// UPDATE events (e.g. last_read_at, pin, mute, archive) must not re-sign every avatar.
+export function shouldRefreshProfilesForMembershipEvent(eventType?: string): boolean {
+  return eventType === "INSERT" || eventType === "DELETE";
+}
