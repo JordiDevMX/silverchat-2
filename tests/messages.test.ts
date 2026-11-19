@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  CHAT_QUERY_OPTIONS,
+  createReconnectRefresh,
+  getPresenceTargetIds,
+  PRESENCE_QUERY_OPTIONS,
+} from "../src/features/messages/lib/chatQueryPolicy.ts";
 import { formatConversationText } from "../src/features/messages/lib/conversationStrings.ts";
 import {
   grouped,
@@ -168,4 +174,32 @@ test("date separator suppresses Today on the first message at conversation start
     }),
     false,
   );
+});
+test("chat query policy disables idle polling and window-focus bursts", () => {
+  assert.equal("refetchInterval" in CHAT_QUERY_OPTIONS, false);
+  assert.equal(CHAT_QUERY_OPTIONS.refetchOnWindowFocus, false);
+  assert.equal(CHAT_QUERY_OPTIONS.staleTime, 60_000);
+  assert.equal(PRESENCE_QUERY_OPTIONS.refetchInterval, 60_000);
+  assert.equal(PRESENCE_QUERY_OPTIONS.refetchOnWindowFocus, false);
+});
+test("presence targets are restricted to direct chats with a known peer", () => {
+  assert.deepEqual(getPresenceTargetIds({ type: "direct", other: { id: "bob" } }), ["bob"]);
+  assert.deepEqual(getPresenceTargetIds({ type: "direct", other: undefined }), []);
+  assert.deepEqual(getPresenceTargetIds({ type: "group", other: { id: "bob" } }), []);
+  assert.deepEqual(getPresenceTargetIds({ type: "self", other: { id: "alice" } }), []);
+  assert.deepEqual(getPresenceTargetIds({ type: "community_chat", other: { id: "bob" } }), []);
+});
+test("realtime subscribed handler skips initial mount fetch and refreshes on reconnect", () => {
+  let calls = 0;
+  const onStatus = createReconnectRefresh(() => {
+    calls += 1;
+  });
+  onStatus("JOINING");
+  onStatus("SUBSCRIBED");
+  assert.equal(calls, 0);
+  onStatus("CHANNEL_ERROR");
+  onStatus("SUBSCRIBED");
+  assert.equal(calls, 1);
+  onStatus("SUBSCRIBED");
+  assert.equal(calls, 2);
 });
