@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { enrichMessages } from "@/features/messages/hooks/useMessages";
+import { getOutboxMessages } from "@/features/messages/lib/outbox";
 import { type Cursor, type Message, messageKey, outboxKey } from "@/features/messages/types";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
@@ -37,8 +38,8 @@ export function useChannelMessages(id: string, enabled = true) {
   });
   const outbox = useQuery<Message[]>({
     queryKey: outboxKey(uid, id),
-    queryFn: () => [],
-    initialData: [],
+    queryFn: () => (uid ? getOutboxMessages(uid, id) : []),
+    initialData: () => (uid ? getOutboxMessages(uid, id) : []),
     staleTime: Infinity,
     gcTime: Infinity,
   });

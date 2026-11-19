@@ -1,6 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
+import { clearChatOutbox } from "@/features/messages/lib/outbox";
+import { outboxKey } from "@/features/messages/types";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { writeDraft } from "../drafts";
@@ -82,6 +84,8 @@ export function useChatMutations() {
           if (Array.isArray(r.data) && !r.data.length)
             throw new Error("Membership was not removed");
           writeDraft(c.id, null);
+          clearChatOutbox(user.id, c.id);
+          cache.removeQueries({ queryKey: outboxKey(user.id, c.id) });
         } else if (action === "read" || action === "unread") {
           const r = await supabase.rpc(
             action === "read" ? "mark_chat_as_read" : "mark_chat_as_unread",

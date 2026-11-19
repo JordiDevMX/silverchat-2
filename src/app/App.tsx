@@ -6,6 +6,7 @@ import { InfrastructureNotice } from "@/components/ui/auth-surfaces";
 import { Button } from "@/components/ui/button";
 import { AppSkeleton, AuthFrame } from "@/features/auth/components";
 import { useAuthText } from "@/features/auth/i18n";
+import { useOutboxSync } from "@/features/messages/hooks/useOutboxSync";
 import { PreferencesProvider } from "@/features/settings/preferences-provider";
 import { AuthProvider, useAuth } from "@/lib/auth-provider";
 import { isServerError, useSupabaseHealth } from "@/lib/supabase-health";
@@ -35,6 +36,7 @@ const queryClient = new QueryClient({
 function AuthenticatedRouter() {
   const auth = useAuth();
   const t = useAuthText();
+  useOutboxSync();
   useEffect(() => {
     if (auth.isLoading || auth.error || (auth.user && !auth.mfaRequired && !auth.profile)) return;
     router.update({ context: { auth } });

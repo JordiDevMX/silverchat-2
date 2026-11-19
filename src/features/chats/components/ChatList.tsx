@@ -34,6 +34,7 @@ export function ChatList({ activeChatId }: { activeChatId?: string }) {
     pull,
     clock,
     drafts,
+    outboxByChat,
     visible,
     selectedIds,
     selected,
@@ -128,6 +129,7 @@ export function ChatList({ activeChatId }: { activeChatId?: string }) {
                 chat={chat}
                 active={chat.id === activeChatId}
                 draft={drafts.get(chat.id)}
+                outbox={outboxByChat.get(chat.id)}
                 selecting={!!filters.select}
                 selected={selectedIds.has(chat.id)}
                 busy={mutations.busy}

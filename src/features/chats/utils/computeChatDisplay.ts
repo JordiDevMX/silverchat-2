@@ -1,3 +1,4 @@
+import type { OutboxEntry } from "../../messages/lib/outbox.ts";
 import type { Chat, Draft, FilterKey, MessageType } from "../types.ts";
 import { aggregateReactionSummary } from "./reactionNotifications.ts";
 
@@ -84,12 +85,35 @@ export function receiptStatus(
   if (rows.every((r) => r?.delivered_at)) return "delivered";
   return "sent";
 }
-export function computeChatDisplay(chat: Chat, draft?: Draft, language: "en" | "es" = "en") {
+function resolveOutboxPreview(
+  input: OutboxEntry["input"],
+): { text: string; translateText: boolean } {
+  const text = input.content?.trim();
+  if (text) return { text, translateText: false };
+  if (input.type === "file" && input.upload?.original_filename) {
+    return { text: input.upload.original_filename, translateText: false };
+  }
+  const fallback = mediaPreviewRules[input.type]?.fallback;
+  if (fallback) return { text: fallback, translateText: true };
+  return { text: "Attachment", translateText: true };
+}
+export function computeChatDisplay(
+  chat: Chat,
+  draft?: Draft,
+  language: "en" | "es" = "en",
+  outbox: Pick<OutboxEntry, "status" | "createdAt" | "input">[] = [],
+) {
   const latestActivity = Math.max(
     chat.lastMessageAt ? Date.parse(chat.lastMessageAt) : 0,
     chat.reactionSummary?.createdAt ? Date.parse(chat.reactionSummary.createdAt) : 0,
   );
-  const newer = draft && Date.parse(draft.updatedAt) > latestActivity;
+  const latestPending = outbox.filter((entry) => entry.status === "pending").at(-1);
+  const latestFailed = outbox.filter((entry) => entry.status === "failed").at(-1);
+  const activeOutbox = latestPending ?? latestFailed;
+  const newer =
+    draft &&
+    Date.parse(draft.updatedAt) > latestActivity &&
+    (!activeOutbox || Date.parse(draft.updatedAt) > Date.parse(activeOutbox.createdAt));
   if (newer && draft.failed)
     return {
       state: "failed",
@@ -114,6 +138,25 @@ export function computeChatDisplay(chat: Chat, draft?: Draft, language: "en" | "
       state: "draft",
       text: text || "Attachment",
       translateText: !text,
+      prefix: "",
+      status: null,
+    } as const;
+  }
+  if (activeOutbox) {
+    if (activeOutbox.status === "failed") {
+      return {
+        state: "failed",
+        text: "Message failed to send",
+        translateText: true,
+        prefix: "",
+        status: null,
+      } as const;
+    }
+    const preview = resolveOutboxPreview(activeOutbox.input);
+    return {
+      state: "pending",
+      text: preview.text,
+      translateText: preview.translateText,
       prefix: "",
       status: null,
     } as const;
