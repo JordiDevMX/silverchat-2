@@ -6,7 +6,9 @@ import {
   dismissDeviceAlert,
   dismissReenrollmentBanner,
   findNewDeviceAlert,
+  parseRealtimeDeviceRecord,
   readDeviceAlertState,
+  shouldAlertRealtimeDeviceInsert,
   shouldShowReenrollmentBanner,
   syncReenrollmentDismissal,
   writeDeviceAlertState,
@@ -185,4 +187,84 @@ test("2FA reenrollment banner stays dismissed across reloads and re-arms after r
 
   assert.equal(shouldShowReenrollmentBanner(pending, storage), true);
   assert.equal(shouldShowReenrollmentBanner(pending, null), true);
+});
+
+test("parseRealtimeDeviceRecord validates and normalizes postgres_changes payloads", () => {
+  assert.deepEqual(
+    parseRealtimeDeviceRecord({
+      id: "dev-rt-1",
+      device_name: "Mac",
+      device_fingerprint: fpOther,
+      created_at: "2026-11-19T13:35:00.000Z",
+    }),
+    {
+      id: "dev-rt-1",
+      device_name: "Mac",
+      device_fingerprint: fpOther,
+      created_at: "2026-11-19T13:35:00.000Z",
+    },
+  );
+  assert.equal(
+    parseRealtimeDeviceRecord({
+      id: "dev-rt-2",
+      device_name: "Web Browser",
+      created_at: "2026-11-19T13:35:00.000Z",
+    })?.device_fingerprint,
+    null,
+  );
+  assert.equal(parseRealtimeDeviceRecord(null), null);
+  assert.equal(
+    parseRealtimeDeviceRecord({
+      id: "dev-bad",
+      device_name: "Mac",
+      created_at: "not-a-date",
+    }),
+    null,
+  );
+});
+
+test("shouldAlertRealtimeDeviceInsert filters current device and already dismissed IDs", () => {
+  const state: DeviceAlertState = {
+    baselineAt: "2026-11-19T13:35:00.000Z",
+    dismissedIds: ["dev-dismissed"],
+  };
+  assert.equal(
+    shouldAlertRealtimeDeviceInsert(
+      {
+        id: "dev-live",
+        device_name: "iOS Device",
+        device_fingerprint: fpOther,
+        created_at: "2026-11-19T13:34:58.000Z",
+      },
+      fpCurrent,
+      state,
+    ),
+    true,
+  );
+  assert.equal(
+    shouldAlertRealtimeDeviceInsert(
+      {
+        id: "dev-self",
+        device_name: "Windows PC",
+        device_fingerprint: fpCurrent,
+        created_at: "2026-11-19T13:36:00.000Z",
+      },
+      fpCurrent,
+      state,
+    ),
+    false,
+  );
+  assert.equal(
+    shouldAlertRealtimeDeviceInsert(
+      {
+        id: "dev-dismissed",
+        device_name: "Linux",
+        device_fingerprint: fpOther,
+        created_at: "2026-11-19T13:36:00.000Z",
+      },
+      fpCurrent,
+      state,
+    ),
+    false,
+  );
 });

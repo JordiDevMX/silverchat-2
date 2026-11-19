@@ -96,6 +96,11 @@ await page.route("https://supabase.test/**", async (route) => {
 try {
   await page.goto(`${origin}/chats`);
   await page.getByText("Backup code used. Please re-enable 2FA in settings.").waitFor();
+  const hasDevicesChannel = await page.evaluate(async (id) => {
+    const { supabase } = await import("/src/lib/supabase.ts");
+    return supabase.getChannels().some((c) => c.topic === `realtime:devices-alerts:${id}`);
+  }, userId);
+  assert.equal(hasDevicesChannel, true, "Realtime devices channel is subscribed");
   assert.equal(
     await page.getByText("New sign-in detected on Old Linux.").count(),
     0,

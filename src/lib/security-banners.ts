@@ -81,6 +81,42 @@ export function dismissDeviceAlert(
   };
 }
 
+export function parseRealtimeDeviceRecord(row: unknown): DeviceRecord | null {
+  if (typeof row !== "object" || row === null) return null;
+  const candidate = row as {
+    id?: unknown;
+    device_name?: unknown;
+    device_fingerprint?: unknown;
+    created_at?: unknown;
+  };
+  if (
+    typeof candidate.id !== "string" ||
+    typeof candidate.device_name !== "string" ||
+    typeof candidate.created_at !== "string" ||
+    !Number.isFinite(Date.parse(candidate.created_at))
+  ) {
+    return null;
+  }
+  const fingerprint =
+    typeof candidate.device_fingerprint === "string" ? candidate.device_fingerprint : null;
+  return {
+    id: candidate.id,
+    device_name: candidate.device_name,
+    device_fingerprint: fingerprint,
+    created_at: candidate.created_at,
+  };
+}
+
+export function shouldAlertRealtimeDeviceInsert(
+  record: DeviceRecord,
+  currentFingerprint: string | null,
+  state: DeviceAlertState | null,
+): boolean {
+  if (currentFingerprint && record.device_fingerprint === currentFingerprint) return false;
+  if (state?.dismissedIds.includes(record.id)) return false;
+  return true;
+}
+
 export function readDeviceAlertState(
   storage: Storage | null,
   userId: string,

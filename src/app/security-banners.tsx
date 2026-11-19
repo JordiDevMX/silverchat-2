@@ -9,7 +9,9 @@ import {
   dismissDeviceAlert,
   dismissReenrollmentBanner,
   findNewDeviceAlert,
+  parseRealtimeDeviceRecord,
   readDeviceAlertState,
+  shouldAlertRealtimeDeviceInsert,
   shouldShowReenrollmentBanner,
   syncReenrollmentDismissal,
   writeDeviceAlertState,
@@ -35,7 +37,7 @@ export function SecurityBanners() {
   const user = auth.user;
   const userId = user?.id ?? null;
   const active = Boolean(user && !auth.mfaRequired);
-  const requiresReenrollment = Boolean(user?.user_metadata.requires_reenrollment);
+  const requiresReenrollment = Boolean(user?.user_metadata?.requires_reenrollment);
   const hasVerifiedFactor = Boolean(user?.factors?.some((factor) => factor.status === "verified"));
 
   const [newDevice, setNewDevice] = useState<DeviceRecord | null>(null);
@@ -59,26 +61,57 @@ export function SecurityBanners() {
     }
     let cancelled = false;
     const checkDevices = async () => {
-      const { data, error } = await supabase
-        .from("devices")
-        .select("id, device_name, device_fingerprint, created_at")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(10);
-      if (cancelled || error || !data) return;
-      const storage = getStorage();
-      const stored = readDeviceAlertState(storage, userId);
-      const { alertDevice, nextState } = findNewDeviceAlert(
-        data,
-        getOrCreateDeviceFingerprint(),
-        stored,
-        new Date().toISOString(),
-      );
-      if (!stored) writeDeviceAlertState(storage, userId, nextState);
-      setNewDevice(alertDevice);
+      if (useSupabaseHealth.getState().down) return;
+      try {
+        const { data, error } = await supabase
+          .from("devices")
+          .select("id, device_name, device_fingerprint, created_at")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        if (cancelled || error || !data) return;
+        const storage = getStorage();
+        const stored = readDeviceAlertState(storage, userId);
+        const { alertDevice, nextState } = findNewDeviceAlert(
+          data,
+          getOrCreateDeviceFingerprint(),
+          stored,
+          new Date().toISOString(),
+        );
+        if (!stored) writeDeviceAlertState(storage, userId, nextState);
+        setNewDevice(alertDevice);
+      } catch {
+        // Ignore transient fetch errors; focus/interval/realtime will retry.
+      }
     };
 
     void checkDevices();
+    const channel = supabase
+      .channel(`devices-alerts:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "devices",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          if (cancelled) return;
+          const record = parseRealtimeDeviceRecord(payload.new);
+          if (!record) {
+            void checkDevices();
+            return;
+          }
+          const storage = getStorage();
+          const stored = readDeviceAlertState(storage, userId);
+          if (shouldAlertRealtimeDeviceInsert(record, getOrCreateDeviceFingerprint(), stored)) {
+            setNewDevice(record);
+          }
+        },
+      )
+      .subscribe();
+
     const handleFocus = () => {
       void checkDevices();
     };
@@ -93,6 +126,7 @@ export function SecurityBanners() {
 
     return () => {
       cancelled = true;
+      void supabase.removeChannel(channel);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
       window.clearInterval(timer);
@@ -119,10 +153,11 @@ export function SecurityBanners() {
   if (!active || down) return null;
 
   if (newDevice) {
+    const deviceLabel = newDevice.device_name || t("Web Browser");
     const message =
       language === "es"
-        ? `Nuevo inicio de sesión detectado en ${newDevice.device_name}.`
-        : `New sign-in detected on ${newDevice.device_name}.`;
+        ? `Nuevo inicio de sesión detectado en ${deviceLabel}.`
+        : `New sign-in detected on ${deviceLabel}.`;
     return (
       <TopBanner
         tone="warning"
