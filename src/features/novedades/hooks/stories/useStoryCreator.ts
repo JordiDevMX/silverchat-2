@@ -11,7 +11,7 @@ export function useStoryCreator(
   initialMode: "camera" | "gallery" | "text" = "camera",
 ) {
   const { user } = useAuth();
-  const { say } = useMessageText();
+  const { say, language } = useMessageText();
   const create = useCreateStory();
   const mine = useMyStories();
   const [mode, setMode] = useState<"camera" | "gallery" | "text">(initialMode);
@@ -97,6 +97,7 @@ export function useStoryCreator(
   };
   return {
     say,
+    language,
     mine,
     mode,
     setMode,
@@ -111,6 +112,13 @@ export function useStoryCreator(
     locked,
     ready,
     select,
+    clear: () => {
+      controller.current?.abort();
+      setFile(undefined);
+      setUrl("");
+      setReady(false);
+      setError("");
+    },
     publish,
     cancelPending: () => controller.current?.abort(),
   };

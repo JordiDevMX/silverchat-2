@@ -30,6 +30,7 @@ export default function EmojiPanel({ onSelect }: { onSelect: (emoji: string) => 
       onEmojiSelect={({ emoji }) => onSelect(emoji)}
     >
       <EmojiPicker.Search
+        data-clipboard-reason="search"
         aria-label={say("Search emoji", "Buscar emoji")}
         placeholder={say("Search emoji…", "Buscar emoji…")}
       />

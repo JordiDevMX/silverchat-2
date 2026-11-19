@@ -977,3 +977,30 @@
     animation: none !important;
   }
 }
+
+.clipboard-paste-notice {
+  z-index: 120;
+}
+
+.clipboard-paste-notice[data-severity="error"] {
+  border-color: color-mix(in oklab, var(--destructive) 48%, var(--border));
+}
+
+.clipboard-paste-notice-body {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.clipboard-paste-notice.in-dialog {
+  position: sticky;
+  bottom: 8px;
+  left: auto;
+  transform: none;
+  margin: 12px auto 0;
+  width: min(100%, max-content);
+  max-width: 100%;
+  animation: none;
+}

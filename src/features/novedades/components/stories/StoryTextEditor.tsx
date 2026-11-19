@@ -26,6 +26,7 @@ export function StoryTextEditor({
   return (
     <div className="story-text-editor" style={{ background: color }}>
       <textarea
+        data-clipboard-reason="story-text"
         autoComplete="off"
         disabled={attempted}
         aria-label={say("Story text", "Texto de historia")}
