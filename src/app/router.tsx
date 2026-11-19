@@ -123,7 +123,9 @@ const settingsChildren = [
   createRoute({
     getParentRoute: () => settings,
     path: "/",
-    component: lazyRouteComponent(() => import("@/routes/settings.index"), "SettingsIndexPage"),
+    beforeLoad: () => {
+      throw redirect({ to: "/settings/account", replace: true });
+    },
   }),
   createRoute({
     getParentRoute: () => settings,

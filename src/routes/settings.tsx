@@ -34,14 +34,13 @@ export function SettingsLayout() {
   const location = useLocation();
   const profile = useProfile();
   const preferences = usePreferences();
-  const back =
-    location.pathname === "/settings"
-      ? "/chats"
-      : location.pathname.includes("/privacy/")
-        ? "/settings/privacy"
-        : location.pathname.endsWith("/social")
-          ? "/settings/profile"
-          : "/settings";
+  const back = location.pathname.includes("/privacy/")
+    ? "/settings/privacy"
+    : location.pathname.endsWith("/social")
+      ? "/settings/profile"
+      : location.pathname === "/settings/profile"
+        ? "/settings/account"
+        : "/chats";
   return (
     <SettingsShellSurface
       header={
@@ -50,7 +49,7 @@ export function SettingsLayout() {
             <BrandLockup />
           </NavLink>
           <NavLink
-            href={profile.data ? `/profile/${profile.data.username}` : "/settings"}
+            href={profile.data ? `/profile/${profile.data.username}` : "/settings/account"}
             className="settings-top-profile"
           >
             {profile.data && <Avatar profile={profile.data} size="small" />}
@@ -60,24 +59,27 @@ export function SettingsLayout() {
       }
       sidebar={
         <>
-          <NavLink href="/settings" className="settings-sidebar-title">
+          <NavLink href="/settings/account" className="settings-sidebar-title">
             <Settings2 size={20} />
             {t("Settings")}
           </NavLink>
           <nav aria-label={t("Settings")}>
-            {SETTINGS_NAV.map(({ path, label, icon: Icon }) => (
-              <div key={path} data-active={location.pathname.startsWith(`/settings/${path}`)}>
-                <NavLink
-                  href={`/settings/${path}`}
-                  className={`setting-row ${settingsRowClassName}`}
-                  aria-current={
-                    location.pathname.startsWith(`/settings/${path}`) ? "page" : undefined
-                  }
-                >
-                  <SettingsRowContent label={t(label)} icon={<Icon size={19} />} />
-                </NavLink>
-              </div>
-            ))}
+            {SETTINGS_NAV.map(({ path, label, icon: Icon }) => {
+              const active =
+                location.pathname.startsWith(`/settings/${path}`) ||
+                (path === "account" && location.pathname.startsWith("/settings/profile"));
+              return (
+                <div key={path} data-active={active}>
+                  <NavLink
+                    href={`/settings/${path}`}
+                    className={`setting-row ${settingsRowClassName}`}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <SettingsRowContent label={t(label)} icon={<Icon size={19} />} />
+                  </NavLink>
+                </div>
+              );
+            })}
           </nav>
           <p className="sidebar-foot">SilverChat · {import.meta.env.VITE_APP_VERSION}</p>
         </>
