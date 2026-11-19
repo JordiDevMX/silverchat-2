@@ -66,20 +66,26 @@ export const GROWTH_CHAT_CONFIG: Record<SupportedGrowthChatType, GrowthTypeConfi
   },
 };
 
-export function shouldAutoShowGrowthDialog({
+export function countUserMessages(messages: ReadonlyArray<{ type: string }>): number {
+  let count = 0;
+  for (const message of messages) {
+    if (message.type !== "system") count++;
+  }
+  return count;
+}
+
+export function shouldShowGrowthCard({
   supported,
   isOwnerOrAdmin,
   messagesReady,
-  messageCount,
-  dismissed,
+  userMessageCount,
 }: {
   supported: boolean;
   isOwnerOrAdmin: boolean;
   messagesReady: boolean;
-  messageCount: number;
-  dismissed: boolean;
+  userMessageCount: number;
 }): boolean {
-  return supported && isOwnerOrAdmin && messagesReady && messageCount === 0 && !dismissed;
+  return supported && isOwnerOrAdmin && messagesReady && userMessageCount === 0;
 }
 
 function formatTitle(name: string, isCreator: boolean, language: Language): string {

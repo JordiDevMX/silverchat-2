@@ -2,9 +2,13 @@ import { useParams, useRouter, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { ConversationShell } from "@/components/ui/conversation-shell";
 import { AppSkeleton, Modal } from "@/features/auth/components";
+import { ChatGrowthCard } from "@/features/chat-growth/components/ChatGrowthCard";
 import { ChatGrowthHost } from "@/features/chat-growth/components/ChatGrowthHost";
 import { useChatGrowthController } from "@/features/chat-growth/hooks/useChatGrowthController";
-import { buildChatGrowthModel } from "@/features/chat-growth/lib/growthConfig";
+import {
+  buildChatGrowthModel,
+  countUserMessages,
+} from "@/features/chat-growth/lib/growthConfig";
 import { ChatSettingsLayer } from "@/features/chat-settings/components/ChatSettingsLayer";
 import { useCommunity } from "@/features/communities/hooks/useCommunity";
 import { useCommunityMembers } from "@/features/communities/hooks/useCommunityMembers";
@@ -73,11 +77,11 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
         community.data ?? null,
       )
     : null;
+  const userMessageCount = query.hasNextPage ? 1 : countUserMessages(query.messages);
   const growth = useChatGrowthController({
-    userId: user?.id,
     model: growthModel,
     messagesReady: !query.isPending && !query.isError,
-    messageCount: query.messages.length,
+    userMessageCount,
   });
   if (chat.isPending) return <AppSkeleton />;
   if (chat.isError)
@@ -122,11 +126,7 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
         banners={
           <>
             <PinnedMessagesBar chatId={chatId} />
-            <ChatSettingsLayer
-              chat={details}
-              onSearch={() => setSearchOpen(true)}
-              onGrow={growth.openManually}
-            />
+            <ChatSettingsLayer chat={details} onSearch={() => setSearchOpen(true)} />
             {details.request && (
               <div className="conversation-request" role="status">
                 <span>
@@ -188,6 +188,18 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
           navigation={navigation}
           scrollTo={scrollTo}
           onRetry={send.retry}
+          growthCard={
+            growth.visible && growthModel ? (
+              <ChatGrowthCard
+                model={growthModel}
+                onShareToStatus={growth.openStoryShare}
+                onSecondaryAction={growth.openSecondaryInvite}
+                onEditDescription={
+                  growth.canEditDescription ? growth.openEditDescription : undefined
+                }
+              />
+            ) : null
+          }
         />
         {decline && (
           <Modal

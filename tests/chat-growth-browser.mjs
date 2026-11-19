@@ -307,6 +307,24 @@ const messages = [
     media_thumbnail_upload_id: null,
     mentions: null,
   },
+  // System events in creatorEmptyGroupId must NOT count as user messages and must render BELOW the card
+  {
+    id: uid(902),
+    chat_id: creatorEmptyGroupId,
+    channel_id: null,
+    sender_id: me,
+    type: "system",
+    content: "Alice added Sofia",
+    created_at: now(),
+    deleted_at: null,
+    deleted_for_everyone: false,
+    is_pinned_in_chat: false,
+    reply_to_message_id: null,
+    reply_to_story_id: null,
+    file_upload_id: null,
+    media_thumbnail_upload_id: null,
+    mentions: null,
+  },
 ];
 
 let userSettings = {
@@ -319,7 +337,9 @@ let userSettings = {
 const storyCalls = [];
 const addedMembersCalls = [];
 const insertedMessages = [];
+const sockets = new Map();
 const errors = [];
+let sendDelayMs = 0;
 
 const respond = (route, body, status = 200) =>
   route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
@@ -368,8 +388,7 @@ async function setupRoutes(context) {
         .filter((row) =>
           [...s].every(([k, v]) => {
             if (!v.startsWith("eq.")) return true;
-            if (k === "chat.type") return true;
-            if (k === "chat.status") return true;
+            if (k === "chat.type" || k === "chat.status") return true;
             return String(row[k]) === v.slice(3);
           }),
         )
@@ -423,9 +442,7 @@ async function setupRoutes(context) {
     if (p.endsWith("/channels")) return result(filterEq(channels));
     if (p.endsWith("/channel_followers")) return result(filterEq(channelFollows));
 
-    if (p.endsWith("/chats")) {
-      return result(filterEq(chats));
-    }
+    if (p.endsWith("/chats")) return result(filterEq(chats));
     if (p.endsWith("/chat_members")) {
       let rows = filterEq(chatMembers);
       if (s.get("select")?.includes("chat:chats")) {
@@ -445,6 +462,7 @@ async function setupRoutes(context) {
 
     if (p.endsWith("/messages")) {
       if (method === "POST") {
+        if (sendDelayMs > 0) await new Promise((r) => setTimeout(r, sendDelayMs));
         const row = { ...body, created_at: now(), deleted_for_everyone: false };
         messages.push(row);
         insertedMessages.push(row);
@@ -476,44 +494,116 @@ async function setupRoutes(context) {
 
     return result([]);
   });
+
+  await context.routeWebSocket("**/realtime/v1/websocket*", (socket) =>
+    socket.onMessage((raw) => {
+      const [join, ref, topic, event, payload] = JSON.parse(String(raw));
+      if (event === "phx_join") {
+        const config = (payload.config.postgres_changes ?? []).map((c, i) => ({
+          ...c,
+          id: i + 1,
+        }));
+        sockets.set(topic, { socket, config });
+        socket.send(
+          JSON.stringify([
+            join,
+            ref,
+            topic,
+            "phx_reply",
+            { status: "ok", response: { postgres_changes: config } },
+          ]),
+        );
+      }
+      if (event === "heartbeat") {
+        socket.send(
+          JSON.stringify([join, ref, topic, "phx_reply", { status: "ok", response: {} }]),
+        );
+      }
+    }),
+  );
 }
+
+const emitRealtimeInsert = (table, filterValue, record) => {
+  for (const [topic, { socket, config }] of sockets) {
+    const ids = config
+      .filter((c) => c.table === table && (!c.filter || c.filter === filterValue))
+      .map((c) => c.id);
+    if (ids.length) {
+      socket.send(
+        JSON.stringify([
+          null,
+          null,
+          topic,
+          "postgres_changes",
+          {
+            ids,
+            data: {
+              schema: "public",
+              table,
+              type: "INSERT",
+              columns: Object.keys(record).map((name) => ({ name, type: "text" })),
+              record,
+              old_record: {},
+            },
+          },
+        ]),
+      );
+    }
+  }
+};
 
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 820 } });
   await setupRoutes(context);
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (e) => errors.push(e.stack ?? e.message));
 
   const goto = (path) => page.goto(`${baseUrl}${path}`);
+  const card = page.locator('[data-slot="chat-growth-card"]');
 
-  // 1. Channel owner on empty 100-follower channel (auto-show + visual + background + edit description + persistence)
+  // 1. Channel owner on empty 100-follower channel: inline region card (NO modal/dialog/close/backdrop)
   await goto(`/channels/${ownedEmptyChannelId}`);
-  const dialog = page.locator('[data-slot="chat-growth-dialog"]');
-  await dialog.waitFor();
-  assert.equal(await dialog.getAttribute("data-chat-type"), "channel");
+  await card.waitFor();
+  assert.equal(await card.getAttribute("data-chat-type"), "channel");
+  assert.equal(await page.locator("dialog, [role='dialog']").count(), 0);
+  assert.equal(await card.getByRole("button", { name: /Close|Cerrar/ }).count(), 0);
+  assert.equal(await page.getByRole("region", { name: "You created 'Silver Updates'" }).count(), 1);
 
   const layoutCheck = await page.evaluate(() => {
-    const dlg = document.querySelector('[data-slot="chat-growth-dialog"]');
+    const el = document.querySelector('[data-slot="chat-growth-card"]');
+    const list = document.querySelector(".message-list");
+    const enc = document.querySelector('[data-slot="conversation-encryption-pill"]');
+    const createdPill = document.querySelector('[data-slot="channel-created-pill"]');
     const header = document.querySelector(".channel-header");
     const composer = document.querySelector('[data-slot="composer-dock"]');
     const addDesc = document.querySelector(".chat-growth-add-description");
     const primaryBtn = document.querySelector('[data-slot="growth-share-status"]');
     const secondaryBtn = document.querySelector('[data-slot="growth-secondary-action"]');
     const avatar = document.querySelector('.chat-growth-avatar [data-slot="avatar"]');
-    const primaryProbe = document.createElement("span");
-    primaryProbe.style.color = "var(--primary)";
-    document.body.appendChild(primaryProbe);
-    const expectedPrimary = getComputedStyle(primaryProbe).color;
-    primaryProbe.remove();
+    const probe = document.createElement("span");
+    probe.style.color = "var(--primary)";
+    document.body.appendChild(probe);
+    const expectedPrimary = getComputedStyle(probe).color;
+    probe.remove();
+
+    const posEncVsCard = enc.compareDocumentPosition(el);
+    const posCardVsCreated = el.compareDocumentPosition(createdPill);
+
     return {
-      title: dlg.querySelector(".chat-growth-title")?.textContent,
-      subtitle: dlg.querySelector(".chat-growth-subtitle")?.textContent,
+      insideMessageList: list.contains(el),
+      positionStyle: getComputedStyle(el).position,
+      afterEncryption: Boolean(posEncVsCard & Node.DOCUMENT_POSITION_FOLLOWING),
+      beforeCreatedPill: Boolean(posCardVsCreated & Node.DOCUMENT_POSITION_FOLLOWING),
+      title: el.querySelector(".chat-growth-title")?.textContent,
+      subtitle: el.querySelector(".chat-growth-subtitle")?.textContent,
       addDescText: addDesc?.textContent,
       addDescColor: addDesc ? getComputedStyle(addDesc).color : null,
       expectedPrimary,
       headerRect: header?.getBoundingClientRect().toJSON(),
       composerRect: composer?.getBoundingClientRect().toJSON(),
+      cardRect: el.getBoundingClientRect().toJSON(),
+      listRect: list.getBoundingClientRect().toJSON(),
       btn1Bg: primaryBtn ? getComputedStyle(primaryBtn).backgroundColor : null,
       btn1Border: primaryBtn ? getComputedStyle(primaryBtn).borderTopWidth : null,
       btn1Rect: primaryBtn?.getBoundingClientRect().toJSON(),
@@ -523,11 +613,19 @@ try {
     };
   });
 
+  assert.equal(layoutCheck.insideMessageList, true);
+  assert.equal(layoutCheck.positionStyle, "static");
+  assert.equal(layoutCheck.afterEncryption, true);
+  assert.equal(layoutCheck.beforeCreatedPill, true);
   assert.equal(layoutCheck.title, "You created 'Silver Updates'");
   assert.equal(layoutCheck.subtitle, "Channel - 100 followers");
   assert.equal(layoutCheck.addDescText, "add a description");
   assert.equal(layoutCheck.addDescColor, layoutCheck.expectedPrimary);
   assert.ok(layoutCheck.headerRect.height > 0 && layoutCheck.composerRect.height > 0);
+  assert.ok(
+    layoutCheck.cardRect.left > layoutCheck.listRect.left &&
+      layoutCheck.cardRect.right < layoutCheck.listRect.right,
+  );
   assert.equal(layoutCheck.btn1Bg, "rgba(0, 0, 0, 0)");
   assert.equal(layoutCheck.btn1Border, "1px");
   assert.ok(layoutCheck.btn2Rect.top > layoutCheck.btn1Rect.bottom);
@@ -552,52 +650,31 @@ try {
   });
   assert.equal(purpleColor.actual, purpleColor.expected);
 
+  // Verify no Grow menu item in ChatOptionsMenu or ChannelInfoScreen
+  await page.getByRole("button", { name: "Channel options", exact: true }).click();
+  assert.equal(await page.getByRole("menuitem", { name: /Grow/ }).count(), 0);
+  await page.keyboard.press("Escape");
+
+  // Card persists across reload & navigation while chat stays empty
+  await page.reload();
+  await card.waitFor();
+
   // Clicking empty description opens edit channel flow on ChannelInfoScreen
-  await dialog.locator(".chat-growth-add-description").click();
+  await card.locator(".chat-growth-add-description").click();
   await page.waitForURL(`**/channels/${ownedEmptyChannelId}/info?edit=1`);
   await page.getByRole("dialog", { name: "Edit channel", exact: true }).waitFor();
   await page.keyboard.press("Escape");
   await page
     .getByRole("dialog", { name: "Edit channel", exact: true })
     .waitFor({ state: "detached" });
+  assert.equal(await page.getByRole("button", { name: /Grow/ }).count(), 0);
 
-  // Reopen from ChannelInfoScreen SettingsRow
-  await page.getByRole("button", { name: "Grow channel", exact: true }).click();
-  await dialog.waitFor();
-  await dialog.getByRole("button", { name: "Close", exact: true }).click();
-  await dialog.waitFor({ state: "detached" });
-  assert.ok(
-    await page
-      .getByRole("button", { name: "Grow channel", exact: true })
-      .evaluate((el) => el === document.activeElement),
-  );
-
-  // Dismissal persists across reload on channel view
+  // Navigate back to channel -> card is still rendered!
   await goto(`/channels/${ownedEmptyChannelId}`);
-  await page.locator('[data-slot="composer-dock"]').waitFor();
-  await page.waitForTimeout(150);
-  assert.equal(await dialog.count(), 0);
-
-  // Reopen via ChatOptionsMenu, dismiss via Escape (returns focus), then backdrop click
-  const optionsBtn = page.getByRole("button", { name: "Channel options", exact: true });
-  await optionsBtn.click();
-  await page.getByRole("menuitem", { name: "Grow channel", exact: true }).click();
-  await dialog.waitFor();
-  await page.keyboard.press("Escape");
-  await dialog.waitFor({ state: "detached" });
-  assert.ok(await optionsBtn.evaluate((el) => el === document.activeElement));
-
-  await optionsBtn.click();
-  await page.getByRole("menuitem", { name: "Grow channel", exact: true }).click();
-  await dialog.waitFor();
-  await page.mouse.click(8, 8);
-  await dialog.waitFor({ state: "detached" });
+  await card.waitFor();
 
   // Action 1: Share to my status -> prefilled StoryCreator text mode
-  await optionsBtn.click();
-  await page.getByRole("menuitem", { name: "Grow channel", exact: true }).click();
-  await dialog.waitFor();
-  await dialog.locator('[data-slot="growth-share-status"]').click();
+  await card.locator('[data-slot="growth-share-status"]').click();
   const storyDialog = page.getByRole("dialog", { name: "Create story", exact: true });
   await storyDialog.waitFor();
   const storyText = await storyDialog
@@ -610,10 +687,7 @@ try {
   assert.equal(storyCalls.length, 1);
 
   // Action 2: Invite admins -> copy link + DM invite
-  await optionsBtn.click();
-  await page.getByRole("menuitem", { name: "Grow channel", exact: true }).click();
-  await dialog.waitFor();
-  await dialog.locator('[data-slot="growth-secondary-action"]').click();
+  await card.locator('[data-slot="growth-secondary-action"]').click();
   const inviteDialog = page.getByRole("dialog", { name: "Invite admins", exact: true });
   await inviteDialog.waitFor();
   await inviteDialog.getByRole("button", { name: "Copy link", exact: true }).click();
@@ -626,6 +700,17 @@ try {
   assert.equal(insertedMessages.length, 1);
   assert.ok(insertedMessages[0].content.includes(`/channels/${ownedEmptyChannelId}`));
 
+  // Composer stays interactive with the card visible; optimistic local send hides card immediately!
+  sendDelayMs = 400;
+  await page.getByRole("textbox", { name: "Message", exact: true }).fill("First channel post");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await card.waitFor({ state: "detached" });
+  sendDelayMs = 0;
+  await page.locator(".message-text", { hasText: "First channel post" }).waitFor();
+  await page.reload();
+  await page.locator(".message-text", { hasText: "First channel post" }).waitFor();
+  assert.equal(await card.count(), 0);
+
   // 2. Spanish copy + singular follower + non-empty description
   await goto("/settings/appearance");
   const saveEs = page.waitForResponse(
@@ -635,22 +720,18 @@ try {
   await page.waitForFunction(() => document.documentElement.lang === "es");
   await saveEs;
   await goto(`/channels/${ownedEsChannelId}`);
-  await dialog.waitFor();
+  await card.waitFor();
+  assert.equal(await card.locator(".chat-growth-title").textContent(), "Creaste 'Noticias Silver'");
+  assert.equal(await card.locator(".chat-growth-subtitle").textContent(), "Canal - 1 seguidor");
+  assert.equal(await card.locator(".chat-growth-description").textContent(), "Noticias diarias");
   assert.equal(
-    await dialog.locator(".chat-growth-title").textContent(),
-    "Creaste 'Noticias Silver'",
-  );
-  assert.equal(await dialog.locator(".chat-growth-subtitle").textContent(), "Canal - 1 seguidor");
-  assert.equal(await dialog.locator(".chat-growth-description").textContent(), "Noticias diarias");
-  assert.equal(
-    await dialog.locator('[data-slot="growth-share-status"]').textContent(),
+    await card.locator('[data-slot="growth-share-status"]').textContent(),
     "Compartir en mi estado",
   );
   assert.equal(
-    await dialog.locator('[data-slot="growth-secondary-action"]').textContent(),
+    await card.locator('[data-slot="growth-secondary-action"]').textContent(),
     "Invitar a administradores",
   );
-  await page.keyboard.press("Escape");
 
   // Switch back to EN
   await goto("/settings/appearance");
@@ -661,39 +742,49 @@ try {
   await page.waitForFunction(() => document.documentElement.lang === "en");
   await saveEn;
 
-  // 3. No auto-show for regular follower or non-empty channel
+  // 3. Regular follower & non-empty channel NEVER see the card
   await goto(`/channels/${followedEmptyChannelId}`);
   await page.locator('[data-slot="channel-created-pill"]').waitFor();
   await page.waitForTimeout(150);
-  assert.equal(await dialog.count(), 0);
-  await optionsBtn.click();
-  assert.equal(await page.getByRole("menuitem", { name: "Grow channel", exact: true }).count(), 0);
-  await page.keyboard.press("Escape");
+  assert.equal(await card.count(), 0);
 
   await goto(`/channels/${ownedPopulatedChannelId}`);
   await page.getByText("Existing channel post", { exact: true }).waitFor();
   await page.waitForTimeout(150);
-  assert.equal(await dialog.count(), 0);
+  assert.equal(await card.count(), 0);
 
-  // 4. Groups: creator empty, non-creator admin empty, regular member empty, populated group
+  // 4. Group: creator empty WITH system event below card; edit description; Add members
   await goto(`/chats/${creatorEmptyGroupId}`);
-  await dialog.waitFor();
-  assert.equal(await dialog.getAttribute("data-chat-type"), "group");
+  await card.waitFor();
+  assert.equal(await card.getAttribute("data-chat-type"), "group");
   assert.equal(
-    await dialog.locator(".chat-growth-title").textContent(),
+    await card.locator(".chat-growth-title").textContent(),
     "You created 'Launch Group'",
   );
-  assert.equal(await dialog.locator(".chat-growth-subtitle").textContent(), "Group - 3 members");
-  await dialog.locator(".chat-growth-add-description").click();
+  assert.equal(await card.locator(".chat-growth-subtitle").textContent(), "Group - 3 members");
+  const systemMsg = page.getByText("Alice added Sofia", { exact: true });
+  await systemMsg.waitFor();
+  const sysAfterCard = await page.evaluate(() => {
+    const c = document.querySelector('[data-slot="chat-growth-card"]');
+    const s = [...document.querySelectorAll(".system-pill")].find((el) =>
+      el.textContent?.includes("Alice added Sofia"),
+    );
+    return Boolean(c && s && c.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  assert.equal(sysAfterCard, true);
+
+  await card.locator(".chat-growth-add-description").click();
   await page.waitForURL(`**/chats/${creatorEmptyGroupId}/info?focus=description`);
   assert.ok(
     await page
       .getByRole("textbox", { name: "Description", exact: true })
       .evaluate((el) => el === document.activeElement),
   );
-  await page.getByRole("button", { name: "Grow group", exact: true }).click();
-  await dialog.waitFor();
-  await dialog.locator('[data-slot="growth-secondary-action"]').click();
+  assert.equal(await page.getByRole("button", { name: /Grow/ }).count(), 0);
+
+  await goto(`/chats/${creatorEmptyGroupId}`);
+  await card.waitFor();
+  await card.locator('[data-slot="growth-secondary-action"]').click();
   const addMembersDlg = page.getByRole("dialog", { name: "Add members", exact: true });
   await addMembersDlg.waitFor();
   await addMembersDlg.getByRole("searchbox").fill("dave");
@@ -702,54 +793,64 @@ try {
   await addMembersDlg.waitFor({ state: "detached" });
   assert.equal(addedMembersCalls.length, 1);
 
+  // 5. Non-creator admin empty group: disappears immediately on realtime message from Sofia!
   await goto(`/chats/${adminEmptyGroupId}`);
-  await dialog.waitFor();
-  assert.equal(
-    await dialog.locator(".chat-growth-title").textContent(),
-    "You manage 'Admin Group'",
-  );
-  assert.equal(await dialog.locator(".chat-growth-subtitle").textContent(), "Group - 2 members");
-  await page.keyboard.press("Escape");
+  await card.waitFor();
+  assert.equal(await card.locator(".chat-growth-title").textContent(), "You manage 'Admin Group'");
+  assert.equal(await card.locator(".chat-growth-subtitle").textContent(), "Group - 2 members");
 
+  const liveMsg = {
+    id: uid(950),
+    chat_id: adminEmptyGroupId,
+    channel_id: null,
+    sender_id: sofia,
+    type: "text",
+    content: "Hey team!",
+    created_at: now(),
+    deleted_at: null,
+    deleted_for_everyone: false,
+    is_pinned_in_chat: false,
+    reply_to_message_id: null,
+    reply_to_story_id: null,
+    file_upload_id: null,
+    media_thumbnail_upload_id: null,
+    mentions: null,
+  };
+  messages.push(liveMsg);
+  emitRealtimeInsert("messages", `chat_id=eq.${adminEmptyGroupId}`, liveMsg);
+  await page.getByText("Hey team!", { exact: true }).waitFor();
+  await card.waitFor({ state: "detached" });
+
+  // Regular member & populated group NEVER see the card
   await goto(`/chats/${memberEmptyGroupId}`);
   await page.locator('[data-slot="composer-dock"]').waitFor();
   await page.waitForTimeout(150);
-  assert.equal(await dialog.count(), 0);
+  assert.equal(await card.count(), 0);
   await page.getByRole("button", { name: "Chat options", exact: true }).click();
-  assert.equal(await page.getByRole("menuitem", { name: "Grow group", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("menuitem", { name: /Grow/ }).count(), 0);
   await page.keyboard.press("Escape");
 
   await goto(`/chats/${populatedGroupId}`);
   await page.getByText("Existing group message", { exact: true }).waitFor();
   await page.waitForTimeout(150);
-  assert.equal(await dialog.count(), 0);
-  await page.getByRole("button", { name: "Chat options", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Grow group", exact: true }).click();
-  await dialog.waitFor();
-  await page.keyboard.press("Escape");
+  assert.equal(await card.count(), 0);
 
-  // 5. Community chat: creator empty vs regular member empty
+  // 6. Community chat: creator empty vs regular member empty
   await goto(`/chats/${communityCreatorEmptyId}`);
-  await dialog.waitFor();
-  assert.equal(await dialog.getAttribute("data-chat-type"), "community_chat");
-  assert.equal(
-    await dialog.locator(".chat-growth-title").textContent(),
-    "You created 'Town Square'",
-  );
-  assert.equal(
-    await dialog.locator(".chat-growth-subtitle").textContent(),
-    "Community - 2 members",
-  );
-  await dialog.locator('[data-slot="growth-secondary-action"]').click();
+  await card.waitFor();
+  assert.equal(await card.getAttribute("data-chat-type"), "community_chat");
+  assert.equal(await card.locator(".chat-growth-title").textContent(), "You created 'Town Square'");
+  assert.equal(await card.locator(".chat-growth-subtitle").textContent(), "Community - 2 members");
+  await card.locator('[data-slot="growth-secondary-action"]').click();
   await page.getByRole("dialog", { name: "Invite members", exact: true }).waitFor();
   await page.keyboard.press("Escape");
 
   await goto(`/chats/${communityMemberEmptyId}`);
   await page.locator('[data-slot="composer-dock"]').waitFor();
   await page.waitForTimeout(150);
-  assert.equal(await dialog.count(), 0);
+  assert.equal(await card.count(), 0);
 
-  // 6. Mobile viewport checks (390x844) with fresh storage
+  // 7. Mobile viewport checks (390x844)
   const mobileCtx = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -758,27 +859,24 @@ try {
   await setupRoutes(mobileCtx);
   const mp = await mobileCtx.newPage();
   mp.setDefaultTimeout(10000);
-  mp.on("pageerror", (e) => errors.push(e.message));
+  mp.on("pageerror", (e) => errors.push(e.stack ?? e.message));
 
-  await mp.goto(`${baseUrl}/channels/${ownedEmptyChannelId}`);
-  const mobileDialog = mp.locator('[data-slot="chat-growth-dialog"]');
-  await mobileDialog.waitFor();
-  const mobileBox = await mobileDialog.boundingBox();
-  assert.ok(mobileBox.x >= 0 && mobileBox.x + mobileBox.width <= 390);
+  await mp.goto(`${baseUrl}/channels/${ownedEsChannelId}`);
+  const mobileCard = mp.locator('[data-slot="chat-growth-card"]');
+  await mobileCard.waitFor();
+  const mobileBox = await mobileCard.boundingBox();
+  assert.ok(mobileBox.x > 0 && mobileBox.x + mobileBox.width < 390);
   assert.equal(await mp.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await mp.keyboard.press("Escape");
-  await mobileDialog.waitFor({ state: "detached" });
 
   await mp.goto(`${baseUrl}/chats/${creatorEmptyGroupId}`);
-  await mobileDialog.waitFor();
-  const mobileGroupBox = await mobileDialog.boundingBox();
-  assert.ok(mobileGroupBox.x >= 0 && mobileGroupBox.x + mobileGroupBox.width <= 390);
+  await mobileCard.waitFor();
+  const mobileGroupBox = await mobileCard.boundingBox();
+  assert.ok(mobileGroupBox.x > 0 && mobileGroupBox.x + mobileGroupBox.width < 390);
   assert.equal(await mp.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await mp.keyboard.press("Escape");
 
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: ChatGrowthDialog verified across channel, group, and community_chat (desktop + mobile, EN + ES, role & empty triggers, persistence, reopen, empty-description affordance, and both action buttons).",
+    "PASS: Inline ChatGrowthCard verified across channel, group, and community_chat (no dialog/backdrop/dismissal, persists across reload, disappears on optimistic send & realtime insert, system events below card, EN + ES, theme accent, desktop + mobile).",
   );
 } catch (err) {
   console.error("Browser check failed:", errors, err);

@@ -4,7 +4,6 @@ import { StoryCreator } from "@/features/novedades/components/stories/StoryCreat
 import type { useChatGrowthController } from "../hooks/useChatGrowthController";
 import type { GrowthChatModel } from "../types";
 import { ChannelInviteAdminModal } from "./ChannelInviteAdminModal";
-import { ChatGrowthDialog } from "./ChatGrowthDialog";
 
 export function ChatGrowthHost({
   model,
@@ -20,16 +19,6 @@ export function ChatGrowthHost({
   if (!model) return null;
   return (
     <>
-      <ChatGrowthDialog
-        open={controller.dialogOpen}
-        model={model}
-        onClose={controller.dismiss}
-        onShareToStatus={controller.openStoryShare}
-        onSecondaryAction={controller.openSecondaryInvite}
-        onEditDescription={
-          controller.canEditDescription ? controller.openEditDescription : undefined
-        }
-      />
       {controller.storyOpen && (
         <StoryCreator
           initialMode="text"

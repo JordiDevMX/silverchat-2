@@ -41,12 +41,9 @@ test("chat menus distinguish direct, self, groups, communities, admins and pendi
   assert.equal(getAvailableChatActions(chat()).length, 8);
   assert.deepEqual(getAvailableChatActions(chat("self")), ["search_in_chat", "pin", "clear_chat"]);
   assert.ok(!getAvailableChatActions(chat("group")).includes("add_members"));
-  assert.ok(!getAvailableChatActions(chat("group")).includes("grow_chat"));
   assert.ok(getAvailableChatActions(chat("group", "admin")).includes("add_members"));
-  assert.ok(getAvailableChatActions(chat("group", "admin")).includes("grow_chat"));
   assert.deepEqual(getAvailableChatActions(chat("community_chat", "admin")), [
     "view_community_info",
-    "grow_chat",
     "change_chat_photo",
     "search_in_chat",
     "mute",
@@ -57,10 +54,6 @@ test("chat menus distinguish direct, self, groups, communities, admins and pendi
   assert.ok(
     !getAvailableChatActions(chat("community_chat", "member")).includes("change_chat_photo"),
   );
-  assert.ok(!getAvailableChatActions(chat("community_chat", "member")).includes("grow_chat"));
-  assert.ok(!getAvailableChatActions(chat("direct", "admin")).includes("grow_chat"));
-  assert.ok(!getAvailableChatActions(chat("self", "admin")).includes("grow_chat"));
-  assert.ok(!getAvailableChatActions({ ...chat("group", "admin"), readOnly: true }).includes("grow_chat"));
   const direct = chat();
   if (direct.own) {
     direct.own.pinned_at = "2026-01-01";
@@ -85,18 +78,6 @@ test("channel menus expose follower actions without user/group-only actions", ()
   assert.deepEqual(
     getAvailableChannelActions({ following: false, canSearch: true, hasLink: false }),
     ["view_channel_info", "search_in_chat", "follow"],
-  );
-  assert.deepEqual(
-    getAvailableChannelActions({ following: true, canSearch: true, hasLink: true, isOwner: true }),
-    [
-      "view_channel_info",
-      "grow_channel",
-      "search_in_chat",
-      "mute",
-      "mark_unread",
-      "unfollow",
-      "copy_channel_link",
-    ],
   );
 });
 test("member selection deduplicates, permits removal at capacity, and rejects a 51st", () => {

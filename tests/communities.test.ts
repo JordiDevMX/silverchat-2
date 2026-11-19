@@ -125,7 +125,6 @@ test("community chat action matrix never exposes group membership, block or repo
   const chat = communityDetails(community, [], "owner");
   assert.deepEqual(getAvailableChatActions(chat), [
     "view_community_info",
-    "grow_chat",
     "change_chat_photo",
     "search_in_chat",
     "mute",

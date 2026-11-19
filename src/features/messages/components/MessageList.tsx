@@ -34,10 +34,12 @@ export function MessageList({
   navigation,
   channelMode = false,
   topNotices,
+  growthCard,
 }: {
   chat: ChatDetails;
   channelMode?: boolean;
   topNotices?: ReactNode;
+  growthCard?: ReactNode;
   query: Pick<
     ReturnType<typeof useMessages>,
     | "messages"
@@ -274,6 +276,7 @@ export function MessageList({
             >
               {t("chat.encryptionNotice")}
             </SystemPill>
+            {growthCard}
             {topNotices}
           </div>
         )}

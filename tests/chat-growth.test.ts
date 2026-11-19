@@ -1,15 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  growthDismissalKey,
-  readGrowthDismissed,
-  writeGrowthDismissed,
-} from "../src/features/chat-growth/lib/dismissal.ts";
-import {
   buildChannelGrowthModel,
   buildChatGrowthModel,
   buildStoryShareText,
-  shouldAutoShowGrowthDialog,
+  countUserMessages,
+  shouldShowGrowthCard,
 } from "../src/features/chat-growth/lib/growthConfig.ts";
 import type { Community } from "../src/features/communities/types.ts";
 import type { ChatDetails } from "../src/features/messages/types.ts";
@@ -83,64 +79,56 @@ const makeChat = (patch: Partial<ChatDetails> = {}): ChatDetails => ({
   ...patch,
 });
 
-test("shouldAutoShowGrowthDialog triggers exclusively for owner/admin on ready empty supported chats", () => {
+test("countUserMessages excludes system events and counts all user message types", () => {
+  assert.equal(countUserMessages([]), 0);
+  assert.equal(countUserMessages([{ type: "system" }, { type: "system" }]), 0);
+  assert.equal(countUserMessages([{ type: "system" }, { type: "text" }]), 1);
+  assert.equal(countUserMessages([{ type: "image" }, { type: "system" }, { type: "audio" }]), 2);
+});
+
+test("shouldShowGrowthCard renders exclusively for owner/admin on ready chats with zero user messages", () => {
   assert.equal(
-    shouldAutoShowGrowthDialog({
+    shouldShowGrowthCard({
       supported: true,
       isOwnerOrAdmin: true,
       messagesReady: true,
-      messageCount: 0,
-      dismissed: false,
+      userMessageCount: 0,
     }),
     true,
   );
   assert.equal(
-    shouldAutoShowGrowthDialog({
+    shouldShowGrowthCard({
       supported: true,
       isOwnerOrAdmin: false,
       messagesReady: true,
-      messageCount: 0,
-      dismissed: false,
+      userMessageCount: 0,
     }),
     false,
   );
   assert.equal(
-    shouldAutoShowGrowthDialog({
+    shouldShowGrowthCard({
       supported: true,
       isOwnerOrAdmin: true,
       messagesReady: true,
-      messageCount: 1,
-      dismissed: false,
+      userMessageCount: 1,
     }),
     false,
   );
   assert.equal(
-    shouldAutoShowGrowthDialog({
+    shouldShowGrowthCard({
       supported: true,
       isOwnerOrAdmin: true,
       messagesReady: false,
-      messageCount: 0,
-      dismissed: false,
+      userMessageCount: 0,
     }),
     false,
   );
   assert.equal(
-    shouldAutoShowGrowthDialog({
-      supported: true,
-      isOwnerOrAdmin: true,
-      messagesReady: true,
-      messageCount: 0,
-      dismissed: true,
-    }),
-    false,
-  );
-  assert.equal(
-    shouldAutoShowGrowthDialog({
+    shouldShowGrowthCard({
       supported: false,
       isOwnerOrAdmin: true,
       messagesReady: true,
-      messageCount: 0,
-      dismissed: false,
+      userMessageCount: 0,
     }),
     false,
   );
@@ -282,34 +270,4 @@ test("buildStoryShareText stays within the 200-char story limit even for long ch
   );
   assert.ok(text.length <= 200);
   assert.ok(text.includes("https://silverchat.example/channels/"));
-});
-
-test("dismissal storage persists per user, type, and chat and tolerates storage errors", () => {
-  const map = new Map<string, string>();
-  const storage = {
-    getItem: (k: string) => map.get(k) ?? null,
-    setItem: (k: string, v: string) => {
-      map.set(k, v);
-    },
-  };
-  assert.equal(readGrowthDismissed(storage, "u1", "channel", "c1"), false);
-  writeGrowthDismissed(storage, "u1", "channel", "c1");
-  assert.equal(readGrowthDismissed(storage, "u1", "channel", "c1"), true);
-  assert.equal(readGrowthDismissed(storage, "u2", "channel", "c1"), false);
-  assert.equal(readGrowthDismissed(storage, "u1", "group", "c1"), false);
-  assert.equal(
-    growthDismissalKey("u1", "channel", "c1"),
-    "silverchat:growth-dismissed:u1:channel:c1",
-  );
-
-  const broken = {
-    getItem: () => {
-      throw new Error("denied");
-    },
-    setItem: () => {
-      throw new Error("quota");
-    },
-  };
-  assert.equal(readGrowthDismissed(broken, "u1", "channel", "c1"), false);
-  assert.doesNotThrow(() => writeGrowthDismissed(broken, "u1", "channel", "c1"));
 });

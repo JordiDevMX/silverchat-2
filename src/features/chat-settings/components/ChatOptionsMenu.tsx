@@ -15,7 +15,6 @@ import {
   Plus,
   Search,
   Trash2,
-  TrendingUp,
   UserPlus,
   UserRound,
   Users,
@@ -62,7 +61,6 @@ export function ChatOptionsMenu(props: MenuProps) {
   const { say } = useMessageText();
   const labels: Record<ChatAction | ChannelAction, string> = {
     view_channel_info: say("Channel info", "Información del canal"),
-    grow_channel: say("Grow channel", "Aumentar seguidores"),
     follow: say("Follow", "Seguir"),
     unfollow: say("Unfollow", "Dejar de seguir"),
     copy_channel_link: say("Copy channel link", "Copiar enlace del canal"),
@@ -70,10 +68,6 @@ export function ChatOptionsMenu(props: MenuProps) {
     change_chat_photo: say("Change chat photo", "Cambiar foto del chat"),
     view_group_info: say("Group info", "Información del grupo"),
     view_community_info: say("Community info", "Información de la comunidad"),
-    grow_chat:
-      props.contextType !== "channel" && props.chat.type === "community_chat"
-        ? say("Grow community", "Hacer crecer comunidad")
-        : say("Grow group", "Hacer crecer grupo"),
     search_in_chat: say("Search in chat", "Buscar en el chat"),
     mute: say("Mute", "Silenciar"),
     unmute: say("Unmute", "Activar sonido"),
@@ -89,7 +83,6 @@ export function ChatOptionsMenu(props: MenuProps) {
   };
   const icons = {
     view_channel_info: Info,
-    grow_channel: TrendingUp,
     follow: Plus,
     unfollow: Minus,
     copy_channel_link: Link,
@@ -97,7 +90,6 @@ export function ChatOptionsMenu(props: MenuProps) {
     change_chat_photo: Camera,
     view_group_info: Info,
     view_community_info: Info,
-    grow_chat: TrendingUp,
     search_in_chat: Search,
     mute: BellOff,
     unmute: Bell,

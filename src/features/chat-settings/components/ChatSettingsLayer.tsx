@@ -36,19 +36,16 @@ export function ChatSettingsLoading({
 export function ChatSettingsLayer({
   chat,
   onSearch,
-  onGrow,
   context = "group",
 }: {
   chat: ChatDetails;
   onSearch?: () => void;
-  onGrow?: () => void;
   context?: "group" | "community";
 }) {
   const { ui, modal, busy, update, choose, afterBlock } = useChatSettingsLayer(
     chat,
     onSearch,
     context,
-    onGrow,
   );
   if (!modal) return null;
   switch (modal.kind) {

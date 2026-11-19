@@ -2,9 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConversationShell } from "@/components/ui/conversation-shell";
 import { SystemPill } from "@/components/ui/conversation-surface";
+import { ChatGrowthCard } from "@/features/chat-growth/components/ChatGrowthCard";
 import { ChatGrowthHost } from "@/features/chat-growth/components/ChatGrowthHost";
 import { useChatGrowthController } from "@/features/chat-growth/hooks/useChatGrowthController";
-import { buildChannelGrowthModel } from "@/features/chat-growth/lib/growthConfig";
+import {
+  buildChannelGrowthModel,
+  countUserMessages,
+} from "@/features/chat-growth/lib/growthConfig";
 import { InChatSearch } from "@/features/messages/components/InChatSearch";
 import { MessageActionsProvider } from "@/features/messages/components/MessageActionsProvider";
 import { MessageList } from "@/features/messages/components/MessageList";
@@ -35,20 +39,12 @@ export function ChannelView({ channelId }: { channelId: string }) {
   const growthModel = channel
     ? buildChannelGrowthModel(channel, user?.id, language, window.location.origin)
     : null;
+  const userMessageCount = messages.hasNextPage ? 1 : countUserMessages(messages.messages);
   const growth = useChatGrowthController({
-    userId: user?.id,
     model: growthModel,
     messagesReady: !messages.isPending && !messages.isError,
-    messageCount: messages.messages.length,
+    userMessageCount,
   });
-  useEffect(() => {
-    if (
-      growthModel?.isOwnerOrAdmin &&
-      new URLSearchParams(window.location.search).get("grow") === "1"
-    ) {
-      growth.openManually();
-    }
-  }, [growth.openManually, growthModel?.isOwnerOrAdmin]);
   const [searchOpen, setSearchOpen] = useState(
     () => new URLSearchParams(window.location.search).get("search") === "true",
   );
@@ -96,7 +92,6 @@ export function ChannelView({ channelId }: { channelId: string }) {
               channel={channel}
               follow={info.data?.follow ?? null}
               onSearch={() => setSearchOpen(true)}
-              onGrow={growth.openManually}
             />
           )
         }
@@ -131,6 +126,18 @@ export function ChannelView({ channelId }: { channelId: string }) {
           query={messages}
           navigation={navigation}
           onRetry={send.retry}
+          growthCard={
+            growth.visible && growthModel ? (
+              <ChatGrowthCard
+                model={growthModel}
+                onShareToStatus={growth.openStoryShare}
+                onSecondaryAction={growth.openSecondaryInvite}
+                onEditDescription={
+                  growth.canEditDescription ? growth.openEditDescription : undefined
+                }
+              />
+            ) : null
+          }
           topNotices={
             <SystemPill data-slot="channel-created-pill">
               {t("channel.created", { name: channel.name })}

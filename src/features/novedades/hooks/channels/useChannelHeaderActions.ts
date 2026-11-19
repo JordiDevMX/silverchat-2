@@ -10,7 +10,7 @@ import type { Channel } from "../../types";
 import { useFollowChannel } from "./useFollowChannel";
 import { useMuteChannel } from "./useMuteChannel";
 import { useUnfollowChannel } from "./useUnfollowChannel";
-export function useChannelHeaderActions(c: Channel, onSearch?: () => void, onGrow?: () => void) {
+export function useChannelHeaderActions(c: Channel, onSearch?: () => void) {
   const { say } = useMessageText();
   const { user } = useAuth();
   const cache = useQueryClient();
@@ -35,10 +35,6 @@ export function useChannelHeaderActions(c: Channel, onSearch?: () => void, onGro
           break;
         case "view_channel_info":
           await router.navigate({ href: `/channels/${c.id}/info` });
-          break;
-        case "grow_channel":
-          if (onGrow) onGrow();
-          else await router.navigate({ href: `/channels/${c.id}?grow=1` });
           break;
         case "search_in_chat":
           if (onSearch) onSearch();
