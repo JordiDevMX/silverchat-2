@@ -319,6 +319,20 @@
     color: inherit;
     cursor: pointer;
   }
+  .chat-settings-notice .chat-notice-link {
+    text-align: left;
+    padding: 2px 4px;
+    border-radius: 8px;
+    font: inherit;
+    overflow-wrap: anywhere;
+  }
+  .chat-settings-notice .chat-notice-link:hover {
+    text-decoration: underline;
+  }
+  .chat-settings-notice .chat-notice-link:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
   @media (max-width: 640px) {
     .chat-settings-screen {
       padding: 20px 16px 100px;

@@ -1,4 +1,5 @@
 import type { Chat, Draft, FilterKey, MessageType } from "../types.ts";
+import { aggregateReactionSummary } from "./reactionNotifications.ts";
 
 const mediaPreviewRules: Partial<Record<MessageType, { prefix: RegExp; fallback: string }>> = {
   image: { prefix: /^📷\s*(?:Photo(?:\s*—\s*|$))?/u, fallback: "Photo" },
@@ -37,7 +38,7 @@ export function applyFilter(chats: Chat[], filter: FilterKey) {
       case "favorites":
         return !!c.favoritedAt;
       case "unread":
-        return c.manuallyUnread || c.unreadCount > 0;
+        return c.manuallyUnread || c.unreadCount > 0 || (c.unreadReactionCount ?? 0) > 0;
       case "groups":
         return c.type === "group" || c.type === "community_chat";
       case "muted":
@@ -83,10 +84,12 @@ export function receiptStatus(
   if (rows.every((r) => r?.delivered_at)) return "delivered";
   return "sent";
 }
-export function computeChatDisplay(chat: Chat, draft?: Draft) {
-  const newer =
-    draft &&
-    Date.parse(draft.updatedAt) > (chat.lastMessageAt ? Date.parse(chat.lastMessageAt) : 0);
+export function computeChatDisplay(chat: Chat, draft?: Draft, language: "en" | "es" = "en") {
+  const latestActivity = Math.max(
+    chat.lastMessageAt ? Date.parse(chat.lastMessageAt) : 0,
+    chat.reactionSummary?.createdAt ? Date.parse(chat.reactionSummary.createdAt) : 0,
+  );
+  const newer = draft && Date.parse(draft.updatedAt) > latestActivity;
   if (newer && draft.failed)
     return {
       state: "failed",
@@ -114,6 +117,21 @@ export function computeChatDisplay(chat: Chat, draft?: Draft) {
       prefix: "",
       status: null,
     } as const;
+  }
+  if (
+    chat.reactionSummary?.entries.length &&
+    (!chat.lastMessageAt ||
+      Date.parse(chat.reactionSummary.createdAt) >= Date.parse(chat.lastMessageAt))
+  ) {
+    const summary = aggregateReactionSummary(chat.reactionSummary.entries, language);
+    if (summary)
+      return {
+        state: "reaction",
+        text: summary.text,
+        translateText: false,
+        prefix: "",
+        status: null,
+      } as const;
   }
   if (chat.deletedForEveryone)
     return {
@@ -145,14 +163,15 @@ export function badgeText(count: number) {
 }
 /** Navigation badge totals. Community chats belong to the Communities tab; the rest to Chats. */
 export function navigationUnread(
-  chats: Pick<Chat, "type" | "unreadCount" | "archivedAt" | "mutedUntil">[],
+  chats: Pick<Chat, "type" | "unreadCount" | "unreadReactionCount" | "archivedAt" | "mutedUntil">[],
 ) {
   let chatUnread = 0;
   let communityUnread = 0;
   for (const chat of chats) {
     if (chat.archivedAt || isMuted(chat)) continue;
-    if (chat.type === "community_chat") communityUnread += chat.unreadCount;
-    else chatUnread += chat.unreadCount;
+    const total = chat.unreadCount + (chat.unreadReactionCount ?? 0);
+    if (chat.type === "community_chat") communityUnread += total;
+    else chatUnread += total;
   }
   return { chatUnread, communityUnread };
 }

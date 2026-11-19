@@ -77,6 +77,7 @@ const spanish: Record<string, string> = {
     "Las notificaciones push llegarán en una versión futura.",
   "Preview notification": "Probar notificación",
   "New message": "Nuevo mensaje",
+  "New reaction": "Nueva reacción",
   "This is how your message previews look.": "Así se ven las vistas previas de tus mensajes.",
   Email: "Correo electrónico",
   "Change email": "Cambiar correo",

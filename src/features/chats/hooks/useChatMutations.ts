@@ -1,10 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { writeDraft } from "../drafts";
 import type { Chat, ChatAction } from "../types";
 import { isMuted, orderChats } from "../utils/computeChatDisplay";
+import { reactionNotificationStore } from "../utils/reactionNotifications";
 import { chatKey } from "./useChats";
 export function useChatMutations() {
   const { user } = useAuth();
@@ -43,7 +45,12 @@ export function useChatMutations() {
                       until === undefined ? (isMuted(c) ? null : "9999-12-31T00:00:00Z") : until,
                   }
                 : action === "read"
-                  ? { manuallyUnread: false, unreadCount: 0 }
+                  ? {
+                      manuallyUnread: false,
+                      unreadCount: 0,
+                      unreadReactionCount: 0,
+                      reactionSummary: null,
+                    }
                   : action === "unread"
                     ? { manuallyUnread: true }
                     : {},
@@ -81,6 +88,12 @@ export function useChatMutations() {
             { p_chat_id: c.id },
           );
           if (r.error) throw r.error;
+          if (action === "read") {
+            const wasToast = reactionNotificationStore.getState().clearChat(c.id);
+            if (wasToast && useChatUIStore.getState().noticeAction?.chatId === c.id) {
+              useChatUIStore.getState().notify("");
+            }
+          }
         } else {
           const values =
             action === "pin"
