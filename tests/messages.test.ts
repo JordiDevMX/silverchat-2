@@ -8,6 +8,11 @@ import {
 } from "../src/features/messages/lib/chatQueryPolicy.ts";
 import { formatConversationText } from "../src/features/messages/lib/conversationStrings.ts";
 import {
+  computeSignedUrlRefreshMs,
+  getSignedUrlPolicy,
+  shouldRetrySignedUrl,
+} from "../src/lib/signed-url-policy.ts";
+import {
   grouped,
   groupMessages,
   shouldShowDateSeparator,
@@ -202,4 +207,28 @@ test("realtime subscribed handler skips initial mount fetch and refreshes on rec
   assert.equal(calls, 1);
   onStatus("SUBSCRIBED");
   assert.equal(calls, 2);
+});
+test("signed URL policies always expire cache and refresh strictly before Storage TTL", () => {
+  for (const bucket of ["avatars", "chat-media", "story-media", "channel-media"]) {
+    const policy = getSignedUrlPolicy(bucket);
+    const ttlMs = policy.ttlSeconds * 1000;
+    const minRefresh = computeSignedUrlRefreshMs(bucket, 0);
+    const maxRefresh = computeSignedUrlRefreshMs(bucket, 1);
+    assert.ok(policy.staleTimeMs < ttlMs, `${bucket}: staleTime must be shorter than TTL`);
+    assert.ok(policy.gcTimeMs < ttlMs, `${bucket}: gcTime must be shorter than TTL`);
+    assert.ok(policy.staleTimeMs <= policy.gcTimeMs, `${bucket}: staleTime <= gcTime`);
+    assert.ok(minRefresh >= policy.staleTimeMs, `${bucket}: refresh should not beat staleTime`);
+    assert.ok(maxRefresh < ttlMs, `${bucket}: max jittered refresh must occur before TTL expiry`);
+  }
+});
+test("signed URL retry stops immediately on permanent 4xx errors and storage outages", () => {
+  for (const status of [400, 401, 403, 404]) {
+    assert.equal(shouldRetrySignedUrl(0, status, false), false);
+  }
+  assert.equal(shouldRetrySignedUrl(0, 500, true), false);
+  assert.equal(shouldRetrySignedUrl(0, 504, false), true);
+  assert.equal(shouldRetrySignedUrl(1, 504, false), false);
+  assert.equal(shouldRetrySignedUrl(0, 500, false), true);
+  assert.equal(shouldRetrySignedUrl(1, 500, false), true);
+  assert.equal(shouldRetrySignedUrl(2, 500, false), false);
 });
