@@ -121,6 +121,31 @@ test("flags blocked clipboard image items when browser denies getAsFile()", () =
   assert.match(formatClipboardFeedback(result, "es"), /portapapeles/);
 });
 
+test("does not duplicate a single clipboard image when items.getAsFile() and files[] yield different lastModified timestamps", () => {
+  const result = extractDataTransferMedia({
+    items: [
+      {
+        kind: "file",
+        type: "image/png",
+        getAsFile: () =>
+          new File([new Uint8Array(443)], "image.png", {
+            type: "image/png",
+            lastModified: 1795111793099,
+          }),
+      },
+    ],
+    files: [
+      new File([new Uint8Array(443)], "image.png", {
+        type: "image/png",
+        lastModified: 1795111793095,
+      }),
+    ],
+    getData: () => "",
+  });
+  assert.equal(result.images.length, 1);
+  assert.equal(result.overflowCount, 0);
+});
+
 test("formats clear localized notices for every text-only input category", () => {
   assert.match(
     formatTextOnlyPasteNotice("edit-message", false, "en"),

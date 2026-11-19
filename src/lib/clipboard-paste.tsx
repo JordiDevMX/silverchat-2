@@ -55,6 +55,7 @@ interface ClipboardPasteContextValue {
 }
 
 const ClipboardPasteContext = createContext<ClipboardPasteContextValue | null>(null);
+const claimedPasteEvents = new WeakSet<ClipboardEvent>();
 
 const REASON_HINTS = new Set<string>([
   "text-only",
@@ -158,6 +159,10 @@ export function ClipboardPasteProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
+      // Claim ownership synchronously before any target dispatch or DOM work.
+      if (claimedPasteEvents.has(event)) return;
+      claimedPasteEvents.add(event);
+
       const targetNode = event.target;
       const textInput = isTextInputElement(targetNode);
       const matched = findMatchingTarget(targetNode, targetsRef.current);

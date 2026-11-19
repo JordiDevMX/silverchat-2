@@ -7,6 +7,22 @@ const uid = (n) => `${String(n).padStart(8, "0")}-5555-4555-8555-555555555555`;
 const me = uid(1);
 const other = uid(2);
 const groupId = uid(101);
+const channelId = uid(201);
+
+const ownedChannel = {
+  id: channelId,
+  owner_id: me,
+  name: "Release notes",
+  slug: "release-notes",
+  description: "Channel updates",
+  follower_count: 1,
+  is_verified: false,
+  avatar_url: null,
+  created_at: new Date(Date.now() - 3600000).toISOString(),
+  updated_at: new Date().toISOString(),
+  last_message_at: null,
+  last_message_preview: null,
+};
 
 const user = {
   id: me,
@@ -159,7 +175,9 @@ async function setup(context) {
     if (p.endsWith("/message_receipts")) return result([]);
     if (p.endsWith("/message_reactions")) return result([]);
     if (p.endsWith("/stories")) return result([]);
-    if (p.endsWith("/channels") || p.endsWith("/channel_follows")) return result([]);
+    if (p.endsWith("/channels")) return result([ownedChannel]);
+    if (p.endsWith("/channel_follows")) return result([]);
+    if (p.endsWith("/rpc/get_channel_messages")) return json(route, []);
     if (p.endsWith("/rpc/get_chat_messages")) return json(route, rows);
     if (p.endsWith("/rpc/mark_chat_as_read")) return json(route, null);
     if (p.endsWith("/rpc/own_upload_is_referenced")) return json(route, false);
@@ -186,6 +204,7 @@ async function setup(context) {
         rows.push(row);
         return json(route, { id: row.id });
       }
+      if (s.get("channel_id")?.includes(channelId)) return result([]);
       return result(rows);
     }
     if (p.endsWith("/file_uploads")) {
@@ -316,17 +335,48 @@ async function dispatchPaste(page, selector, { files = [], text = "" }) {
   );
 }
 
+async function writePngToRealClipboard(page, color = "#2f87ff") {
+  await page.evaluate(async (fill) => {
+    const c = document.createElement("canvas");
+    c.width = 120;
+    c.height = 90;
+    const g = c.getContext("2d");
+    g.fillStyle = fill;
+    g.fillRect(0, 0, 120, 90);
+    const blob = await new Promise((res) => c.toBlob(res, "image/png"));
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+  }, color);
+}
+
 const baseUrl = process.env.UI_BASE_URL ?? "http://127.0.0.1:5173";
 
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await setup(context);
   const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
   page.on("pageerror", (e) => pageErrors.push(e.message));
 
   await page.goto(`${baseUrl}/chats/${groupId}`);
   const composerInput = page.getByRole("textbox", { name: "Message", exact: true });
   await composerInput.waitFor();
+
+  // 0. Hostile real-clipboard paste under uncached load + 6x CPU throttling:
+  // a single OS-like PNG must insert exactly 1 item on first paste and 2 after a second paste.
+  await writePngToRealClipboard(page, "#2563eb");
+  await composerInput.focus();
+  await page.keyboard.press("Control+v");
+  await page.locator('[data-slot="composer-attachment-tray"]').waitFor();
+  assert.equal(await page.locator('[data-slot="composer-attachment-item"]').count(), 1);
+  await page.keyboard.press("Control+v");
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('[data-slot="composer-attachment-item"]').count(), 2);
+  await page.getByRole("button", { name: "Clear all", exact: true }).click();
+  assert.equal(await page.locator('[data-slot="composer-attachment-tray"]').count(), 0);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
 
   const pngBlue = await createSamplePngBase64("#2f87ff", page);
   const pngGreen = await createSamplePngBase64("#10b981", page);
@@ -452,7 +502,7 @@ try {
   await page.getByRole("button", { name: "Clear all", exact: true }).click();
   assert.equal(await page.locator('[data-slot="composer-attachment-tray"]').count(), 0);
 
-  // 8. MediaPreviewModal accepts pasted images into multi-image strip.
+  // 8. MediaPreviewModal accepts pasted images into multi-image strip (real clipboard, 1 -> 2).
   await page.getByRole("button", { name: "Attach", exact: true }).click();
   await page.locator("input[type=file]").setInputFiles({
     name: "picker.png",
@@ -461,10 +511,9 @@ try {
   });
   const previewModal = page.getByRole("dialog", { name: "Send attachment" });
   await previewModal.waitFor();
-  await dispatchPaste(page, ".media-preview textarea", {
-    files: [{ name: "pasted-in-modal.png", type: "image/png", base64: pngGreen }],
-    text: "Two via modal",
-  });
+  await writePngToRealClipboard(page, "#10b981");
+  await previewModal.locator("textarea").focus();
+  await page.keyboard.press("Control+v");
   await previewModal.locator(".media-preview-strip").waitFor();
   assert.equal(await previewModal.locator(".media-preview-strip-item").count(), 2);
   await previewModal.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -503,20 +552,30 @@ try {
   );
   await editDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
-  // 10. Non-chat image-capable input: StoryCreator in /novedades.
+  // 10. Non-chat image-capable inputs: StoryCreator and ChannelComposer.
+  await page.goto(`${baseUrl}/channels/${channelId}`);
+  const channelInput = page.getByRole("textbox", { name: "Message", exact: true });
+  await channelInput.waitFor();
+  await writePngToRealClipboard(page, "#0ea5e9");
+  await channelInput.focus();
+  await page.keyboard.press("Control+v");
+  await page.locator('[data-slot="composer-attachment-tray"]').waitFor();
+  assert.equal(await page.locator('[data-slot="composer-attachment-item"]').count(), 1);
+
   await page.goto(`${baseUrl}/novedades`);
   await page.getByRole("button", { name: /Add story|Create story|My story/i }).first().click();
   const storyDialog = page.getByRole("dialog", { name: "Create story" });
   await storyDialog.waitFor();
-  await dispatchPaste(page, ".story-creator textarea", {
-    files: [{ name: "story-shot.png", type: "image/png", base64: pngGreen }],
-    text: "Story caption",
-  });
-  assert.equal(await storyDialog.locator("textarea").inputValue(), "Story caption");
+  await writePngToRealClipboard(page, "#10b981");
+  await storyDialog.locator("textarea").fill("Story caption");
+  await storyDialog.locator("textarea").focus();
+  await page.keyboard.press("Control+v");
   await storyDialog.locator(".story-create-preview img").waitFor();
+  assert.equal(await storyDialog.locator("textarea").inputValue(), "Story caption");
+  assert.equal(await storyDialog.locator('[role="alert"]').count(), 0);
   await storyDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
-  // 11. Non-chat text-only input: /settings/profile bio textarea.
+  // 11. AvatarPickerModal accepts real-clipboard image + /settings/profile bio rejects gracefully.
   await page.goto(`${baseUrl}/settings/profile`);
   const bio = page.locator("#bio");
   await bio.waitFor();
@@ -529,8 +588,31 @@ try {
     await page.locator('[data-slot="clipboard-paste-notice"]').textContent(),
     /Change photo/i,
   );
+  await page.getByRole("button", { name: "Change photo", exact: true }).click();
+  const avatarDialog = page.getByRole("dialog", { name: "Change photo" });
+  await avatarDialog.waitFor();
+  await writePngToRealClipboard(page, "#f59e0b");
+  await page.keyboard.press("Control+v");
+  await avatarDialog.locator(".avatar-crop").waitFor();
+  assert.equal(await avatarDialog.locator('[data-slot="clipboard-paste-notice"]').count(), 0);
+  await avatarDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
-  // 12. Auth 2FA CodeInput preserves digits on image paste.
+  // 11b. Unregistered contenteditable element degrades gracefully without corrupting content.
+  await page.evaluate(() => {
+    const ce = document.createElement("div");
+    ce.id = "test-ce";
+    ce.contentEditable = "true";
+    ce.textContent = "Keep me";
+    document.body.appendChild(ce);
+    ce.focus();
+  });
+  await writePngToRealClipboard(page, "#ef4444");
+  await page.keyboard.press("Control+v");
+  await page.locator('[data-slot="clipboard-paste-notice"]').waitFor();
+  assert.equal(await page.evaluate(() => document.getElementById("test-ce")?.textContent), "Keep me");
+  await page.evaluate(() => document.getElementById("test-ce")?.remove());
+
+  // 12. Auth 2FA CodeInput preserves digits on image paste AND supports 6-digit paste.
   mfaPending = true;
   await page.goto(`${baseUrl}/auth/2fa-verify`);
   const firstDigit = page.getByRole("textbox", { name: "Digit 1" });
@@ -543,6 +625,9 @@ try {
   assert.equal(await firstDigit.inputValue(), "1");
   assert.equal(await page.getByRole("textbox", { name: "Digit 2" }).inputValue(), "2");
   await page.locator('[data-slot="clipboard-paste-notice"]').waitFor();
+  await dispatchPaste(page, '[aria-label="Digit 1"]', { text: "654321" });
+  assert.equal(await firstDigit.inputValue(), "6");
+  assert.equal(await page.getByRole("textbox", { name: "Digit 6" }).inputValue(), "1");
   mfaPending = false;
 
   // 13. Mobile viewport layout & overflow check with pasted images.

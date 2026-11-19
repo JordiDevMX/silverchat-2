@@ -263,33 +263,27 @@ export function extractDataTransferMedia(
   }
 
   const rawFiles: File[] = [];
-  const seenKeys = new Set<string>();
   let clipboardBlocked = false;
 
-  const pushUniqueFile = (file: File) => {
-    const key = `${file.name}:${file.size}:${file.type}:${file.lastModified}`;
-    if (seenKeys.has(key)) return;
-    seenKeys.add(key);
-    rawFiles.push(file);
-  };
-
+  // Prefer DataTransferItemList when available; DataTransfer.files exposes the same
+  // underlying files with independent File timestamps in Chromium when constructed lazily.
   if (dataTransfer.items) {
     for (let i = 0; i < dataTransfer.items.length; i += 1) {
       const item = dataTransfer.items[i];
       if (item?.kind !== "file") continue;
       const file = item.getAsFile();
       if (file) {
-        pushUniqueFile(file);
+        rawFiles.push(file);
       } else if (item.type.toLowerCase().startsWith("image/")) {
         clipboardBlocked = true;
       }
     }
   }
 
-  if (dataTransfer.files) {
+  if (rawFiles.length === 0 && dataTransfer.files) {
     for (let i = 0; i < dataTransfer.files.length; i += 1) {
       const file = dataTransfer.files[i];
-      if (file) pushUniqueFile(file);
+      if (file) rawFiles.push(file);
     }
   }
 
