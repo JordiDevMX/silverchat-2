@@ -4,10 +4,12 @@ import { Modal } from "@/features/auth/components";
 import { useMessageText } from "../i18n";
 export function AttachmentMenu({
   onFile,
+  onFiles,
   onContact,
   onClose,
 }: {
   onFile: (file: File) => void;
+  onFiles?: (files: File[]) => void;
   onContact: () => void;
   onClose: () => void;
 }) {
@@ -16,6 +18,7 @@ export function AttachmentMenu({
   const choose = (kind: "media" | "camera" | "file") => {
     if (!input.current) return;
     input.current.accept = kind === "file" ? "*/*" : "image/*,video/*";
+    input.current.multiple = kind === "media" && Boolean(onFiles);
     if (kind === "camera") input.current.setAttribute("capture", "environment");
     else input.current.removeAttribute("capture");
     input.current.click();
@@ -57,8 +60,9 @@ export function AttachmentMenu({
         type="file"
         hidden
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onFile(file);
+          const files = Array.from(e.target.files ?? []);
+          if (files.length > 1 && onFiles) onFiles(files);
+          else if (files[0]) onFile(files[0]);
           e.target.value = "";
         }}
       />

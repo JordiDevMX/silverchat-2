@@ -116,7 +116,7 @@ export function GroupSettingsScreen(
           </Button>
         )}
       </div>
-      <CardSurface className="chat-info-card">
+      <CardSurface className="chat-info-card" data-clipboard-reason="avatar-hint">
         {admin ? (
           <GroupFields
             key={`${chat.name}:${chat.description}`}
