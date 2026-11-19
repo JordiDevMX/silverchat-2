@@ -5,9 +5,13 @@ import { RoomEvent } from "livekit-client";
 import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { declineIncomingCall, hangupActiveCall } from "../lib/callActions";
-import { type CallEndedNote, mapRemoteEnd, ringTimeoutOutcome } from "../lib/callState";
+import {
+  type CallEndedNote,
+  mapRemoteEnd,
+  ringRemainingMs,
+  ringTimeoutOutcome,
+} from "../lib/callState";
 import { resetCallStore, useCallStore } from "../stores/callStore";
-import { RING_TIMEOUT_MS } from "../types";
 
 export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
   const notify = useRef(onEnded);
@@ -15,7 +19,7 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
   const phase = useCallStore((state) => state.phase);
   const call = useCallStore((state) => state.call);
   const room = useCallStore((state) => state.room);
-  const ringStartedAt = useCallStore((state) => state.ringStartedAt);
+  const ringDeadline = useCallStore((state) => state.ringDeadline);
   const callId = call?.id ?? null;
 
   // Remote transitions of the active call row: the caller learns the callee
@@ -53,12 +57,11 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
     };
   }, [phase, callId]);
 
-  // 15s ring timeout (L1). Incoming: mark missed. Outgoing: silent reset —
-  // the cron marks the row missed within 20s.
+  // 15s ring timeout (L1) measured on the monotonic clock. Incoming: mark
+  // missed. Outgoing: silent reset — the cron marks the row missed within 20s.
   useEffect(() => {
     if (phase !== "incoming-ringing" && phase !== "outgoing-ringing") return;
-    const started = ringStartedAt ? new Date(ringStartedAt).getTime() : Date.now();
-    const remaining = Math.max(0, started + RING_TIMEOUT_MS - Date.now());
+    const remaining = ringRemainingMs(ringDeadline);
     const timer = setTimeout(() => {
       const outcome = ringTimeoutOutcome(useCallStore.getState().phase);
       if (outcome.kind === "incoming-timeout") void declineIncomingCall("missed");
@@ -68,7 +71,7 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
       }
     }, remaining);
     return () => clearTimeout(timer);
-  }, [phase, ringStartedAt]);
+  }, [phase, ringDeadline]);
 
   // Peer disconnect (9.5): a 3s grace window allows LiveKit reconnection; if
   // the room stays empty, end the call as peer_hangup. The INITIAL join gets

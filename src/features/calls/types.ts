@@ -20,15 +20,23 @@ export type CallStatus =
  * up at 15s; the cleanup_stale_calls cron sweeps leftovers after 20s. */
 export const RING_TIMEOUT_MS = 15_000;
 
-/** LiveKit event payload subset used by the incoming-call pipeline. */
-export interface IncomingCallRow {
+/** A verdict with less window left than this never renders: the modal would
+ * flash for a frame and vanish, which reads as a glitch, not a call. */
+export const MIN_RING_MS = 1_000;
+
+/** One row of answerable_incoming_calls(): the server's verdict on a call.
+ * The function only returns rows that are still ringing, still inside the
+ * ring window and not originated by me, so the client never compares
+ * started_at with its own clock. */
+export interface IncomingCallVerdict {
   id: string;
   chat_id: string;
   initiator_id: string | null;
-  status: string;
   type: CallType;
   started_at: string;
   livekit_room_name: string;
+  /** Remaining ring window measured on the server's now(). */
+  expires_in_ms: number;
 }
 
 /** Peer profile subset shared by the store, hooks and log. */
@@ -53,6 +61,6 @@ export interface CallPatch {
 }
 
 export type IncomingDecision =
-  | { kind: "ignore"; reason: "self" | "stale" | "status" }
+  | { kind: "ignore"; reason: "expired" }
   | { kind: "busy-reject" }
-  | { kind: "ring" };
+  | { kind: "ring"; expiresInMs: number };

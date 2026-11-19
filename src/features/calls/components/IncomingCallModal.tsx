@@ -4,6 +4,7 @@ import { Phone, PhoneOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCallText } from "../i18n";
 import { acceptIncomingCall, declineIncomingCall } from "../lib/callActions";
+import { ringRemainingMs } from "../lib/callState";
 import { notifyCall, useCallStore } from "../stores/callStore";
 import { RING_TIMEOUT_MS } from "../types";
 import { CallAvatar } from "./CallAvatar";
@@ -39,18 +40,15 @@ export function IncomingCallModal() {
   const say = useCallText();
   const call = useCallStore((state) => state.call);
   const other = useCallStore((state) => state.other);
-  const ringStartedAt = useCallStore((state) => state.ringStartedAt);
+  const ringDeadline = useCallStore((state) => state.ringDeadline);
   const [remaining, setRemaining] = useState(RING_TIMEOUT_MS);
 
   useEffect(() => {
-    const tick = () => {
-      const started = ringStartedAt ? new Date(ringStartedAt).getTime() : Date.now();
-      setRemaining(Math.max(0, started + RING_TIMEOUT_MS - Date.now()));
-    };
+    const tick = () => setRemaining(ringRemainingMs(ringDeadline));
     tick();
     const timer = setInterval(tick, 250);
     return () => clearInterval(timer);
-  }, [ringStartedAt]);
+  }, [ringDeadline]);
 
   if (!call || !other) return null;
 

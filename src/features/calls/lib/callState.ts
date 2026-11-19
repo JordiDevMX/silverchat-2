@@ -6,28 +6,25 @@ import {
   type CallPhase,
   type CallStatus,
   type CallType,
-  type IncomingCallRow,
+  type IncomingCallVerdict,
   type IncomingDecision,
-  RING_TIMEOUT_MS,
+  MIN_RING_MS,
 } from "../types.ts";
 
-/** Resolve a realtime INSERT on the calls table into a local action.
- * Locked decisions: self-calls are ignored (7.2), stale events are ignored
- * (7.2), and a call received while busy is auto-rejected as missed/busy
- * (L12) without ever rendering a modal. */
+/** Resolve the server's verdict on an incoming call into a local action.
+ * The verdict only exists for rows Postgres still considers answerable
+ * (ringing, inside the ring window, not mine), so there is deliberately no
+ * clock comparison here: a wrong wall clock can neither drop a live call nor
+ * ring an expired or canceled one. Locked decisions: a call received while
+ * busy is auto-rejected as missed/busy (L12) without ever rendering a modal;
+ * a verdict about to expire never flashes the modal. */
 export function decideIncomingCall(
-  call: IncomingCallRow,
-  userId: string,
+  verdict: IncomingCallVerdict,
   currentPhase: CallPhase,
-  now: number = Date.now(),
 ): IncomingDecision {
-  if (call.initiator_id === userId) return { kind: "ignore", reason: "self" };
-  if (call.status !== "ringing") return { kind: "ignore", reason: "status" };
-  if (now - new Date(call.started_at).getTime() > RING_TIMEOUT_MS) {
-    return { kind: "ignore", reason: "stale" };
-  }
+  if (verdict.expires_in_ms < MIN_RING_MS) return { kind: "ignore", reason: "expired" };
   if (currentPhase !== "idle") return { kind: "busy-reject" };
-  return { kind: "ring" };
+  return { kind: "ring", expiresInMs: verdict.expires_in_ms };
 }
 
 /** Busy auto-reject (L12): immediately missed, never shown. */
@@ -113,6 +110,24 @@ export type RingTimeoutOutcome =
   | { kind: "incoming-timeout"; patch: CallPatch }
   | { kind: "outgoing-timeout" }
   | { kind: "none" };
+
+/** Ring deadline on the monotonic clock. performance.now() is unaffected by
+ * wall-clock changes (NTP sync, manual clock edits), so a skewed PC clock can
+ * neither shorten nor extend the ring window. */
+export function ringDeadlineFrom(
+  expiresInMs: number,
+  monotonicNow: number = performance.now(),
+): number {
+  return monotonicNow + expiresInMs;
+}
+
+/** Remaining ring window on the monotonic clock; 0 when nothing is ringing. */
+export function ringRemainingMs(
+  deadline: number | null,
+  monotonicNow: number = performance.now(),
+): number {
+  return deadline === null ? 0 : Math.max(0, deadline - monotonicNow);
+}
 
 /** 15s ring timeout (L1). Incoming: mark missed. Outgoing: silently stop
  * ringing locally; the cron marks the DB row missed within 20s. */

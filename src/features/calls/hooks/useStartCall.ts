@@ -89,7 +89,6 @@ async function startCall(input: StartCallInput, userId: string): Promise<void> {
       initiatorId: call.initiator_id,
     },
     other,
-    new Date().toISOString(),
   );
 }
 

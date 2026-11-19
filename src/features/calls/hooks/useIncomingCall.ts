@@ -1,12 +1,15 @@
-// Incoming call pipeline (7.2): realtime INSERT on calls + a mount-time
-// catch-up query for events missed while briefly disconnected. Decisions
-// (self / stale / busy-reject / ring) live in lib/callState and are tested.
+// Incoming call pipeline (7.2): a realtime INSERT on calls is only a hint.
+// The verdict ("can this call still be answered?") comes from
+// answerable_incoming_calls(), which measures the ring window on the server
+// clock, so a wrong PC clock can neither drop a live call nor ring an expired
+// or canceled one. The same function recovers calls missed while briefly
+// disconnected. Local decisions (expired/busy) live in lib/callState.
 import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { busyRejectCall } from "../lib/callActions";
 import { decideIncomingCall } from "../lib/callState";
 import { enterIncomingCall, useCallStore } from "../stores/callStore";
-import type { CallParticipant, IncomingCallRow } from "../types";
+import type { CallParticipant, IncomingCallVerdict } from "../types";
 
 export function useIncomingCall(userId: string | undefined) {
   // Realtime payloads for the same call can race the catch-up query; process
@@ -16,14 +19,14 @@ export function useIncomingCall(userId: string | undefined) {
     if (!userId) return;
     const seen = handled.current;
 
-    const resolvePeer = async (call: IncomingCallRow, viewerId: string) => {
+    const resolvePeer = async (verdict: IncomingCallVerdict, viewerId: string) => {
       const { data: chat } = await supabase
         .from("chats")
         .select("direct_pair_key")
-        .eq("id", call.chat_id)
+        .eq("id", verdict.chat_id)
         .maybeSingle();
       const otherId =
-        chat?.direct_pair_key?.split("::").find((id) => id !== viewerId) ?? call.initiator_id;
+        chat?.direct_pair_key?.split("::").find((id) => id !== viewerId) ?? verdict.initiator_id;
       if (!otherId) return;
       const { data: other } = await supabase
         .from("profiles_visible")
@@ -41,47 +44,45 @@ export function useIncomingCall(userId: string | undefined) {
         : { id: otherId, display_name: `User ${otherId.replace(/-/g, "").slice(0, 8)}` };
       enterIncomingCall(
         {
-          id: call.id,
-          chatId: call.chat_id,
-          type: call.type,
-          roomName: call.livekit_room_name,
-          initiatorId: call.initiator_id,
+          id: verdict.id,
+          chatId: verdict.chat_id,
+          type: verdict.type,
+          roomName: verdict.livekit_room_name,
+          initiatorId: verdict.initiator_id,
         },
         participant,
-        new Date().toISOString(),
+        verdict.expires_in_ms,
       );
     };
 
-    const handle = async (call: IncomingCallRow) => {
-      if (seen.has(call.id)) return;
-      seen.add(call.id);
-      const decision = decideIncomingCall(call, userId, useCallStore.getState().phase);
-      if (decision.kind === "ignore") return;
-      // Defense in depth: membership check before ringing or rejecting.
-      const { data: member } = await supabase
-        .from("chat_members")
-        .select("chat_id")
-        .eq("chat_id", call.chat_id)
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (!member) return;
-      if (decision.kind === "busy-reject") {
-        await busyRejectCall(call.id);
+    const handle = async (callId: string) => {
+      if (seen.has(callId)) return;
+      seen.add(callId);
+      // Expired, canceled, answered, own and non-member rows return nothing:
+      // the server verdict already covers what used to be client-side checks.
+      const { data, error } = await supabase.rpc("answerable_incoming_calls", {
+        p_call_id: callId,
+      });
+      if (error) {
+        seen.delete(callId); // let the next hint or catch-up retry
         return;
       }
-      await resolvePeer(call, userId);
+      const verdict = data?.[0];
+      if (!verdict) return;
+      const decision = decideIncomingCall(verdict, useCallStore.getState().phase);
+      if (decision.kind === "ignore") return;
+      if (decision.kind === "busy-reject") {
+        await busyRejectCall(verdict.id);
+        return;
+      }
+      await resolvePeer(verdict, userId);
     };
 
-    // Belt and suspenders (7.2): catch ringing rows the realtime event missed.
+    // Belt and suspenders (7.2): recover answerable rows the realtime event
+    // missed. Same server verdict, so no local clock is involved.
     const catchUp = async () => {
-      const since = new Date(Date.now() - 15_000).toISOString();
-      const { data: rows } = await supabase
-        .from("calls")
-        .select("id, chat_id, initiator_id, status, type, started_at, livekit_room_name")
-        .eq("status", "ringing")
-        .gt("started_at", since)
-        .order("started_at", { ascending: false });
-      for (const row of rows ?? []) await handle(row as IncomingCallRow);
+      const { data } = await supabase.rpc("answerable_incoming_calls");
+      for (const row of data ?? []) await handle(row.id);
     };
 
     const channel = supabase
@@ -89,7 +90,7 @@ export function useIncomingCall(userId: string | undefined) {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "calls" },
-        ({ new: call }) => void handle(call as IncomingCallRow),
+        ({ new: call }) => void handle((call as { id: string }).id),
       )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") void catchUp();

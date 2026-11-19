@@ -1515,6 +1515,18 @@ export type Database = {
       accept_chat_request: { Args: { p_request_id: string }; Returns: undefined };
       add_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
       add_chat_members: { Args: { p_chat_id: string; p_user_ids: string[] }; Returns: number };
+      answerable_incoming_calls: {
+        Args: { p_call_id?: string };
+        Returns: {
+          chat_id: string;
+          expires_in_ms: number;
+          id: string;
+          initiator_id: string;
+          livekit_room_name: string;
+          started_at: string;
+          type: Database["public"]["Enums"]["call_type"];
+        }[];
+      };
       auth_mfa_satisfied: { Args: Record<PropertyKey, never>; Returns: boolean };
       can_access_chat_message: {
         Args: { p_include_deleted?: boolean; p_message_id: string };

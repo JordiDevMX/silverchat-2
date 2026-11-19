@@ -16,61 +16,79 @@ import {
   noteText,
   preconditionFor,
   reconcileRacingPatch,
+  ringDeadlineFrom,
+  ringRemainingMs,
   ringTimeoutOutcome,
 } from "../src/features/calls/lib/callState.ts";
 
-const ME = "user-me";
 const PEER = "user-peer";
 const NOW = new Date("2026-11-16T12:00:00Z").getTime();
 
-const ringing = (overrides: Partial<Parameters<typeof decideIncomingCall>[0]> = {}) => ({
+const verdict = (overrides: Partial<Parameters<typeof decideIncomingCall>[0]> = {}) => ({
   id: "call-1",
   chat_id: "chat-1",
   initiator_id: PEER,
-  status: "ringing",
   type: "voice" as const,
   started_at: new Date(NOW - 2_000).toISOString(),
   livekit_room_name: "call_test",
+  expires_in_ms: 12_000,
   ...overrides,
 });
 
 // ─── Incoming notification decisions (roadmap 7.2, L12) ────────────────────
+// Self/stale/status filtering moved into answerable_incoming_calls(): the
+// server only returns rows that are ringing, inside the ring window and not
+// originated by me (covered by supabase/tests/calls.sql). What remains here is
+// the clock-independent client decision.
 
-test("an incoming ringing call from a peer rings when idle", () => {
-  assert.deepEqual(decideIncomingCall(ringing(), ME, "idle", NOW), { kind: "ring" });
+test("a server verdict with window left rings when idle", () => {
+  assert.deepEqual(decideIncomingCall(verdict(), "idle"), { kind: "ring", expiresInMs: 12_000 });
 });
 
-test("my own outgoing call INSERT never rings my client", () => {
-  assert.deepEqual(decideIncomingCall(ringing({ initiator_id: ME }), ME, "idle", NOW), {
+test("the decision never reads the wall clock", () => {
+  const realNow = Date.now;
+  try {
+    for (const offset of [3_600_000, -3_600_000, 86_400_000]) {
+      Date.now = () => realNow() + offset;
+      assert.deepEqual(decideIncomingCall(verdict(), "idle"), {
+        kind: "ring",
+        expiresInMs: 12_000,
+      });
+    }
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("a verdict about to expire is ignored instead of flashing the modal", () => {
+  assert.deepEqual(decideIncomingCall(verdict({ expires_in_ms: 999 }), "idle"), {
     kind: "ignore",
-    reason: "self",
+    reason: "expired",
   });
-});
-
-test("events older than the 15s ring window are ignored as stale", () => {
-  const stale = ringing({ started_at: new Date(NOW - 16_000).toISOString() });
-  assert.deepEqual(decideIncomingCall(stale, ME, "idle", NOW), { kind: "ignore", reason: "stale" });
-});
-
-test("exactly at the 15s boundary the event is still fresh", () => {
-  const boundary = ringing({ started_at: new Date(NOW - 15_000).toISOString() });
-  assert.deepEqual(decideIncomingCall(boundary, ME, "idle", NOW), { kind: "ring" });
-});
-
-test("non-ringing rows (answered/missed/canceled) never notify", () => {
-  assert.deepEqual(decideIncomingCall(ringing({ status: "answered" }), ME, "idle", NOW), {
+  assert.deepEqual(decideIncomingCall(verdict({ expires_in_ms: 0 }), "idle"), {
     kind: "ignore",
-    reason: "status",
-  });
-  assert.deepEqual(decideIncomingCall(ringing({ status: "missed" }), ME, "idle", NOW), {
-    kind: "ignore",
-    reason: "status",
+    reason: "expired",
   });
 });
 
 test("a call received while busy is auto-rejected, never shown (L12)", () => {
   for (const phase of ["incoming-ringing", "outgoing-ringing", "answered", "ending"] as const) {
-    assert.deepEqual(decideIncomingCall(ringing(), ME, phase, NOW), { kind: "busy-reject" });
+    assert.deepEqual(decideIncomingCall(verdict(), phase), { kind: "busy-reject" });
+  }
+});
+
+test("the ring countdown uses the monotonic clock, not the wall clock", () => {
+  const deadline = ringDeadlineFrom(12_000, 1_000);
+  assert.equal(deadline, 13_000);
+  assert.equal(ringRemainingMs(deadline, 4_000), 9_000);
+  assert.equal(ringRemainingMs(deadline, 13_500), 0);
+  assert.equal(ringRemainingMs(null, 4_000), 0);
+  const realNow = Date.now;
+  try {
+    Date.now = () => realNow() + 3_600_000;
+    assert.equal(ringRemainingMs(deadline, 4_000), 9_000);
+  } finally {
+    Date.now = realNow;
   }
 });
 

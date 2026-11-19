@@ -364,4 +364,83 @@ SELECT pg_temp.assert_true(
   'No fabricated answered row with a decline_reason exists');
 RESET ROLE;
 
+-- ─── Server-clock verdict: answerable_incoming_calls ───────────────────────
+-- Round 7: the callee client no longer compares started_at with its own wall
+-- clock. These cases pin the contract that replaced it: a live call is
+-- answerable, and expired/canceled/answered/own/non-member rows are not, so a
+-- delayed realtime notification can never ring a call that is already gone.
+SELECT pg_temp.assert_true(
+  has_function_privilege('authenticated','public.answerable_incoming_calls(uuid)','EXECUTE'),
+  'authenticated may execute answerable_incoming_calls');
+SELECT pg_temp.assert_true(
+  NOT has_function_privilege('anon','public.answerable_incoming_calls(uuid)','EXECUTE'),
+  'anon may not execute answerable_incoming_calls');
+
+-- A fresh ringing call from Alice toward Bob in a111.
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
+SET LOCAL ROLE authenticated;
+SELECT public.start_call('a1111111-1111-4111-8111-111111111111','voice') AS verdict_call \gset
+RESET ROLE;
+
+-- Callee sees exactly that call, with the server-computed remaining window.
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT count(*) AS answerable_rows,
+       coalesce(min(expires_in_ms), -1) AS answerable_ms
+  FROM public.answerable_incoming_calls(:'verdict_call') \gset
+SELECT pg_temp.assert_true((:'answerable_rows'::int)=1,
+  'A fresh ringing call is answerable for the callee (1 row)');
+SELECT pg_temp.assert_true((:'answerable_ms'::int) BETWEEN 14000 AND 15000,
+  'expires_in_ms is the remaining window on the server clock (expected 14000..15000, got '
+  || :'answerable_ms' || ')');
+SELECT pg_temp.assert_true(
+  EXISTS (SELECT 1 FROM public.answerable_incoming_calls() WHERE id=:'verdict_call'),
+  'The no-argument variant recovers the answerable call after a reconnect');
+RESET ROLE;
+
+-- The initiator never gets a verdict for her own call (self-call rule).
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  NOT EXISTS (SELECT 1 FROM public.answerable_incoming_calls(:'verdict_call')),
+  'The initiator own call is never answerable for them');
+RESET ROLE;
+
+-- A non-member gets no verdict row: SECURITY INVOKER keeps the calls RLS.
+SELECT set_config('request.jwt.claims','{"sub":"e3333333-3333-4333-8333-333333333333","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  NOT EXISTS (SELECT 1 FROM public.answerable_incoming_calls(:'verdict_call')),
+  'A non-member gets no verdict row (RLS still applies)');
+RESET ROLE;
+
+-- Backdate past the 15s window as the owner (clients cannot move started_at).
+UPDATE public.calls SET started_at = now() - interval '16 seconds' WHERE id=:'verdict_call';
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  NOT EXISTS (SELECT 1 FROM public.answerable_incoming_calls(:'verdict_call')),
+  'A ringing call past the 15s window is not answerable (delayed event cannot ring)');
+RESET ROLE;
+
+-- A canceled call is rejected on status alone, even while still fresh.
+UPDATE public.calls
+   SET status='canceled', decline_reason='canceled', ended_at=now(), started_at=now()
+ WHERE id=:'verdict_call';
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  NOT EXISTS (SELECT 1 FROM public.answerable_incoming_calls(:'verdict_call')),
+  'A canceled call is not answerable even while fresh');
+RESET ROLE;
+
+-- An answered call is not answerable either.
+UPDATE public.calls SET status='answered', answered_at=now(), started_at=now() WHERE id=:'verdict_call';
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  NOT EXISTS (SELECT 1 FROM public.answerable_incoming_calls(:'verdict_call')),
+  'An answered call is not answerable (no second ring)');
+RESET ROLE;
+
 ROLLBACK;

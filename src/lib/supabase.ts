@@ -5,6 +5,11 @@ export const supabase = createClient<Database>(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY,
   {
+    // Realtime asks this callback on every join and after each successful subscribe.
+    // Without it, supabase-js falls back to the anon key once the first channel
+    // subscribes, so later filtered joins lose the user's role and Realtime rejects
+    // them ("invalid column for filter <col>").
+    accessToken: async () => getAccessToken(),
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: {
       fetch: async (input, init = {}) => {
