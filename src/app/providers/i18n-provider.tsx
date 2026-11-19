@@ -167,6 +167,11 @@ const spanish: Record<string, string> = {
   "A little closer, wherever you are.": "Un poco más cerca, estés donde estés.",
   "Made for the conversations that matter.": "Hecho para las conversaciones que importan.",
   "Return home": "Volver al inicio",
+  "Review devices": "Revisar dispositivos",
+  "Open security settings": "Abrir seguridad",
+  Dismiss: "Cerrar",
+  "Backup code used. Please re-enable 2FA in settings.":
+    "Usaste un código de respaldo. Reactiva 2FA en ajustes.",
 };
 const I18nContext = createContext<{
   language: Language;
