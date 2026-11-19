@@ -1,5 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
+import { reactionNotificationStore } from "@/features/chats/utils/reactionNotifications";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { detailKey, messageKey } from "../types";
@@ -36,6 +38,10 @@ export function useMarkAsRead(
         if (!result.error) {
           initial.current = false;
           resumed.current = false;
+          const wasToast = reactionNotificationStore.getState().clearChat(chatId);
+          if (wasToast && useChatUIStore.getState().noticeAction?.chatId === chatId) {
+            useChatUIStore.getState().notify("");
+          }
           for (const key of [
             messageKey(user?.id ?? "", chatId),
             detailKey(user?.id ?? "", chatId),

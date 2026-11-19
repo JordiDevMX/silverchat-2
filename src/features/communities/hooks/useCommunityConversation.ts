@@ -1,5 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
+import { reactionNotificationStore } from "@/features/chats/utils/reactionNotifications";
 import { useChat } from "@/features/messages/hooks/useChat";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
@@ -19,6 +21,10 @@ export function useCommunityConversation(communityId: string, chatId: string) {
         const result = await supabase.rpc("mark_chat_as_read", { p_chat_id: chatId });
         if (active) setReadError(!!result.error);
         if (!result.error) {
+          const wasToast = reactionNotificationStore.getState().clearChat(chatId);
+          if (wasToast && useChatUIStore.getState().noticeAction?.chatId === chatId) {
+            useChatUIStore.getState().notify("");
+          }
           void cache.invalidateQueries({ queryKey: ["community-chats", user.id, communityId] });
           void cache.invalidateQueries({ queryKey: ["chats", user.id] });
         }

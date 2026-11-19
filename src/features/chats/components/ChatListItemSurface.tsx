@@ -64,8 +64,9 @@ export function ChatListItemSurface({
   const origin = useRef({ x: 0, y: 0 });
   const consumed = useRef(false);
   useEffect(() => () => clearTimeout(hold.current), []);
-  const display = computeChatDisplay(chat, draft),
-    muted = isMuted(chat);
+  const display = computeChatDisplay(chat, draft, language),
+    muted = isMuted(chat),
+    unreadTotal = chat.unreadCount + (chat.unreadReactionCount ?? 0);
   const Media =
     chat.lastMessageType && chat.lastMessageType in mediaIcons
       ? mediaIcons[chat.lastMessageType as keyof typeof mediaIcons]
@@ -84,7 +85,7 @@ export function ChatListItemSurface({
     <li
       className={`chat-list-item ${selected ? "is-selected" : ""} ${chat.isBlocked ? "is-blocked" : ""}`}
       data-chat-id={chat.id}
-      data-unread={chat.manuallyUnread || (!muted && chat.unreadCount > 0) ? "true" : undefined}
+      data-unread={chat.manuallyUnread || (!muted && unreadTotal > 0) ? "true" : undefined}
     >
       <SwipeActionsSurface t={t} disabled={selecting || busy} onAction={onAction}>
         <div className="chat-row">
@@ -178,14 +179,14 @@ export function ChatListItemSurface({
               </span>
               {chat.manuallyUnread ? (
                 <span role="img" className="unread-dot" aria-label={t("Unread")} />
-              ) : !muted && chat.unreadCount > 0 ? (
+              ) : !muted && unreadTotal > 0 ? (
                 <Badge
                   variant="neon"
                   role="img"
                   className="chat-badge"
-                  aria-label={`${chat.unreadCount} ${t("Unread")}`}
+                  aria-label={`${unreadTotal} ${t("Unread")}`}
                 >
-                  {badgeText(chat.unreadCount)}
+                  {badgeText(unreadTotal)}
                 </Badge>
               ) : null}
             </span>
