@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
+import { CHAT_QUERY_OPTIONS } from "../lib/chatQueryPolicy";
 import { enrichMessages } from "./useMessages";
 export function usePinnedMessages(chatId: string) {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["pinned", user?.id, chatId],
-    refetchInterval: 30000,
+    ...CHAT_QUERY_OPTIONS,
     queryFn: async () => {
       const result = await supabase
         .from("messages")

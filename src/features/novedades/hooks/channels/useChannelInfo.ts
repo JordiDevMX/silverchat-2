@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
+import { CHAT_QUERY_OPTIONS } from "@/features/messages/lib/chatQueryPolicy";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 export function useChannelInfo(id: string) {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["channel-info", user?.id, id],
-    refetchInterval: 30000,
+    ...CHAT_QUERY_OPTIONS,
     queryFn: async () => {
       const [channel, follow] = await Promise.all([
         supabase.from("channels").select("*").eq("id", id).maybeSingle(),
