@@ -2,6 +2,29 @@ import type { MessageRow } from "../types.ts";
 export function sameDay(a: string, b: string) {
   return new Date(a).toDateString() === new Date(b).toDateString();
 }
+export function shouldShowDateSeparator({
+  newDay,
+  isFirstMessage,
+  atConversationStart,
+  createdAt,
+  now = new Date(),
+}: {
+  newDay: boolean;
+  isFirstMessage: boolean;
+  atConversationStart: boolean;
+  createdAt: string;
+  now?: Date;
+}) {
+  if (!newDay) return false;
+  if (
+    atConversationStart &&
+    isFirstMessage &&
+    new Date(createdAt).toDateString() === now.toDateString()
+  ) {
+    return false;
+  }
+  return true;
+}
 export function grouped(a: MessageRow | undefined, b: MessageRow | undefined) {
   return (
     !!a &&

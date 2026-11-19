@@ -692,7 +692,8 @@ try {
   console.log("PASS partial bulk delete retries only failed items");
   await page.locator(".new-chat-fab").click();
   await page.getByRole("button", { name: "Message yourself", exact: true }).click();
-  await page.getByRole("heading", { name: "A little space for you" }).waitFor();
+  await page.locator('[data-slot="conversation-start-pill"]').waitFor();
+  await page.locator('[data-slot="conversation-encryption-pill"]').waitFor();
   for (const width of [390, 768, 1024]) {
     await page.setViewportSize({ width, height: 844 });
     const canvas = await page.locator(".conversation-page").boundingBox();
