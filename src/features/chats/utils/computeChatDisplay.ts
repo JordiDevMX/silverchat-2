@@ -1,4 +1,30 @@
-import type { Chat, Draft, FilterKey } from "../types.ts";
+import type { Chat, Draft, FilterKey, MessageType } from "../types.ts";
+
+const mediaPreviewRules: Partial<Record<MessageType, { prefix: RegExp; fallback: string }>> = {
+  image: { prefix: /^📷\s*(?:Photo(?:\s*—\s*|$))?/u, fallback: "Photo" },
+  video: { prefix: /^🎥\s*(?:Video(?:\s*—\s*|$))?/u, fallback: "Video" },
+  audio: { prefix: /^🎤\s*(?:Audio(?:\s*—\s*|$))?/u, fallback: "Audio" },
+  file: { prefix: /^📄\s*/u, fallback: "File" },
+  sticker: { prefix: /^🎨\s*(?:Sticker(?:\s*—\s*|$))?/u, fallback: "Sticker" },
+  location: { prefix: /^📍\s*(?:Location(?:\s*—\s*|$))?/u, fallback: "Location" },
+  contact: { prefix: /^👤\s*(?:Contact(?:\s*—\s*|$))?/u, fallback: "Contact" },
+};
+
+function resolveMessagePreview(
+  type: MessageType | null,
+  rawPreview: string | null,
+): { text: string; translateText: boolean } {
+  const rule = type ? mediaPreviewRules[type] : undefined;
+  if (rule) {
+    const cleaned = (rawPreview ?? "").trim().replace(rule.prefix, "").trim();
+    if (!cleaned || cleaned === rule.fallback) {
+      return { text: rule.fallback, translateText: true };
+    }
+    return { text: cleaned, translateText: false };
+  }
+  if (!rawPreview) return { text: "No messages yet", translateText: true };
+  return { text: rawPreview, translateText: false };
+}
 export function isMuted(chat: Pick<Chat, "mutedUntil">, now = Date.now()) {
   return !!chat.mutedUntil && Date.parse(chat.mutedUntil) > now;
 }
@@ -62,20 +88,38 @@ export function computeChatDisplay(chat: Chat, draft?: Draft) {
     draft &&
     Date.parse(draft.updatedAt) > (chat.lastMessageAt ? Date.parse(chat.lastMessageAt) : 0);
   if (newer && draft.failed)
-    return { state: "failed", text: "Message failed to send", prefix: "", status: null } as const;
-  if (newer && draft.pending)
-    return { state: "pending", text: draft.text, prefix: "", status: null } as const;
-  if (newer)
     return {
-      state: "draft",
-      text: draft.text || "Attachment",
-      prefix: "Draft",
+      state: "failed",
+      text: "Message failed to send",
+      translateText: true,
+      prefix: "",
       status: null,
     } as const;
+  if (newer && draft.pending) {
+    const text = draft.text.trim();
+    return {
+      state: "pending",
+      text: text || "Attachment",
+      translateText: !text,
+      prefix: "",
+      status: null,
+    } as const;
+  }
+  if (newer) {
+    const text = draft.text.trim();
+    return {
+      state: "draft",
+      text: text || "Attachment",
+      translateText: !text,
+      prefix: "",
+      status: null,
+    } as const;
+  }
   if (chat.deletedForEveryone)
     return {
       state: "deleted",
       text: "This message was deleted",
+      translateText: true,
       prefix: "",
       status: null,
     } as const;
@@ -87,9 +131,11 @@ export function computeChatDisplay(chat: Chat, draft?: Draft) {
         : chat.type === "group" || chat.type === "community_chat"
           ? chat.senderName
           : "";
+  const preview = resolveMessagePreview(chat.lastMessageType, chat.lastMessagePreview);
   return {
     state: "message",
-    text: chat.lastMessagePreview || "No messages yet",
+    text: preview.text,
+    translateText: preview.translateText,
     prefix,
     status: chat.isMyLastMessage ? chat.lastMessageStatus : null,
   } as const;

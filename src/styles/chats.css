@@ -175,7 +175,18 @@
     color: var(--neon);
   }
   .draft-pill {
-    display: none;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.4;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in oklab, var(--neon) 32%, transparent);
+    background: color-mix(in oklab, var(--neon) 16%, var(--card));
+    color: color-mix(in oklab, var(--neon) 45%, var(--foreground));
+    font-style: normal;
   }
   .chat-row-meta {
     align-self: stretch;
@@ -512,16 +523,6 @@
   @keyframes chat-spin {
     to {
       transform: rotate(360deg);
-    }
-  }
-  @media (min-width: 700px) {
-    .draft-pill {
-      display: inline-block;
-      font-size: 9px;
-      padding: 1px 5px;
-      border-radius: 4px;
-      background: var(--accent);
-      font-style: normal;
     }
   }
 
