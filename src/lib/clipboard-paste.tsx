@@ -14,6 +14,8 @@ import {
 import { createPortal } from "react-dom";
 import { useI18n } from "@/app/providers/i18n-provider";
 import { Button } from "@/components/ui/button";
+import { clearMemoryDraftMedia } from "@/features/chats/draftMedia";
+import { registerBeforeSignOut } from "@/lib/auth";
 import {
   type ClipboardReasonHint,
   type DataTransferExtractionResult,
@@ -133,6 +135,7 @@ export function ClipboardPasteProvider({ children }: PropsWithChildren) {
   );
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
+  useEffect(() => registerBeforeSignOut(async () => clearMemoryDraftMedia()), []);
 
   useEffect(() => {
     const el = noticeRef.current;

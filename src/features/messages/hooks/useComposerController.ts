@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createDraftWriter, readDrafts } from "@/features/chats/drafts";
+import {
+  loadDraftMedia,
+  readMemoryDraftMedia,
+  saveDraftMedia,
+} from "@/features/chats/draftMedia";
 import {
   type DataTransferLike,
   extractDataTransferMedia,
@@ -23,16 +28,18 @@ export function useComposerController({
   replyToId: string | null;
 }) {
   const { user } = useAuth();
+  const ownerId = user?.id ?? "";
   const { say, language } = useMessageText();
   const recorder = useVoiceRecorder();
   const [recordMode, setRecordMode] = useState(false);
-  const [text, setText] = useState(() => {
+  const initialDraft = useMemo(() => {
     try {
-      return readDrafts(localStorage, user?.id ?? "").get(chat.id)?.text ?? "";
+      return readDrafts(localStorage, ownerId).get(chat.id);
     } catch {
-      return "";
+      return undefined;
     }
-  });
+  }, [chat.id, ownerId]);
+  const [text, setText] = useState(() => initialDraft?.text ?? "");
   const [caret, setCaret] = useState(text.length);
   const [emoji, setEmoji] = useState(false);
   const [attach, setAttach] = useState(false);
@@ -50,56 +57,138 @@ export function useComposerController({
   const selection = useRef({ start: text.length, end: text.length });
   const submitted = useRef<{ text: string; failed?: boolean; pending?: boolean } | null>(null);
   const attachmentsRef = useRef<ComposerAttachmentItem[]>([]);
+  const hydratedFromDraftRef = useRef(!(initialDraft?.mediaUrls.length ?? 0));
+  const initialMediaIdsRef = useRef(initialDraft?.mediaUrls ?? []);
+  const prevMediaSignatureRef = useRef((initialDraft?.mediaUrls ?? []).join(","));
   const controllersRef = useRef(new Map<string, AbortController>());
   const uploadingAttachmentsRef = useRef(false);
   const latestReply = useRef(replyToId);
   latestReply.current = replyToId;
   const latest = useRef(text);
   latest.current = text;
-  const writer = useMemo(() => createDraftWriter(chat.id, user?.id ?? ""), [chat.id, user]);
+  const writer = useMemo(() => createDraftWriter(chat.id, ownerId), [chat.id, ownerId]);
   const mentionsEnabled = chat.type === "group" || chat.type === "community_chat";
   const mentions = useMentions(text, caret, chat.members, mentionsEnabled);
 
   const setAttachmentsSynced = useCallback(
-    (updater: (prev: ComposerAttachmentItem[]) => ComposerAttachmentItem[]) => {
+    (
+      updater: (prev: ComposerAttachmentItem[]) => ComposerAttachmentItem[],
+      options?: { persist?: boolean },
+    ) => {
       const next = updater(attachmentsRef.current);
       attachmentsRef.current = next;
       setAttachments(next);
+      if (options?.persist !== false) {
+        hydratedFromDraftRef.current = true;
+        void saveDraftMedia(
+          ownerId,
+          chat.id,
+          next.map((item) => ({ id: item.id, file: item.file })),
+        );
+      }
     },
-    [],
+    [chat.id, ownerId],
   );
 
   const updateAttachment = useCallback(
     (id: string, patch: Partial<ComposerAttachmentItem>) => {
-      setAttachmentsSynced((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+      setAttachmentsSynced(
+        (prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+        { persist: false },
       );
     },
     [setAttachmentsSynced],
   );
 
+  useLayoutEffect(() => {
+    const ids = initialMediaIdsRef.current;
+    if (!ids.length) {
+      hydratedFromDraftRef.current = true;
+      return;
+    }
+    const cached = readMemoryDraftMedia(ownerId, chat.id, ids);
+    if (cached) {
+      hydratedFromDraftRef.current = true;
+      if (cached.length > 0) {
+        const restored: ComposerAttachmentItem[] = cached.map(({ id, file: cachedFile }) => ({
+          id,
+          file: cachedFile,
+          previewUrl: URL.createObjectURL(cachedFile),
+          status: "queued",
+          progress: 0,
+        }));
+        attachmentsRef.current = restored;
+        setAttachments(restored);
+      }
+      return;
+    }
+    let active = true;
+    void loadDraftMedia(ownerId, chat.id, ids).then((loaded) => {
+      if (!active) return;
+      hydratedFromDraftRef.current = true;
+      if (loaded.length === 0) return;
+      const existingIds = new Set(attachmentsRef.current.map((item) => item.id));
+      const restored: ComposerAttachmentItem[] = loaded
+        .filter((entry) => !existingIds.has(entry.id))
+        .map(({ id, file: loadedFile }) => ({
+          id,
+          file: loadedFile,
+          previewUrl: URL.createObjectURL(loadedFile),
+          status: "queued",
+          progress: 0,
+        }));
+      if (restored.length === 0) return;
+      const merged = [...restored, ...attachmentsRef.current].slice(
+        0,
+        MAX_CLIPBOARD_IMAGES_DEFAULT,
+      );
+      attachmentsRef.current = merged;
+      setAttachments(merged);
+      if (merged.length !== restored.length) {
+        void saveDraftMedia(
+          ownerId,
+          chat.id,
+          merged.map((item) => ({ id: item.id, file: item.file })),
+        );
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [chat.id, ownerId]);
+
   useEffect(() => {
     if (text.trim()) submitted.current = null;
     const draftText = text.trim() ? text : submitted.current?.text;
+    const mediaIds = hydratedFromDraftRef.current
+      ? attachments.map((item) => item.id)
+      : initialMediaIdsRef.current;
+    const mediaSignature = mediaIds.join(",");
+    const mediaChanged = mediaSignature !== prevMediaSignatureRef.current;
+    prevMediaSignatureRef.current = mediaSignature;
+
     writer.write(
-      draftText || replyToId
+      draftText || replyToId || mediaIds.length > 0
         ? {
             text: draftText ?? "",
-            mediaUrls: [],
+            mediaUrls: mediaIds,
             replyToId,
             updatedAt: new Date().toISOString(),
-            ...(!text.trim()
+            ...(!text.trim() && mediaIds.length === 0
               ? { failed: submitted.current?.failed, pending: submitted.current?.pending }
               : {}),
           }
         : null,
     );
+    if (mediaChanged) {
+      writer.flush();
+    }
     const el = textarea.current;
     if (el) {
       el.style.height = "auto";
       el.style.height = `${Math.min(120, el.scrollHeight)}px`;
     }
-  }, [text, writer, replyToId]);
+  }, [text, writer, replyToId, attachments]);
   useEffect(() => {
     const flush = () => writer.flush();
     window.addEventListener("pagehide", flush);
@@ -287,15 +376,21 @@ export function useComposerController({
               captionPending = "";
               mentionsPending = null;
               if (latest.current === captionSourceText) {
+                const remainingIds = attachmentsRef.current
+                  .filter((item) => item.id !== id)
+                  .map((item) => item.id);
                 setText("");
                 latest.current = "";
                 setCaret(0);
                 writer.write(
-                  latestReply.current && latestReply.current !== replyToId
+                  remainingIds.length > 0 || (latestReply.current && latestReply.current !== replyToId)
                     ? {
                         text: "",
-                        mediaUrls: [],
-                        replyToId: latestReply.current,
+                        mediaUrls: remainingIds,
+                        replyToId:
+                          latestReply.current && latestReply.current !== replyToId
+                            ? latestReply.current
+                            : null,
                         updatedAt: new Date().toISOString(),
                       }
                     : null,

@@ -378,6 +378,51 @@ try {
   assert.equal(await page.locator('[data-slot="composer-attachment-tray"]').count(), 0);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
 
+  // 0b. Draft persistence across SPA navigation AND full browser reload:
+  // paste 1 image without text, leave chat via UI, verify Draft pill in /chats,
+  // re-enter chat, add a 2nd image + caption, reload browser, and verify restoration.
+  await writePngToRealClipboard(page, "#9333ea");
+  await composerInput.focus();
+  await page.keyboard.press("Control+v");
+  await page.locator('[data-slot="composer-attachment-tray"]').waitFor();
+  assert.equal(await page.locator('[data-slot="composer-attachment-item"]').count(), 1);
+
+  await page.locator(".draft-pill").waitFor();
+  assert.match(await page.locator(".chat-list-item, [data-slot='chat-list-item']").first().textContent(), /Attachment/);
+  await page.locator('nav a[href="/novedades"]').click();
+  await page.waitForURL("**/novedades");
+  await page.locator('nav a[href="/chats"]').click();
+  await page.getByText("Design squad").first().click();
+  await page.locator('[data-slot="composer-attachment-tray"]').waitFor();
+  assert.equal(await page.locator('[data-slot="composer-attachment-item"]').count(), 1);
+
+  // Add a 2nd image + text, then full-reload from IndexedDB + localStorage.
+  await writePngToRealClipboard(page, "#f97316");
+  await composerInput.focus();
+  await page.keyboard.press("Control+v");
+  await page.waitForTimeout(150);
+  await composerInput.fill("Draft caption");
+  await page.waitForTimeout(600);
+  await page.reload();
+  await page.locator('[data-slot="composer-attachment-tray"]').waitFor();
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('[data-slot="composer-attachment-item"] img').length === 2 &&
+      [...document.querySelectorAll('[data-slot="composer-attachment-item"] img')].every(
+        (img) => img.complete && img.naturalWidth > 0,
+      ),
+  );
+  assert.equal(await composerInput.inputValue(), "Draft caption");
+
+  // Clearing the draft removes it permanently across reload.
+  await page.getByRole("button", { name: "Clear all", exact: true }).click();
+  await composerInput.fill("");
+  await page.waitForTimeout(600);
+  await page.reload();
+  await page.getByRole("textbox", { name: "Message", exact: true }).waitFor();
+  assert.equal(await page.locator('[data-slot="composer-attachment-tray"]').count(), 0);
+  assert.equal(await composerInput.inputValue(), "");
+
   const pngBlue = await createSamplePngBase64("#2f87ff", page);
   const pngGreen = await createSamplePngBase64("#10b981", page);
 
