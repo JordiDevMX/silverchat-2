@@ -407,8 +407,9 @@ await setup(context);
 const page = await context.newPage();
 page.setDefaultTimeout(10000);
 page.on("pageerror", (e) => errors.push(e.message));
+const baseUrl = process.env.UI_BASE_URL ?? process.env.TEST_BASE_URL ?? "http://127.0.0.1:5173";
 const goto = async () => {
-  await page.goto(`http://127.0.0.1:5173/chats/${chatId}`);
+  await page.goto(`${baseUrl}/chats/${chatId}`);
   await page.locator(".message-list").waitFor();
   await page.waitForTimeout(300);
 };
@@ -530,13 +531,59 @@ try {
   await settle();
   assert.equal(rows.filter((m) => m.is_pinned_in_chat).length, 2);
   await page.getByRole("button", { name: "Search messages", exact: true }).click();
-  await page.getByRole("searchbox", { name: "Search in conversation" }).fill("searchable");
+  const searchHeader = page.locator(".in-chat-search");
+  const searchInput = page.getByRole("searchbox", { name: "Search in conversation" });
+  const searchToast = page.locator(".in-chat-search-toast");
+  await searchToast.waitFor({ state: "visible" });
+  assert.match(
+    (await searchToast.textContent()) ?? "",
+    /Search covers loaded messages only\. Scroll up to load more\./,
+  );
+  const describedBy = await searchInput.getAttribute("aria-describedby");
+  assert.ok(describedBy);
+  assert.equal(
+    await page.locator(`#${describedBy}`).textContent(),
+    "Search covers loaded messages only. Scroll up to load more.",
+  );
+  assert.equal(await page.locator('.in-chat-search [role="status"]').textContent(), "");
+  const desktopHeaderBox = await searchHeader.boundingBox();
+  const desktopInputBox = await searchInput.boundingBox();
+  const desktopToastBox = await searchToast.boundingBox();
+  assert.ok(desktopHeaderBox && desktopInputBox && desktopToastBox);
+  assert.ok(
+    desktopHeaderBox.height <= 80,
+    `Expected compact desktop search header height, got ${desktopHeaderBox.height}`,
+  );
+  assert.ok(
+    desktopInputBox.width > desktopHeaderBox.width * 0.55 && desktopInputBox.width > 300,
+    `Expected usable desktop search input width, got ${desktopInputBox.width} of ${desktopHeaderBox.width}`,
+  );
+  assert.ok(
+    desktopToastBox.y >= desktopHeaderBox.y + desktopHeaderBox.height,
+    `Expected toast below header (${desktopToastBox.y} >= ${desktopHeaderBox.y + desktopHeaderBox.height})`,
+  );
+  assert.ok(
+    desktopToastBox.x >= desktopHeaderBox.x &&
+      desktopToastBox.x + desktopToastBox.width <= desktopHeaderBox.x + desktopHeaderBox.width,
+    "Expected desktop toast to stay aligned within the conversation header bounds",
+  );
+  await searchToast.waitFor({ state: "hidden", timeout: 4000 });
+  await page.getByRole("button", { name: "Search scope info", exact: true }).click();
+  await searchToast.waitFor({ state: "visible" });
+  await page.getByRole("button", { name: "Dismiss search info", exact: true }).click();
+  await searchToast.waitFor({ state: "hidden" });
+  assert.equal(
+    await searchInput.evaluate((el) => document.activeElement === el),
+    true,
+    "Dismissing the toast should return focus to the search input",
+  );
+  await searchInput.fill("searchable");
   await settle();
   assert.equal(await page.locator('.in-chat-search [role="status"]').textContent(), "1/2");
   await page.getByRole("button", { name: "Next result" }).click();
   await settle();
   assert.equal(await page.locator('.in-chat-search [role="status"]').textContent(), "2/2");
-  await page.getByRole("searchbox").press("Escape");
+  await searchInput.press("Escape");
   assert.equal(await page.locator(".in-chat-search").count(), 0);
   await menu(incoming.id, "Forward");
   for (let i = 1; i <= 5; i++)
@@ -656,7 +703,7 @@ try {
   await setup(mobile);
   const mp = await mobile.newPage();
   mp.setDefaultTimeout(10000);
-  await mp.goto(`http://127.0.0.1:5173/chats/${chatId}`);
+  await mp.goto(`${baseUrl}/chats/${chatId}`);
   await mp.locator(".message-list").waitFor();
   await mp.waitForTimeout(300);
   assert.equal(
@@ -665,6 +712,48 @@ try {
   );
   await mp.getByRole("button", { name: "Chat options", exact: true }).click();
   await mp.getByRole("menuitem", { name: "Search in chat", exact: true }).click();
+  const mobileToast = mp.locator(".in-chat-search-toast");
+  await mobileToast.waitFor({ state: "visible" });
+  for (const vp of [
+    { width: 390, height: 844, minInputWidth: 160 },
+    { width: 320, height: 568, minInputWidth: 115 },
+    { width: 768, height: 1024, minInputWidth: 420 },
+  ]) {
+    await mp.setViewportSize({ width: vp.width, height: vp.height });
+    await mp.waitForTimeout(100);
+    if (!(await mobileToast.isVisible())) {
+      await mp.getByRole("button", { name: "Search scope info", exact: true }).click();
+      await mobileToast.waitFor({ state: "visible" });
+    }
+    const headerBox = await mp.locator(".in-chat-search").boundingBox();
+    const inputBox = await mp
+      .getByRole("searchbox", { name: "Search in conversation" })
+      .boundingBox();
+    const toastBox = await mobileToast.boundingBox();
+    assert.ok(headerBox && inputBox && toastBox);
+    assert.ok(
+      inputBox.width >= vp.minInputWidth,
+      `Expected search input width >= ${vp.minInputWidth} at ${vp.width}px, got ${inputBox.width}`,
+    );
+    assert.ok(
+      headerBox.height <= 80,
+      `Expected compact header height at ${vp.width}px, got ${headerBox.height}`,
+    );
+    assert.ok(
+      toastBox.y >= headerBox.y + headerBox.height,
+      `Expected toast below header at ${vp.width}px`,
+    );
+    assert.ok(
+      toastBox.x >= 0 && toastBox.x + toastBox.width <= vp.width,
+      `Expected toast inside ${vp.width}px viewport, got [${toastBox.x}, ${toastBox.x + toastBox.width}]`,
+    );
+    assert.equal(
+      await mp.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
+      `Expected no horizontal overflow at ${vp.width}px`,
+    );
+  }
+  await mp.setViewportSize({ width: 390, height: 844 });
   await mp.getByRole("searchbox", { name: "Search in conversation" }).fill("searchable");
   await mp.locator('.in-chat-search [role="status"]').getByText("1/2", { exact: true }).waitFor();
   await mp.getByRole("searchbox", { name: "Search in conversation" }).press("Escape");

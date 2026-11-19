@@ -29,5 +29,5 @@ export function useInChatSearch(messages: Message[]) {
     if (next) setSelected(next.id);
     return next?.id;
   };
-  return { text, setText, results, index, current: results[index]?.id, move };
+  return { text, setText, query, results, index, current: results[index]?.id, move };
 }
