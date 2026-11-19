@@ -184,7 +184,7 @@ All eight requested sheets, 1,298 selector branches (1,064 distinct selectors wi
 | `src/features/messages/components/MessageContextMenu.tsx` | `.message-context-menu`, `.message-context-menu button`, `.message-context-menu button:hover`, `.message-context-menu button:focus-visible`, `.message-context-menu-separator` |
 | `src/features/messages/components/MessageContextMenu.tsx`, `src/components/ui/chat-menu-surface.tsx` | `.message-context-menu .danger` |
 | `src/features/messages/components/ForwardModal.tsx` | `.forward-chats`, `.forward-chats label`, `.forward-chats input`, `.forward-chats label:has(:checked)`, `.forward-chats label:focus-within` |
-| `src/features/messages/components/InChatSearch.tsx` | `.in-chat-search`, `.in-chat-search > div`, `.in-chat-search input`, `.in-chat-search small`, `.in-chat-search [role="status"]` |
+| `src/features/messages/components/InChatSearch.tsx` | `.in-chat-search`, `.in-chat-search-row`, `.in-chat-search-field`, `.in-chat-search-leading`, `.in-chat-search-status`, `.in-chat-search-actions`, `.in-chat-search-info`, `.in-chat-search-toast-region`, `.in-chat-search-toast`, `.in-chat-search-toast-icon`, `.in-chat-search-toast-text`, `.in-chat-search-toast-close` |
 | `src/features/messages/components/PinnedMessagesBar.tsx` | `.pinned-messages`, `.pinned-messages button`, `.pinned-toggle > svg`, `.pinned-toggle`, `.pinned-toggle span`, `.pinned-messages > div`, `.pinned-messages > div > span` |
 | `src/features/messages/components/SearchHighlight.tsx` | `.message-highlight` |
 | `src/features/messages/components/MessageActionsProvider.tsx` | `.message-action-notice`, `.message-action-notice button` |
