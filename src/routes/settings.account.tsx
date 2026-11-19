@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { SettingsDialog } from "@/components/ui/settings-surfaces";
 import { DeleteAccountModal } from "@/features/settings/components/DeleteAccountModal";
 import { SettingsPage } from "@/features/settings/components/presentation";
-import { SettingRow } from "@/features/settings/components/shared";
+import { Avatar, NavLink, QueryState, SettingRow } from "@/features/settings/components/shared";
 import { useAccountActions, useEmailChange } from "@/features/settings/hooks/useAccountActions";
 export function AccountPage() {
   const { auth, profile, action, t, language, cancelDeletion, switchAccount } = useAccountActions();
@@ -14,6 +14,23 @@ export function AccountPage() {
   const date = profile.data?.scheduled_deletion_at;
   return (
     <SettingsPage title="Account">
+      <QueryState
+        loading={profile.isLoading}
+        error={profile.error}
+        retry={() => void profile.refetch()}
+      />
+      {profile.data && (
+        <div className="profile-card">
+          <Avatar profile={profile.data} size="large" />
+          <div>
+            <h2>{profile.data.display_name}</h2>
+            <p>@{profile.data.username}</p>
+            <Button asChild variant="outline">
+              <NavLink href="/settings/profile">{t("Edit profile")}</NavLink>
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="settings-card settings-card-body">
         <h2>{t("Email")}</h2>
         <p>{auth.user?.email}</p>
