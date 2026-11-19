@@ -146,17 +146,17 @@ export function ChatListItemSurface({
               </span>
               <span className={`chat-preview preview-${display.state}`}>
                 {display.state === "failed" ? (
-                  <AlertCircle size={16} />
+                  <AlertCircle size={16} aria-hidden="true" />
                 ) : display.state === "pending" ? (
-                  <LoaderCircle className="chat-spin" size={16} />
+                  <LoaderCircle className="chat-spin" size={16} aria-hidden="true" />
+                ) : display.state === "draft" ? (
+                  <span className="draft-pill">{t("Draft")}</span>
                 ) : display.state === "message" && Media ? (
-                  <Media size={16} />
+                  <Media size={16} aria-hidden="true" />
                 ) : null}
-                {display.state === "draft" && <span className="draft-pill">{t("Draft")}</span>}
                 <span className="preview-text">
-                  {display.prefix && display.state !== "draft" ? `${t(display.prefix)}: ` : ""}
-                  {display.state === "draft" ? `${t("Draft")}: ` : ""}
-                  {t(display.text)}
+                  {display.prefix ? `${t(display.prefix)}: ` : ""}
+                  {display.translateText ? t(display.text) : display.text}
                 </span>
                 {display.status === "sent" ? (
                   <Check size={17} aria-label={t("sent")} />

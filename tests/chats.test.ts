@@ -97,9 +97,20 @@ test("receipt aggregation respects hidden/partial recipients and read privacy", 
 });
 test("drafts override older previews without changing unread; deleted ignores receipts", () => {
   const draft = { text: "Draft text", mediaUrls: [], replyToId: null, updatedAt: "2026-01-02" };
-  assert.equal(computeChatDisplay(chat, draft).state, "draft");
+  const draftDisplay = computeChatDisplay(chat, draft);
+  assert.equal(draftDisplay.state, "draft");
+  assert.equal(draftDisplay.prefix, "");
+  assert.equal(draftDisplay.text, "Draft text");
+  assert.equal(draftDisplay.translateText, false);
+  const blankDraft = computeChatDisplay(chat, { ...draft, text: "   " });
+  assert.equal(blankDraft.state, "draft");
+  assert.equal(blankDraft.text, "Attachment");
+  assert.equal(blankDraft.translateText, true);
   assert.equal(computeChatDisplay(chat, { ...draft, failed: true }).state, "failed");
-  assert.equal(computeChatDisplay(chat, { ...draft, pending: true }).state, "pending");
+  const pendingBlank = computeChatDisplay(chat, { ...draft, text: " ", pending: true });
+  assert.equal(pendingBlank.state, "pending");
+  assert.equal(pendingBlank.text, "Attachment");
+  assert.equal(pendingBlank.translateText, true);
   assert.equal(
     computeChatDisplay({ ...chat, deletedForEveryone: true, isMyLastMessage: true }).status,
     null,
@@ -108,6 +119,114 @@ test("drafts override older previews without changing unread; deleted ignores re
   assert.equal(computeChatDisplay({ ...chat, type: "self", isMyLastMessage: true }).prefix, "");
   assert.equal(computeChatDisplay({ ...chat, type: "group" }).prefix, "Alice");
   assert.equal(computeChatDisplay(chat, { ...draft, updatedAt: "2025-01-01" }).state, "message");
+});
+test("media previews strip duplicated DB icon/label prefixes while preserving captions, filenames, fallbacks and text messages", () => {
+  const ownFile = computeChatDisplay({
+    ...chat,
+    isMyLastMessage: true,
+    lastMessageType: "file",
+    lastMessagePreview: "📄 Q4-report.pdf",
+    lastMessageStatus: "read",
+  });
+  assert.deepEqual(ownFile, {
+    state: "message",
+    text: "Q4-report.pdf",
+    translateText: false,
+    prefix: "You",
+    status: "read",
+  });
+
+  const fallbackFile = computeChatDisplay({
+    ...chat,
+    lastMessageType: "file",
+    lastMessagePreview: "📄 File",
+  });
+  assert.equal(fallbackFile.text, "File");
+  assert.equal(fallbackFile.translateText, true);
+
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "file", lastMessagePreview: "📄   " }).text,
+    "File",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "file", lastMessagePreview: "📄 📄 notes.pdf" })
+      .text,
+    "📄 notes.pdf",
+  );
+
+  const captionedPhoto = computeChatDisplay({
+    ...chat,
+    type: "group",
+    senderName: "Sofia",
+    lastMessageType: "image",
+    lastMessagePreview: "📷 Photo — Sunset at the beach",
+  });
+  assert.deepEqual(captionedPhoto, {
+    state: "message",
+    text: "Sunset at the beach",
+    translateText: false,
+    prefix: "Sofia",
+    status: null,
+  });
+
+  const photoWordCaption = computeChatDisplay({
+    ...chat,
+    lastMessageType: "image",
+    lastMessagePreview: "📷 Photo — Photography tips",
+  });
+  assert.equal(photoWordCaption.text, "Photography tips");
+  assert.equal(photoWordCaption.translateText, false);
+
+  for (const raw of ["📷 Photo", "📷 Photo —   ", "", null]) {
+    const emptyPhoto = computeChatDisplay({
+      ...chat,
+      lastMessageType: "image",
+      lastMessagePreview: raw,
+    });
+    assert.equal(emptyPhoto.text, "Photo");
+    assert.equal(emptyPhoto.translateText, true);
+  }
+
+  assert.equal(
+    computeChatDisplay({
+      ...chat,
+      lastMessageType: "video",
+      lastMessagePreview: "🎥 Video — Demo clip",
+    }).text,
+    "Demo clip",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "video", lastMessagePreview: "🎥 Video" }).text,
+    "Video",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "audio", lastMessagePreview: "🎤 Audio" }).text,
+    "Audio",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "sticker", lastMessagePreview: "🎨 Sticker" })
+      .text,
+    "Sticker",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "location", lastMessagePreview: "📍 Location" })
+      .text,
+    "Location",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "contact", lastMessagePreview: "👤 Contact" })
+      .text,
+    "Contact",
+  );
+
+  // Plain text messages must never have emoji prefixes stripped.
+  const plainWithEmoji = computeChatDisplay({
+    ...chat,
+    lastMessageType: "text",
+    lastMessagePreview: "📷 Photo — not an attachment",
+  });
+  assert.equal(plainWithEmoji.text, "📷 Photo — not an attachment");
+  assert.equal(plainWithEmoji.translateText, false);
 });
 test("yesterday works across month/year boundaries and uses locale", () => {
   const now = new Date(2026, 0, 1, 12);
