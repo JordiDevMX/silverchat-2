@@ -11,6 +11,7 @@ import {
   computeCubeFaceStyle,
   computeReleaseTarget,
   DEFAULT_SPRING_STIFFNESS,
+  DRAG_TO_POSITION_SIGN,
   REDUCED_MOTION_SPRING_STIFFNESS,
   stepSpring,
 } from "../../lib/storyCubeEngine";
@@ -97,7 +98,7 @@ function computeVelocityStoriesPerSec(samples: VelocitySample[], now: number, st
   const dtMs = latest.t - oldest.t;
   if (dtMs < 8) return 0;
   const pxPerSec = ((latest.x - oldest.x) / dtMs) * 1000;
-  return pxPerSec / stageWidth;
+  return (DRAG_TO_POSITION_SIGN * pxPerSec) / stageWidth;
 }
 
 function buildRestUserSlots(timeline: StoryEntry[], storyIndex: number): Map<number, number> {
@@ -632,9 +633,9 @@ export function useStoryNavigation({
 
       if (g.phase === "dragging") {
         const width = Math.max(1, widthRef.current);
-        // Locked direction mapping: dragging RIGHT (+dx) advances to NEXT user (+1),
-        // dragging LEFT (-dx) returns to PREVIOUS user (-1).
-        const dragDelta = (e.clientX - g.dragOriginX) / width;
+        // Derived from DRAG_TO_POSITION_SIGN: dragging RIGHT → LEFT (dx < 0) advances to
+        // NEXT user (+1); dragging LEFT → RIGHT (dx > 0) returns to PREVIOUS user (-1).
+        const dragDelta = (DRAG_TO_POSITION_SIGN * (e.clientX - g.dragOriginX)) / width;
         const rawPos = g.dragOriginPos + dragDelta;
         const clampedPerGesture = Math.max(g.anchorInt - 1, Math.min(g.anchorInt + 1, rawPos));
         const boundedPos = applyBoundaryResistance(clampedPerGesture, g.minDragSlot, g.maxDragSlot);

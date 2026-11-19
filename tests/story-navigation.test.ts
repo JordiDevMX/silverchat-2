@@ -114,25 +114,25 @@ test("story-level vs user-level target resolution splits tray navigation cleanly
   assert.deepEqual(getPreloadStoryIndices(timeline, 0, [0, 3]), [0, 1, 3]);
 });
 
-test("computeCubeFaceStyle maps right-drag to NEXT and left-drag to PREVIOUS in 3D cube space", () => {
-  // At rest on story 0
+test("computeCubeFaceStyle maps forward advance leftward (next enters right) and backward rightward", () => {
+  // At rest on slot 0
   const rest = computeCubeFaceStyle(0, 400, false);
   assert.equal(rest.visible, true);
   assert.equal(rest.transform, "translate3d(0, 0, 0)");
   assert.equal(rest.opacity, 1);
   assert.equal(rest.shadeOpacity, 0);
 
-  // Dragging RIGHT halfway from story 0 -> story 1 (pos = 0.5):
-  // Story 0 has relative offset d = 0 - 0.5 = -0.5 -> rotates +45deg (swings right with finger)
+  // Advancing FORWARD halfway from slot 0 -> slot 1 (pos = 0.5, e.g. dragging RIGHT -> LEFT):
+  // Current slot 0 has relative offset d = 0 - 0.5 = -0.5 -> rotates -45deg (exits LEFT with finger)
   const outgoing = computeCubeFaceStyle(-0.5, 400, false);
   assert.equal(outgoing.visible, true);
-  assert.equal(outgoing.transform, "translateZ(-200px) rotateY(45deg) translateZ(200px)");
+  assert.equal(outgoing.transform, "translateZ(-200px) rotateY(-45deg) translateZ(200px)");
   assert.ok(outgoing.shadeOpacity > 0.15 && outgoing.shadeOpacity < 0.3);
 
-  // Story 1 (NEXT) has relative offset d = 1 - 0.5 = +0.5 -> rotates -45deg (enters from left)
+  // Incoming NEXT slot 1 has relative offset d = 1 - 0.5 = +0.5 -> rotates +45deg (enters from RIGHT)
   const incomingNext = computeCubeFaceStyle(0.5, 400, false);
   assert.equal(incomingNext.visible, true);
-  assert.equal(incomingNext.transform, "translateZ(-200px) rotateY(-45deg) translateZ(200px)");
+  assert.equal(incomingNext.transform, "translateZ(-200px) rotateY(45deg) translateZ(200px)");
 
   // Out of view faces (|d| >= 1) are hidden
   assert.equal(computeCubeFaceStyle(1, 400, false).visible, false);

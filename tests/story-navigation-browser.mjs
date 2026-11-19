@@ -338,6 +338,7 @@ async function getActiveStoryState(page) {
     const segments = document.querySelectorAll(".story-progress > div").length;
     const faces = [...document.querySelectorAll(".story-cube-face")].map((el) => {
       const shade = el.querySelector(".story-cube-shade");
+      const rect = el.getBoundingClientRect();
       return {
         index: Number(el.getAttribute("data-story-index")),
         id: el.getAttribute("data-story-id"),
@@ -346,6 +347,8 @@ async function getActiveStoryState(page) {
         transform: el.style.transform,
         opacity: Number(el.style.opacity || "1"),
         shadeOpacity: Number(shade?.style.opacity || "0"),
+        left: rect.left,
+        right: rect.right,
       };
     });
     return {
@@ -414,7 +417,7 @@ try {
   const cx = vp.x + vp.width / 2;
   const cy = vp.y + vp.height / 2;
 
-  // 2. Quick tap RIGHT (story-level): steps from Sofia 1 (idx 2) -> Sofia 2 (idx 3) inside Sofia's tray
+  // 2. Quick tap RIGHT (story-level): steps from Sofia 1 (idx 2) -> Sofia 2 (idx 3) with leftward cube motion
   await page.mouse.click(vp.x + vp.width * 0.75, cy);
   await page.waitForFunction(
     () => {
@@ -427,9 +430,15 @@ try {
   const midTap = await getActiveStoryState(page);
   assert.equal(midTap.activeIndex, 3, "Quick tap right must step story-by-story to Sofia 2");
   assert.equal(midTap.settling, true, "Quick tap must use unified cube transition");
+  const tapOut = midTap.faces.find((f) => f.index === 2);
+  const tapIn = midTap.faces.find((f) => f.index === 3);
   assert.ok(
-    midTap.faces.some((f) => Math.abs(extractRotateY(f.transform)) > 2),
-    `Quick tap must animate 3D cube rotation, got ${JSON.stringify(midTap.faces)}`,
+    extractRotateY(tapOut.transform) < -1 && extractRotateY(tapIn.transform) > 1,
+    `Forward tap must rotate leftward (outgoing -Y, incoming +Y from right), got ${JSON.stringify(midTap.faces)}`,
+  );
+  assert.ok(
+    tapOut.left < tapIn.left,
+    "Outgoing face must exit left while incoming enters from right",
   );
   await waitSettled(page);
   assert.equal((await getActiveStoryState(page)).headerName, "Sofia");
@@ -457,9 +466,9 @@ try {
   assert.equal((await getActiveStoryState(page)).chromeHidden, false);
   assert.notEqual(await page.locator(".story-progress").innerHTML(), progressFrozen);
 
-  // 4. Spring-back from middle of Sofia's tray (Sofia 2, idx 3): sub-threshold drag previews Diego 1 then springs back
+  // 4. Spring-back from middle of Sofia's tray (Sofia 2, idx 3): sub-threshold right->left drag previews Diego 1 then springs back
   const progressBeforeSpringBack = await page.locator(".story-progress").innerHTML();
-  await dragMouse(page, cx, cy, cx + vp.width * 0.15, cy, {
+  await dragMouse(page, cx, cy, cx - vp.width * 0.15, cy, {
     steps: 8,
     holdBeforeMs: 200,
     holdAfterMs: 120,
@@ -472,18 +481,18 @@ try {
   );
   assert.ok(progressBeforeSpringBack.length > 0);
 
-  // 5. Hold + drag RIGHT from middle of Sofia's tray (Sofia 2, idx 3) -> NEXT USER's FIRST story (Diego 1, idx 5)!
-  // Must preview Diego 1 live (NOT Sofia 3!), skip Sofia 3 without marking it seen, and preserve preloaded <img>!
-  await page.mouse.move(cx - 80, cy);
+  // 5. Hold + drag RIGHT -> LEFT (dx < 0) from middle of Sofia's tray (Sofia 2, idx 3) -> NEXT USER's FIRST story (Diego 1, idx 5)!
+  // Current story exits LEFT, Diego 1 enters live from RIGHT (NOT Sofia 3!), Sofia 3 stays unseen, <img> never remounts!
+  await page.mouse.move(cx + 80, cy);
   await page.mouse.down();
   await page.waitForTimeout(210);
-  await page.mouse.move(cx - 80 + vp.width * 0.45, cy, { steps: 12 });
-  const midRightDrag = await getActiveStoryState(page);
-  assert.equal(midRightDrag.dragging, true);
-  assert.equal(midRightDrag.chromeHidden, true);
-  const currFace = midRightDrag.faces.find((f) => f.index === 3);
-  const nextUserFace = midRightDrag.faces.find((f) => f.index === 5);
-  const skippedSameUserFace = midRightDrag.faces.find((f) => f.index === 4);
+  await page.mouse.move(cx + 80 - vp.width * 0.45, cy, { steps: 12 });
+  const midForwardDrag = await getActiveStoryState(page);
+  assert.equal(midForwardDrag.dragging, true);
+  assert.equal(midForwardDrag.chromeHidden, true);
+  const currFace = midForwardDrag.faces.find((f) => f.index === 3);
+  const nextUserFace = midForwardDrag.faces.find((f) => f.index === 5);
+  const skippedSameUserFace = midForwardDrag.faces.find((f) => f.index === 4);
   assert.equal(currFace?.visibility, "visible", "Current story (Sofia 2) must be visible mid-drag");
   assert.equal(
     nextUserFace?.visibility,
@@ -496,19 +505,27 @@ try {
     "Skipped same-user story (Sofia 3, idx 4) must NOT be previewed during user drag",
   );
   assert.ok(
-    extractRotateY(currFace.transform) > 20,
-    `Current face must rotate +Y, got ${currFace.transform}`,
+    extractRotateY(currFace.transform) < -20,
+    `Current face must rotate -Y (exit left), got ${currFace.transform}`,
   );
   assert.ok(
-    extractRotateY(nextUserFace.transform) < -20,
-    `Incoming user face must rotate -Y from left, got ${nextUserFace.transform}`,
+    extractRotateY(nextUserFace.transform) > 20,
+    `Incoming NEXT user face must rotate +Y (enter from right), got ${nextUserFace.transform}`,
+  );
+  assert.ok(
+    currFace.left < nextUserFace.left,
+    `Current face must sit left of incoming next user face (curr=${currFace.left}, next=${nextUserFace.left})`,
   );
   assert.ok(currFace.shadeOpacity > 0.05 && nextUserFace.shadeOpacity > 0.05);
 
   await page.mouse.up();
   await waitSettled(page);
   const atDiego1 = await getActiveStoryState(page);
-  assert.equal(atDiego1.activeIndex, 5, "Drag right must commit to Diego's FIRST story (idx 5)");
+  assert.equal(
+    atDiego1.activeIndex,
+    5,
+    "Drag right->left must commit to Diego's FIRST story (idx 5)",
+  );
   assert.equal(atDiego1.headerName, "Diego");
   assert.equal(atDiego1.segments, 3);
   assert.equal(atDiego1.chromeHidden, false);
@@ -560,34 +577,38 @@ try {
   await replyInput.fill("");
   await page.locator(".story-viewer-header").click();
 
-  // 7. Hold + drag LEFT from middle of Diego's tray (Diego 2, idx 6) -> PREVIOUS USER's FIRST story (Sofia 1, idx 2)!
-  await page.mouse.move(cx + 80, cy);
+  // 7. Hold + drag LEFT -> RIGHT (dx > 0) from middle of Diego's tray (Diego 2, idx 6) -> PREVIOUS USER's FIRST story (Sofia 1, idx 2)!
+  await page.mouse.move(cx - 80, cy);
   await page.mouse.down();
   await page.waitForTimeout(210);
-  await page.mouse.move(cx + 80 - vp.width * 0.45, cy, { steps: 12 });
-  const midLeftDrag = await getActiveStoryState(page);
-  const currLeftFace = midLeftDrag.faces.find((f) => f.index === 6);
-  const prevUserFirstFace = midLeftDrag.faces.find((f) => f.index === 2);
-  const sameUserPrevFace = midLeftDrag.faces.find((f) => f.index === 5);
+  await page.mouse.move(cx - 80 + vp.width * 0.45, cy, { steps: 12 });
+  const midBackDrag = await getActiveStoryState(page);
+  const currBackFace = midBackDrag.faces.find((f) => f.index === 6);
+  const prevUserFirstFace = midBackDrag.faces.find((f) => f.index === 2);
+  const sameUserPrevFace = midBackDrag.faces.find((f) => f.index === 5);
   assert.equal(
     prevUserFirstFace?.visibility,
     "visible",
-    "Live left-drag preview must show PREVIOUS USER's FIRST story (Sofia 1, idx 2)",
+    "Live backward-drag preview must show PREVIOUS USER's FIRST story (Sofia 1, idx 2)",
   );
   assert.notEqual(
     sameUserPrevFace?.visibility,
     "visible",
     "Same-user previous story (Diego 1, idx 5) must NOT be previewed during user drag",
   );
-  assert.ok(extractRotateY(currLeftFace.transform) < -20);
-  assert.ok(extractRotateY(prevUserFirstFace.transform) > 20);
+  assert.ok(extractRotateY(currBackFace.transform) > 20);
+  assert.ok(extractRotateY(prevUserFirstFace.transform) < -20);
+  assert.ok(
+    prevUserFirstFace.left < currBackFace.left,
+    "Previous user face must enter from LEFT while current exits RIGHT",
+  );
   await page.mouse.up();
   await waitSettled(page);
   const backAtSofia1 = await getActiveStoryState(page);
   assert.equal(
     backAtSofia1.activeIndex,
     2,
-    "Drag left must land on PREVIOUS user's FIRST story (Sofia 1)",
+    "Drag left->right must land on PREVIOUS user's FIRST story (Sofia 1)",
   );
   assert.equal(backAtSofia1.headerName, "Sofia");
   assert.equal(
@@ -597,51 +618,51 @@ try {
   );
 
   // 8. Velocity flings jump one user tray at a time: Sofia 1 (2) -> Diego 1 (5) -> Clara 1 (8)
-  await dragMouse(page, cx, cy, cx + vp.width * 0.16, cy, { steps: 3, holdBeforeMs: 0 });
+  await dragMouse(page, cx, cy, cx - vp.width * 0.16, cy, { steps: 3, holdBeforeMs: 0 });
   await waitSettled(page);
   assert.equal(
     (await getActiveStoryState(page)).activeIndex,
     5,
-    "Right fling must jump to Diego 1",
+    "Right->left fling must jump to Diego 1",
   );
 
-  await dragMouse(page, cx, cy, cx + vp.width * 0.16, cy, { steps: 3, holdBeforeMs: 0 });
+  await dragMouse(page, cx, cy, cx - vp.width * 0.16, cy, { steps: 3, holdBeforeMs: 0 });
   await waitSettled(page);
   const atClara1 = await getActiveStoryState(page);
-  assert.equal(atClara1.activeIndex, 8, "Right fling must jump to Clara 1");
+  assert.equal(atClara1.activeIndex, 8, "Right->left fling must jump to Clara 1");
   assert.equal(atClara1.headerName, "Clara");
   assert.equal(atClara1.segments, 2);
 
   // 9. Last-user boundary rubber-band even from Clara's FIRST story (Clara 1, idx 8 — Clara 2 exists at idx 9!)
-  await page.mouse.move(cx - 100, cy);
+  await page.mouse.move(cx + 100, cy);
   await page.mouse.down();
   await page.waitForTimeout(200);
-  await page.mouse.move(cx - 100 + vp.width * 0.75, cy, { steps: 10 });
+  await page.mouse.move(cx + 100 - vp.width * 0.75, cy, { steps: 10 });
   const lastUserBound = await getActiveStoryState(page);
   const lastAngle = extractRotateY(lastUserBound.faces.find((f) => f.index === 8)?.transform ?? "");
   assert.ok(
-    lastAngle > 3 && lastAngle < 30,
-    `Last-user right drag must apply rubber-band resistance even with remaining stories in tray, got ${lastAngle}`,
+    lastAngle < -3 && lastAngle > -30,
+    `Last-user forward drag must apply rubber-band resistance (-30 < deg < -3), got ${lastAngle}`,
   );
   assert.notEqual(
     lastUserBound.faces.find((f) => f.index === 9)?.visibility,
     "visible",
-    "Clara 2 must NOT appear on user-level right drag at last user",
+    "Clara 2 must NOT appear on user-level forward drag at last user",
   );
   await page.mouse.up();
   await waitSettled(page);
   assert.equal((await getActiveStoryState(page)).activeIndex, 8);
 
-  // Left fling returns to Diego 1 (5), then left fling to Sofia 1 (2), then left drag to Mine 1 (0)
-  await dragMouse(page, cx, cy, cx - vp.width * 0.16, cy, { steps: 3, holdBeforeMs: 0 });
+  // Left->right flings return to Diego 1 (5) -> Sofia 1 (2) -> Mine 1 (0)
+  await dragMouse(page, cx, cy, cx + vp.width * 0.16, cy, { steps: 3, holdBeforeMs: 0 });
   await waitSettled(page);
   assert.equal((await getActiveStoryState(page)).activeIndex, 5);
 
-  await dragMouse(page, cx, cy, cx - vp.width * 0.16, cy, { steps: 3, holdBeforeMs: 0 });
+  await dragMouse(page, cx, cy, cx + vp.width * 0.16, cy, { steps: 3, holdBeforeMs: 0 });
   await waitSettled(page);
   assert.equal((await getActiveStoryState(page)).activeIndex, 2);
 
-  await dragMouse(page, cx + 80, cy, cx + 80 - vp.width * 0.42, cy, {
+  await dragMouse(page, cx - 80, cy, cx - 80 + vp.width * 0.42, cy, {
     steps: 10,
     holdBeforeMs: 200,
   });
@@ -649,7 +670,7 @@ try {
   assert.equal(
     (await getActiveStoryState(page)).activeIndex,
     0,
-    "Drag left from Sofia must land on Mine 1 (idx 0)",
+    "Drag left->right from Sofia must land on Mine 1 (idx 0)",
   );
 
   // 10. First-user boundary rubber-band even from Alice's SECOND story (Mine 2, idx 1 — Mine 1 exists at idx 0!)
@@ -661,22 +682,22 @@ try {
     "Next button steps story-level to Mine 2",
   );
 
-  await page.mouse.move(cx + 100, cy);
+  await page.mouse.move(cx - 100, cy);
   await page.mouse.down();
   await page.waitForTimeout(200);
-  await page.mouse.move(cx + 100 - vp.width * 0.75, cy, { steps: 10 });
+  await page.mouse.move(cx - 100 + vp.width * 0.75, cy, { steps: 10 });
   const firstUserBound = await getActiveStoryState(page);
   const firstAngle = extractRotateY(
     firstUserBound.faces.find((f) => f.index === 1)?.transform ?? "",
   );
   assert.ok(
-    firstAngle < -3 && firstAngle > -30,
-    `First-user left drag must apply rubber-band resistance even from story #2, got ${firstAngle}`,
+    firstAngle > 3 && firstAngle < 30,
+    `First-user backward drag must apply rubber-band resistance (3 < deg < 30), got ${firstAngle}`,
   );
   assert.notEqual(
     firstUserBound.faces.find((f) => f.index === 0)?.visibility,
     "visible",
-    "Mine 1 must NOT appear on user-level left drag at first user",
+    "Mine 1 must NOT appear on user-level backward drag at first user",
   );
   await page.mouse.up();
   await waitSettled(page);
@@ -694,8 +715,8 @@ try {
     "Double mid-flight ArrowRight must chain cleanly to Sofia 2",
   );
 
-  // Interrupt a settling user-drag mid-flight and pull it back to Sofia 2 (idx 3)
-  await dragMouse(page, cx - 60, cy, cx - 60 + vp.width * 0.35, cy, { steps: 5, holdBeforeMs: 0 });
+  // Interrupt a settling forward user-drag mid-flight and pull it back right onto Sofia 2 (idx 3)
+  await dragMouse(page, cx + 60, cy, cx + 60 - vp.width * 0.35, cy, { steps: 5, holdBeforeMs: 0 });
   await page.waitForTimeout(45);
   await page.mouse.move(cx, cy);
   await page.mouse.down();
@@ -704,17 +725,17 @@ try {
     false,
     "Pointerdown interrupts settling",
   );
-  await page.mouse.move(cx - vp.width * 0.4, cy, { steps: 8 });
+  await page.mouse.move(cx + vp.width * 0.4, cy, { steps: 8 });
   await page.mouse.up();
   await waitSettled(page);
   assert.equal(
     (await getActiveStoryState(page)).activeIndex,
     3,
-    "Interrupting user-drag settle and dragging back left must settle cleanly on Sofia 2",
+    "Interrupting user-drag settle and pulling back right must settle cleanly on Sofia 2",
   );
 
   // 12. Timer auto-advance (story-level): Mine 1 (idx 0) auto-advances to Mine 2 (idx 1) via unified cube engine
-  await dragMouse(page, cx + 80, cy, cx + 80 - vp.width * 0.42, cy, {
+  await dragMouse(page, cx - 80, cy, cx - 80 + vp.width * 0.42, cy, {
     steps: 10,
     holdBeforeMs: 200,
   });
@@ -769,10 +790,10 @@ try {
   const vpRm = await page.locator(".story-cube-viewport").boundingBox();
   const rmCx = vpRm.x + vpRm.width / 2;
   const rmCy = vpRm.y + vpRm.height / 2;
-  await page.mouse.move(rmCx - 60, rmCy);
+  await page.mouse.move(rmCx + 60, rmCy);
   await page.mouse.down();
   await page.waitForTimeout(210);
-  await page.mouse.move(rmCx - 60 + vpRm.width * 0.45, rmCy, { steps: 10 });
+  await page.mouse.move(rmCx + 60 - vpRm.width * 0.45, rmCy, { steps: 10 });
   const rmDrag = await getActiveStoryState(page);
   assert.equal(rmDrag.reducedMotion, true);
   const rmCurr = rmDrag.faces.find((f) => f.index === 2);
@@ -787,7 +808,7 @@ try {
   assert.equal(
     (await getActiveStoryState(page)).activeIndex,
     5,
-    "Reduced motion right drag jumps to Diego 1",
+    "Reduced motion right->left drag jumps to Diego 1",
   );
   await page.getByRole("button", { name: "Close story", exact: true }).click();
   await page.getByRole("dialog", { name: "Story", exact: true }).waitFor({ state: "detached" });
@@ -811,12 +832,12 @@ try {
   await mPage.locator(".story-stage").getByText("Sofia 1", { exact: true }).waitFor();
   await waitSettled(mPage);
 
-  // Touch hold + right drag with secondary-finger noise -> jumps directly to Diego 1 (idx 5)
+  // Touch hold + right->left drag with secondary-finger noise -> jumps directly to Diego 1 (idx 5)
   await mPage.evaluate(async () => {
     const vpEl = document.querySelector(".story-cube-viewport");
     const rect = vpEl.getBoundingClientRect();
     const y = rect.top + rect.height / 2;
-    const x0 = rect.left + rect.width * 0.25;
+    const x0 = rect.left + rect.width * 0.75;
     const fire = (type, pointerId, isPrimary, clientX, clientY) => {
       vpEl.dispatchEvent(
         new PointerEvent(type, {
@@ -835,28 +856,28 @@ try {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     fire("pointerdown", 1, true, x0, y);
     await sleep(220);
-    fire("pointerdown", 2, false, rect.right - 20, y);
-    fire("pointermove", 2, false, rect.left + 20, y);
-    fire("pointerup", 2, false, rect.left + 20, y);
+    fire("pointerdown", 2, false, rect.left + 20, y);
+    fire("pointermove", 2, false, rect.right - 20, y);
+    fire("pointerup", 2, false, rect.right - 20, y);
     for (let i = 1; i <= 8; i++) {
-      fire("pointermove", 1, true, x0 + (rect.width * 0.45 * i) / 8, y);
+      fire("pointermove", 1, true, x0 - (rect.width * 0.45 * i) / 8, y);
       await sleep(16);
     }
-    fire("pointerup", 1, true, x0 + rect.width * 0.45, y);
+    fire("pointerup", 1, true, x0 - rect.width * 0.45, y);
   });
   await waitSettled(mPage);
   assert.equal(
     (await getActiveStoryState(mPage)).activeIndex,
     5,
-    "Mobile touch right drag jumps to Diego 1",
+    "Mobile touch right->left drag jumps to Diego 1",
   );
 
-  // Touch drag LEFT -> jumps directly back to Sofia 1 (idx 2)
+  // Touch drag LEFT -> RIGHT -> jumps directly back to Sofia 1 (idx 2)
   await mPage.evaluate(async () => {
     const vpEl = document.querySelector(".story-cube-viewport");
     const rect = vpEl.getBoundingClientRect();
     const y = rect.top + rect.height / 2;
-    const x0 = rect.left + rect.width * 0.75;
+    const x0 = rect.left + rect.width * 0.25;
     const fire = (type, clientX) => {
       vpEl.dispatchEvent(
         new PointerEvent(type, {
@@ -876,26 +897,26 @@ try {
     fire("pointerdown", x0);
     await sleep(200);
     for (let i = 1; i <= 8; i++) {
-      fire("pointermove", x0 - (rect.width * 0.45 * i) / 8);
+      fire("pointermove", x0 + (rect.width * 0.45 * i) / 8);
       await sleep(16);
     }
-    fire("pointerup", x0 - rect.width * 0.45);
+    fire("pointerup", x0 + rect.width * 0.45);
   });
   await waitSettled(mPage);
   assert.equal(
     (await getActiveStoryState(mPage)).activeIndex,
     2,
-    "Mobile touch left drag jumps to Sofia 1",
+    "Mobile touch left->right drag jumps to Sofia 1",
   );
 
-  // Rapid repeated mobile user swipes (right -> right -> left -> left): Sofia(2) -> Diego(5) -> Clara(8) -> Diego(5) -> Sofia(2)
-  for (const dir of [1, 1, -1, -1]) {
-    await mPage.evaluate(async (direction) => {
+  // Rapid repeated mobile user swipes (forward, forward, back, back): Sofia(2) -> Diego(5) -> Clara(8) -> Diego(5) -> Sofia(2)
+  for (const dxSign of [-1, -1, 1, 1]) {
+    await mPage.evaluate(async (sign) => {
       const vpEl = document.querySelector(".story-cube-viewport");
       const rect = vpEl.getBoundingClientRect();
       const y = rect.top + rect.height / 2;
-      const x0 = direction > 0 ? rect.left + rect.width * 0.2 : rect.left + rect.width * 0.8;
-      const x1 = x0 + direction * rect.width * 0.45;
+      const x0 = sign < 0 ? rect.left + rect.width * 0.8 : rect.left + rect.width * 0.2;
+      const x1 = x0 + sign * rect.width * 0.45;
       const pid = Math.floor(Math.random() * 1000) + 10;
       const fire = (type, clientX) => {
         vpEl.dispatchEvent(
@@ -920,7 +941,7 @@ try {
         await sleep(10);
       }
       fire("pointerup", x1);
-    }, dir);
+    }, dxSign);
     await mPage.waitForTimeout(80);
   }
   await waitSettled(mPage);

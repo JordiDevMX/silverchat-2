@@ -1,3 +1,12 @@
+/**
+ * Single source of truth for horizontal carousel direction (Instagram / natural scroll):
+ * - Dragging pointer RIGHT → LEFT (`dx < 0`) advances position toward `+1` (NEXT).
+ * - Dragging pointer LEFT → RIGHT (`dx > 0`) retreats position toward `-1` (PREVIOUS).
+ * Cube face angles derive from this constant so finger motion, target resolution, and
+ * 3D cube rotation always stay congruent.
+ */
+export const DRAG_TO_POSITION_SIGN = -1;
+
 export const COMMIT_DISTANCE_THRESHOLD = 0.27;
 export const FLING_VELOCITY_THRESHOLD = 1.1;
 export const FLING_MIN_DISPLACEMENT = 0.06;
@@ -41,14 +50,14 @@ export function applyBoundaryResistance(pos: number, minPos: number, maxPos: num
 /**
  * Computes GPU-composited transform and opacity for a single story face.
  *
- * Coordinate convention (locked):
- * - `relativeOffset = faceIndex - position`
- * - Dragging RIGHT increases `position` toward `k + 1` (NEXT):
- *   - Current face `k` has `relativeOffset < 0` -> rotates `+angle` (swings right with pointer)
- *   - Incoming NEXT face `k + 1` has `relativeOffset > 0` -> rotates `-angle` (enters from left)
- * - Dragging LEFT decreases `position` toward `k - 1` (PREVIOUS):
- *   - Current face `k` has `relativeOffset > 0` -> rotates `-angle` (swings left with pointer)
- *   - Incoming PREVIOUS face `k - 1` has `relativeOffset < 0` -> rotates `+angle` (enters from right)
+ * Coordinate convention (derived from `DRAG_TO_POSITION_SIGN`):
+ * - `relativeOffset = faceSlot - position`
+ * - Advancing FORWARD (`position: 0 → +1`, triggered by dragging RIGHT → LEFT, tap Next, auto-advance):
+ *   - Current face `0` has `relativeOffset < 0` -> rotates `-angle` (exits toward LEFT edge)
+ *   - Incoming NEXT face `+1` has `relativeOffset > 0` -> rotates `+angle` (enters from RIGHT edge)
+ * - Going BACKWARD (`position: 0 → -1`, triggered by dragging LEFT → RIGHT, tap Previous):
+ *   - Current face `0` has `relativeOffset > 0` -> rotates `+angle` (exits toward RIGHT edge)
+ *   - Incoming PREVIOUS face `-1` has `relativeOffset < 0` -> rotates `-angle` (enters from LEFT edge)
  */
 export function computeCubeFaceStyle(
   relativeOffset: number,
@@ -84,7 +93,7 @@ export function computeCubeFaceStyle(
   }
 
   const halfWidth = Math.max(1, stageWidth) / 2;
-  const angleDeg = -relativeOffset * 90;
+  const angleDeg = -DRAG_TO_POSITION_SIGN * relativeOffset * 90;
   const roundedAngle = Number(angleDeg.toFixed(3));
   const roundedRadius = Number(halfWidth.toFixed(2));
   const shadeOpacity = Math.min(CUBE_SHADE_MAX_OPACITY, absOffset * CUBE_SHADE_MAX_OPACITY);
