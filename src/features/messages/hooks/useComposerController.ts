@@ -1,23 +1,25 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { loadDraftMedia, readMemoryDraftMedia, saveDraftMedia } from "@/features/chats/draftMedia";
 import { createDraftWriter, readDrafts } from "@/features/chats/drafts";
-import {
-  loadDraftMedia,
-  readMemoryDraftMedia,
-  saveDraftMedia,
-} from "@/features/chats/draftMedia";
+import { useAuth } from "@/lib/auth-provider";
 import {
   type DataTransferLike,
   extractDataTransferMedia,
   formatClipboardFeedback,
   MAX_CLIPBOARD_IMAGES_DEFAULT,
 } from "@/lib/clipboard-images";
-import { useAuth } from "@/lib/auth-provider";
 import type { ComposerAttachmentItem } from "../components/ComposerAttachmentTray";
 import { useMessageText } from "../i18n";
 import { cleanupUploads, prepareAndUpload } from "../lib/upload";
 import type { ChatDetails, Member, SendInput } from "../types";
 import { mentionIds, useMentions } from "./useMentions";
 import { useVoiceRecorder } from "./useVoiceRecorder";
+
+interface AttachmentDraftState {
+  hydrated: boolean;
+  items: ComposerAttachmentItem[];
+}
+
 export function useComposerController({
   chat,
   onSend,
@@ -39,6 +41,9 @@ export function useComposerController({
       return undefined;
     }
   }, [chat.id, ownerId]);
+  const initialMediaIdsRef = useRef(initialDraft?.mediaUrls ?? []);
+  const prevMediaSignatureRef = useRef((initialDraft?.mediaUrls ?? []).join(","));
+
   const [text, setText] = useState(() => initialDraft?.text ?? "");
   const [caret, setCaret] = useState(text.length);
   const [emoji, setEmoji] = useState(false);
@@ -47,7 +52,21 @@ export function useComposerController({
   const [extraFiles, setExtraFiles] = useState<File[]>([]);
   const [contacts, setContacts] = useState(false);
   const [error, setError] = useState("");
-  const [attachments, setAttachments] = useState<ComposerAttachmentItem[]>([]);
+  const [attachmentState, setAttachmentState] = useState<AttachmentDraftState>(() => {
+    const ids = initialDraft?.mediaUrls;
+    if (!ids?.length) return { hydrated: true, items: [] };
+    const cached = readMemoryDraftMedia(ownerId, chat.id, ids);
+    if (!cached) return { hydrated: false, items: [] };
+    return {
+      hydrated: true,
+      items: cached.map(({ id, file: cachedFile }) => ({
+        id,
+        file: cachedFile,
+        status: "queued",
+        progress: 0,
+      })),
+    };
+  });
   const [sendingAttachments, setSendingAttachments] = useState(false);
   const [attachmentAnnouncement, setAttachmentAnnouncement] = useState("");
   const [dragActive, setDragActive] = useState(false);
@@ -56,10 +75,8 @@ export function useComposerController({
   const emojiBox = useRef<HTMLDivElement>(null);
   const selection = useRef({ start: text.length, end: text.length });
   const submitted = useRef<{ text: string; failed?: boolean; pending?: boolean } | null>(null);
-  const attachmentsRef = useRef<ComposerAttachmentItem[]>([]);
-  const hydratedFromDraftRef = useRef(!(initialDraft?.mediaUrls.length ?? 0));
-  const initialMediaIdsRef = useRef(initialDraft?.mediaUrls ?? []);
-  const prevMediaSignatureRef = useRef((initialDraft?.mediaUrls ?? []).join(","));
+  const attachmentsRef = useRef<ComposerAttachmentItem[]>(attachmentState.items);
+  attachmentsRef.current = attachmentState.items;
   const controllersRef = useRef(new Map<string, AbortController>());
   const uploadingAttachmentsRef = useRef(false);
   const latestReply = useRef(replyToId);
@@ -77,9 +94,8 @@ export function useComposerController({
     ) => {
       const next = updater(attachmentsRef.current);
       attachmentsRef.current = next;
-      setAttachments(next);
+      setAttachmentState({ hydrated: true, items: next });
       if (options?.persist !== false) {
-        hydratedFromDraftRef.current = true;
         void saveDraftMedia(
           ownerId,
           chat.id,
@@ -100,50 +116,29 @@ export function useComposerController({
     [setAttachmentsSynced],
   );
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const ids = initialMediaIdsRef.current;
-    if (!ids.length) {
-      hydratedFromDraftRef.current = true;
-      return;
-    }
-    const cached = readMemoryDraftMedia(ownerId, chat.id, ids);
-    if (cached) {
-      hydratedFromDraftRef.current = true;
-      if (cached.length > 0) {
-        const restored: ComposerAttachmentItem[] = cached.map(({ id, file: cachedFile }) => ({
-          id,
-          file: cachedFile,
-          previewUrl: URL.createObjectURL(cachedFile),
-          status: "queued",
-          progress: 0,
-        }));
-        attachmentsRef.current = restored;
-        setAttachments(restored);
-      }
-      return;
-    }
+    if (!ids.length) return;
+    if (readMemoryDraftMedia(ownerId, chat.id, ids)) return;
+
     let active = true;
     void loadDraftMedia(ownerId, chat.id, ids).then((loaded) => {
       if (!active) return;
-      hydratedFromDraftRef.current = true;
-      if (loaded.length === 0) return;
       const existingIds = new Set(attachmentsRef.current.map((item) => item.id));
       const restored: ComposerAttachmentItem[] = loaded
         .filter((entry) => !existingIds.has(entry.id))
         .map(({ id, file: loadedFile }) => ({
           id,
           file: loadedFile,
-          previewUrl: URL.createObjectURL(loadedFile),
           status: "queued",
           progress: 0,
         }));
-      if (restored.length === 0) return;
       const merged = [...restored, ...attachmentsRef.current].slice(
         0,
         MAX_CLIPBOARD_IMAGES_DEFAULT,
       );
       attachmentsRef.current = merged;
-      setAttachments(merged);
+      setAttachmentState({ hydrated: true, items: merged });
       if (merged.length !== restored.length) {
         void saveDraftMedia(
           ownerId,
@@ -160,8 +155,8 @@ export function useComposerController({
   useEffect(() => {
     if (text.trim()) submitted.current = null;
     const draftText = text.trim() ? text : submitted.current?.text;
-    const mediaIds = hydratedFromDraftRef.current
-      ? attachments.map((item) => item.id)
+    const mediaIds = attachmentState.hydrated
+      ? attachmentState.items.map((item) => item.id)
       : initialMediaIdsRef.current;
     const mediaSignature = mediaIds.join(",");
     const mediaChanged = mediaSignature !== prevMediaSignatureRef.current;
@@ -188,7 +183,7 @@ export function useComposerController({
       el.style.height = "auto";
       el.style.height = `${Math.min(120, el.scrollHeight)}px`;
     }
-  }, [text, writer, replyToId, attachments]);
+  }, [text, writer, replyToId, attachmentState]);
   useEffect(() => {
     const flush = () => writer.flush();
     window.addEventListener("pagehide", flush);
@@ -203,9 +198,6 @@ export function useComposerController({
         controller.abort();
       }
       controllersRef.current.clear();
-      for (const item of attachmentsRef.current) {
-        URL.revokeObjectURL(item.previewUrl);
-      }
     },
     [],
   );
@@ -234,7 +226,6 @@ export function useComposerController({
       const added: ComposerAttachmentItem[] = accepted.map((nextFile) => ({
         id: crypto.randomUUID(),
         file: nextFile,
-        previewUrl: URL.createObjectURL(nextFile),
         status: "queued",
         progress: 0,
       }));
@@ -277,8 +268,6 @@ export function useComposerController({
     (id: string) => {
       controllersRef.current.get(id)?.abort();
       controllersRef.current.delete(id);
-      const existing = attachmentsRef.current.find((item) => item.id === id);
-      if (existing) URL.revokeObjectURL(existing.previewUrl);
       setAttachmentsSynced((prev) => prev.filter((item) => item.id !== id));
       setAttachmentAnnouncement(say("Removed image.", "Imagen quitada."));
     },
@@ -289,7 +278,6 @@ export function useComposerController({
     for (const item of attachmentsRef.current) {
       controllersRef.current.get(item.id)?.abort();
       controllersRef.current.delete(item.id);
-      URL.revokeObjectURL(item.previewUrl);
     }
     setAttachmentsSynced(() => []);
     setError("");
@@ -345,7 +333,7 @@ export function useComposerController({
             const result = await prepareAndUpload(
               current.file,
               chat.id,
-              user?.id ?? "",
+              ownerId,
               controller.signal,
               (progress) => updateAttachment(id, { progress }),
               { bucket: chat.channelMode ? "channel-media" : "chat-media" },
@@ -383,7 +371,8 @@ export function useComposerController({
                 latest.current = "";
                 setCaret(0);
                 writer.write(
-                  remainingIds.length > 0 || (latestReply.current && latestReply.current !== replyToId)
+                  remainingIds.length > 0 ||
+                    (latestReply.current && latestReply.current !== replyToId)
                     ? {
                         text: "",
                         mediaUrls: remainingIds,
@@ -399,7 +388,6 @@ export function useComposerController({
               }
             }
 
-            URL.revokeObjectURL(current.previewUrl);
             setAttachmentsSynced((prev) => prev.filter((item) => item.id !== id));
           } catch (uploadError) {
             if (uploadError instanceof DOMException && uploadError.name === "AbortError") {
@@ -435,11 +423,11 @@ export function useComposerController({
       chat.members,
       mentionsEnabled,
       onSend,
+      ownerId,
       replyToId,
       say,
       setAttachmentsSynced,
       updateAttachment,
-      user?.id,
       writer,
     ],
   );
@@ -541,7 +529,7 @@ export function useComposerController({
     setContacts,
     error,
     setError,
-    attachments,
+    attachments: attachmentState.items,
     sendingAttachments,
     attachmentAnnouncement,
     dragActive,

@@ -378,6 +378,9 @@ try {
   assert.equal(await page.locator('[data-slot="composer-attachment-tray"]').count(), 0);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
 
+  const pngBlue = await createSamplePngBase64("#2f87ff", page);
+  const pngGreen = await createSamplePngBase64("#10b981", page);
+
   // 0b. Draft persistence across SPA navigation AND full browser reload:
   // paste 1 image without text, leave chat via UI, verify Draft pill in /chats,
   // re-enter chat, add a 2nd image + caption, reload browser, and verify restoration.
@@ -394,12 +397,34 @@ try {
   await page.locator('nav a[href="/chats"]').click();
   await page.getByText("Design squad").first().click();
   await page.locator('[data-slot="composer-attachment-tray"]').waitFor();
-  assert.equal(await page.locator('[data-slot="composer-attachment-item"]').count(), 1);
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('[data-slot="composer-attachment-item"] img').length === 1 &&
+      [...document.querySelectorAll('[data-slot="composer-attachment-item"] img')].every(
+        (img) => img.complete && img.naturalWidth > 0,
+      ),
+  );
 
-  // Add a 2nd image + text, then full-reload from IndexedDB + localStorage.
-  await writePngToRealClipboard(page, "#f97316");
-  await composerInput.focus();
-  await page.keyboard.press("Control+v");
+  // Leave and return a 2nd time (the exact StrictMode double-return regression).
+  await page.locator('nav a[href="/novedades"]').click();
+  await page.waitForURL("**/novedades");
+  await page.locator('nav a[href="/chats"]').click();
+  await page.getByText("Design squad").first().click();
+  await page.locator('[data-slot="composer-attachment-tray"]').waitFor();
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('[data-slot="composer-attachment-item"] img').length === 1 &&
+      [...document.querySelectorAll('[data-slot="composer-attachment-item"] img')].every(
+        (img) => img.complete && img.naturalWidth > 0,
+      ),
+  );
+
+  // Add a 2nd image via the tray file picker + text, then full-reload from IndexedDB + localStorage.
+  await page.locator('[data-slot="composer-attachment-tray"] input[type="file"]').setInputFiles({
+    name: "pc-photo.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(pngGreen, "base64"),
+  });
   await page.waitForTimeout(150);
   await composerInput.fill("Draft caption");
   await page.waitForTimeout(600);
@@ -422,9 +447,6 @@ try {
   await page.getByRole("textbox", { name: "Message", exact: true }).waitFor();
   assert.equal(await page.locator('[data-slot="composer-attachment-tray"]').count(), 0);
   assert.equal(await composerInput.inputValue(), "");
-
-  const pngBlue = await createSamplePngBase64("#2f87ff", page);
-  const pngGreen = await createSamplePngBase64("#10b981", page);
 
   // 1. Plain-text paste keeps working identically without opening attachment tray.
   await dispatchPaste(page, ".composer-input textarea", { text: "Plain hello" });

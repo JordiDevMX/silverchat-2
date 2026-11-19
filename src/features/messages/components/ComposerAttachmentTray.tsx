@@ -9,10 +9,67 @@ import { formatBytes } from "../utils/formatMessageTime";
 export interface ComposerAttachmentItem {
   id: string;
   file: File;
-  previewUrl: string;
   status: "queued" | "uploading" | "failed";
   progress: number;
   error?: string;
+}
+
+function useObjectUrl(file: File | undefined): string | undefined {
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    if (!file) {
+      setUrl(undefined);
+      return;
+    }
+    const next = URL.createObjectURL(file);
+    setUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [file]);
+  return url;
+}
+
+function AttachmentThumbImage({ file }: { file: File }) {
+  const url = useObjectUrl(file);
+  return url ? <img src={url} alt="" /> : null;
+}
+
+function AttachmentInspectModal({
+  item,
+  onRemove,
+  onClose,
+}: {
+  item: ComposerAttachmentItem;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  const { say, language } = useMessageText();
+  const url = useObjectUrl(item.file);
+  return (
+    <Modal title={item.file.name} className="media-preview messaging-dialog" onClose={onClose}>
+      <button
+        type="button"
+        className="message-icon modal-close"
+        aria-label={say("Close", "Cerrar")}
+        onClick={onClose}
+      >
+        <X />
+      </button>
+      <div className="media-preview-stage">
+        {url && <img src={url} alt={item.file.name} />}
+      </div>
+      <p className="composer-inspect-meta">
+        {formatBytes(item.file.size, language)} · {item.file.type || "image"}
+      </p>
+      <div className="modal-actions">
+        <Button type="button" variant="destructive" className="rounded-xl" onClick={onRemove}>
+          {say("Remove image", "Quitar imagen")}
+        </Button>
+        <Button type="button" className="rounded-xl" onClick={onClose}>
+          {say("Done", "Listo")}
+        </Button>
+      </div>
+    </Modal>
+  );
 }
 
 export function ComposerAttachmentTray({
@@ -38,7 +95,7 @@ export function ComposerAttachmentTray({
   onClear: () => void;
   onFocusInput: () => void;
 }) {
-  const { say, language } = useMessageText();
+  const { say } = useMessageText();
   const pickerRef = useRef<HTMLInputElement>(null);
   const removeRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const pendingFocusIndexRef = useRef<number | null>(null);
@@ -124,7 +181,7 @@ export function ComposerAttachmentTray({
               )}
               onClick={() => setInspectId(item.id)}
             >
-              <img src={item.previewUrl} alt="" />
+              <AttachmentThumbImage file={item.file} />
             </button>
 
             <button
@@ -214,44 +271,16 @@ export function ComposerAttachmentTray({
       </div>
 
       {inspected && (
-        <Modal
-          title={inspected.file.name}
-          className="media-preview messaging-dialog"
+        <AttachmentInspectModal
+          item={inspected}
           onClose={() => setInspectId(null)}
-        >
-          <button
-            type="button"
-            className="message-icon modal-close"
-            aria-label={say("Close", "Cerrar")}
-            onClick={() => setInspectId(null)}
-          >
-            <X />
-          </button>
-          <div className="media-preview-stage">
-            <img src={inspected.previewUrl} alt={inspected.file.name} />
-          </div>
-          <p className="composer-inspect-meta">
-            {formatBytes(inspected.file.size, language)} · {inspected.file.type || "image"}
-          </p>
-          <div className="modal-actions">
-            <Button
-              type="button"
-              variant="destructive"
-              className="rounded-xl"
-              onClick={() => {
-                const idx = items.findIndex((item) => item.id === inspected.id);
-                pendingFocusIndexRef.current = Math.max(0, idx);
-                setInspectId(null);
-                onRemove(inspected.id);
-              }}
-            >
-              {say("Remove image", "Quitar imagen")}
-            </Button>
-            <Button type="button" className="rounded-xl" onClick={() => setInspectId(null)}>
-              {say("Done", "Listo")}
-            </Button>
-          </div>
-        </Modal>
+          onRemove={() => {
+            const idx = items.findIndex((item) => item.id === inspected.id);
+            pendingFocusIndexRef.current = Math.max(0, idx);
+            setInspectId(null);
+            onRemove(inspected.id);
+          }}
+        />
       )}
     </section>
   );
