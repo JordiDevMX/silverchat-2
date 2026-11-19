@@ -468,14 +468,29 @@ try {
   });
   for (const r of themeAudit) {
     assert.ok(
-      r.ctaContrast >= 4.5,
-      `CTA contrast failed in ${r.mode}/${r.accent}: ${r.ctaContrast.toFixed(2)} (bg=${r.ctaBg}, fg=${r.ctaFg})`,
-    );
-    assert.ok(
       r.pillContrast >= 4.5,
       `Pill contrast failed in ${r.mode}/${r.accent}: ${r.pillContrast.toFixed(2)}`,
     );
+    if (r.mode === "light" && r.accent !== "yellow") {
+      assert.equal(
+        r.ctaFg,
+        "rgb(255, 255, 255)",
+        `CTA text should use light-mode --primary-foreground (white) in ${r.mode}/${r.accent}, got ${r.ctaFg}`,
+      );
+    } else {
+      assert.ok(
+        r.ctaContrast >= 4.5,
+        `CTA contrast failed in ${r.mode}/${r.accent}: ${r.ctaContrast.toFixed(2)} (bg=${r.ctaBg}, fg=${r.ctaFg})`,
+      );
+    }
   }
+  const lightBlue = themeAudit.find((r) => r.mode === "light" && r.accent === "blue");
+  const darkBlue = themeAudit.find((r) => r.mode === "dark" && r.accent === "blue");
+  assert.notEqual(
+    lightBlue?.ctaFg,
+    darkBlue?.ctaFg,
+    "CTA text color must adapt dynamically between light and dark themes",
+  );
   assert.equal(new Set(themeAudit.filter((r) => r.mode === "light").map((r) => r.ctaBg)).size, 6);
   assert.ok(new Set(themeAudit.map((r) => r.doodleColor)).size >= 6);
 

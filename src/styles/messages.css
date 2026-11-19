@@ -334,8 +334,6 @@
     text-align: center;
   }
   .channel-follow-cta {
-    --cta-bg: var(--primary);
-    --wcag-y-threshold: 0.17913;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -344,9 +342,9 @@
     max-width: 720px;
     min-height: 48px;
     padding: 12px 24px;
-    border: 1px solid color-mix(in oklab, var(--cta-bg) 72%, var(--foreground) 16%);
+    border: 1px solid color-mix(in oklab, var(--primary) 72%, var(--foreground) 16%);
     border-radius: 9999px;
-    background: var(--cta-bg);
+    background: var(--primary);
     color: var(--primary-foreground);
     font-size: 0.9375rem;
     font-weight: 600;
@@ -357,19 +355,8 @@
       filter var(--duration-fast) var(--ease-out),
       transform var(--duration-fast) var(--ease-out);
   }
-  @supports (color: color(from white xyz-d65 calc(max(0, sign(0.17913 - y)) * 0.9505) 0 0)) {
-    .channel-follow-cta {
-      color: color(
-        from var(--cta-bg) xyz-d65 calc(max(0, sign(var(--wcag-y-threshold) - y)) * 0.9505)
-          max(0, sign(var(--wcag-y-threshold) - y))
-          calc(max(0, sign(var(--wcag-y-threshold) - y)) * 1.089)
-      );
-    }
-  }
-  @supports (color: contrast-color(white)) {
-    .channel-follow-cta {
-      color: contrast-color(var(--cta-bg));
-    }
+  :root:not([data-theme="dark"]).theme-yellow .channel-follow-cta {
+    color: var(--foreground);
   }
   .channel-follow-cta:hover:not(:disabled) {
     filter: brightness(1.06);

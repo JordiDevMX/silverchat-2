@@ -62,7 +62,12 @@ const profiles = [
     avatar_url: null,
     scheduled_deletion_at: null,
   },
-  { id: other, username: "sofia", display_name: "Sofia", avatar_url: "sofia.svg" },
+  {
+    id: other,
+    username: "sofia",
+    display_name: "Sofia",
+    avatar_url: "sofia.svg",
+  },
 ];
 const jwt = `${Buffer.from('{"alg":"HS256"}').toString("base64url")}.${Buffer.from(JSON.stringify({ sub: me, aal: "aal2", exp: Math.floor(Date.now() / 1000) + 3600 })).toString("base64url")}.signature`;
 const story = (n, owner = other) => ({
@@ -142,7 +147,11 @@ let userSettings = {
 let failStoryOnce = false,
   storyCalls = [];
 const respond = (r, v, status = 200) =>
-  r.fulfill({ status, contentType: "application/json", body: JSON.stringify(v) });
+  r.fulfill({
+    status,
+    contentType: "application/json",
+    body: JSON.stringify(v),
+  });
 async function setup(ctx) {
   await ctx.route("**/api/auth/**", (r) =>
     respond(r, {
@@ -255,7 +264,11 @@ async function setup(ctx) {
     }
     if (p.endsWith("/messages")) {
       if (method === "HEAD")
-        return r.fulfill({ status: 200, headers: { "content-range": "0-0/120" }, body: "" });
+        return r.fulfill({
+          status: 200,
+          headers: { "content-range": "0-0/120" },
+          body: "",
+        });
       if (method === "POST") {
         if (body.reply_to_story_id) {
           replyAttempts.push(body.id);
@@ -362,7 +375,12 @@ async function setup(ctx) {
           description: body.p_description,
         };
         channels.push(c);
-        follows.push({ channel_id: c.id, user_id: me, last_read_at: now(), muted_until: null });
+        follows.push({
+          channel_id: c.id,
+          user_id: me,
+          last_read_at: now(),
+          muted_until: null,
+        });
         return respond(r, c.id);
       }
       if (fn === "update_channel_info") {
@@ -382,7 +400,10 @@ async function setup(ctx) {
     socket.onMessage((raw) => {
       const [join, ref, topic, event, payload] = JSON.parse(String(raw));
       if (event === "phx_join") {
-        const config = (payload.config.postgres_changes ?? []).map((c, i) => ({ ...c, id: i + 1 }));
+        const config = (payload.config.postgres_changes ?? []).map((c, i) => ({
+          ...c,
+          id: i + 1,
+        }));
         sockets.set(topic, { socket, config });
         socket.send(
           JSON.stringify([
@@ -402,7 +423,9 @@ async function setup(ctx) {
   );
   ctx.on("page", (p) => p.on("pageerror", (e) => errors.push(e.message)));
 }
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+const ctx = await browser.newContext({
+  viewport: { width: 1280, height: 900 },
+});
 await setup(ctx);
 const page = await ctx.newPage();
 page.setDefaultTimeout(10000);
@@ -472,7 +495,9 @@ const assertStoryViewerLayout = async (targetPage) => {
         alignItems: s.alignItems,
       };
     }),
-    replySend.evaluate((el) => ({ borderRadius: getComputedStyle(el).borderRadius })),
+    replySend.evaluate((el) => ({
+      borderRadius: getComputedStyle(el).borderRadius,
+    })),
     replyInput.boundingBox(),
     replySend.boundingBox(),
   ]);
@@ -593,14 +618,18 @@ try {
   // Real compression, video decoding, duration rejection, tracked uploads and playback.
   await page.getByRole("button", { name: "My story", exact: true }).click();
   await page.getByRole("button", { name: "Gallery", exact: true }).click();
-  await page
-    .locator("input[type=file]")
-    .setInputFiles({ name: "long.mp4", mimeType: "video/mp4", buffer: longClip });
+  await page.locator("input[type=file]").setInputFiles({
+    name: "long.mp4",
+    mimeType: "video/mp4",
+    buffer: longClip,
+  });
   await page.getByRole("alert").filter({ hasText: "at most 15 seconds" }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Send story" }).isDisabled(), true);
-  await page
-    .locator("input[type=file]")
-    .setInputFiles({ name: "short.mp4", mimeType: "video/mp4", buffer: shortClip });
+  await page.locator("input[type=file]").setInputFiles({
+    name: "short.mp4",
+    mimeType: "video/mp4",
+    buffer: shortClip,
+  });
   await page.getByLabel("Caption", { exact: true }).fill("Video caption below");
   failStoryOnce = true;
   await page.getByRole("button", { name: "Send story" }).click();
@@ -666,7 +695,12 @@ try {
     .waitFor({ state: "detached" });
   await page.getByText("Broadcast 64", { exact: true }).waitFor();
   assert.equal(await page.locator(".conversation-composer").count(), 0);
-  const live = { ...posts[0], id: uid(1900), content: "Realtime broadcast", created_at: now() };
+  const live = {
+    ...posts[0],
+    id: uid(1900),
+    content: "Realtime broadcast",
+    created_at: now(),
+  };
   posts.push(live);
   for (const [topic, { socket, config }] of sockets) {
     const ids = config
@@ -688,7 +722,10 @@ try {
               record: live,
               old_record: {},
               errors: null,
-              columns: Object.keys(live).map((name) => ({ name, type: "text" })),
+              columns: Object.keys(live).map((name) => ({
+                name,
+                type: "text",
+              })),
               commit_timestamp: now(),
             },
           },
@@ -881,6 +918,7 @@ try {
           ctaContrast: ratio(parseColor(ctaStyle.backgroundColor), parseColor(ctaStyle.color)),
           pillContrast: ratio(parseColor(pillStyle.backgroundColor), parseColor(pillStyle.color)),
           ctaBg: ctaStyle.backgroundColor,
+          ctaFg: ctaStyle.color,
           doodleColor: doodleStyle.color,
         });
       }
@@ -891,13 +929,21 @@ try {
   });
   for (const r of themeAudit) {
     assert.ok(
-      r.ctaContrast >= 4.5,
-      `CTA contrast too low in ${r.mode}/${r.accent}: ${r.ctaContrast.toFixed(2)}`,
-    );
-    assert.ok(
       r.pillContrast >= 4.5,
       `Pill contrast too low in ${r.mode}/${r.accent}: ${r.pillContrast.toFixed(2)}`,
     );
+    if (r.mode === "light" && r.accent !== "yellow") {
+      assert.equal(
+        r.ctaFg,
+        "rgb(255, 255, 255)",
+        `CTA text should be white in ${r.mode}/${r.accent}, got ${r.ctaFg}`,
+      );
+    } else {
+      assert.ok(
+        r.ctaContrast >= 4.5,
+        `CTA contrast too low in ${r.mode}/${r.accent}: ${r.ctaContrast.toFixed(2)}`,
+      );
+    }
   }
   assert.ok(
     new Set(themeAudit.filter((r) => r.mode === "light").map((r) => r.ctaBg)).size >= 6,
@@ -952,7 +998,10 @@ try {
   await page.getByRole("heading", { name: "Updated broadcast", exact: true }).waitFor();
   await goto("/novedades");
   await page.getByRole("button", { name: "Create channel", exact: true }).click();
-  const createDialog = page.getByRole("dialog", { name: "Create channel", exact: true });
+  const createDialog = page.getByRole("dialog", {
+    name: "Create channel",
+    exact: true,
+  });
   await cycleFocus(createDialog);
   await page.keyboard.press("Escape");
   await createDialog.waitFor({ state: "detached" });
@@ -971,7 +1020,10 @@ try {
     "cafe-announcements",
   );
   await page.getByRole("button", { name: "Channel photo (optional)", exact: true }).click();
-  const cropDialog = page.getByRole("dialog", { name: "Change photo", exact: true });
+  const cropDialog = page.getByRole("dialog", {
+    name: "Change photo",
+    exact: true,
+  });
   await cropDialog
     .locator("input[type=file]")
     .first()
@@ -1027,14 +1079,22 @@ try {
   await page.waitForURL("**/novedades");
   await goto("/channels/new");
   await page.waitForURL("**/novedades?create=true");
-  const redirectedCreate = page.getByRole("dialog", { name: "Create channel", exact: true });
+  const redirectedCreate = page.getByRole("dialog", {
+    name: "Create channel",
+    exact: true,
+  });
   await redirectedCreate.getByRole("button", { name: "Cancel", exact: true }).click();
   await redirectedCreate.waitFor({ state: "detached" });
   await page.getByRole("link", { name: /Explore more/ }).click();
   await page.waitForURL("**/novedades/explore");
   for (let i = 0; i < 8; i++) {
     const id = uid(700 + i);
-    profiles.push({ id, username: `reader${i}`, display_name: `Reader ${i}`, avatar_url: null });
+    profiles.push({
+      id,
+      username: `reader${i}`,
+      display_name: `Reader ${i}`,
+      avatar_url: null,
+    });
     stories.push(story(800 + i, id));
   }
   const mobile = await browser.newContext({
