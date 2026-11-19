@@ -16,7 +16,6 @@ export function ChatList({ activeChatId }: { activeChatId?: string }) {
   const {
     t,
     language,
-    auth,
     router,
     query,
     requests,
@@ -84,15 +83,6 @@ export function ChatList({ activeChatId }: { activeChatId?: string }) {
         ) : (
           <SidebarActions />
         )}
-        {auth.user?.user_metadata.requires_reenrollment &&
-          !auth.user.factors?.some((f) => f.status === "verified") && (
-            <p role="status" className="chats-notice">
-              {t(
-                "Backup code used. Please re-enable 2FA in settings.",
-                "Usaste un código de respaldo. Reactiva 2FA en ajustes.",
-              )}
-            </p>
-          )}
         <ChatSearchBar
           query={filters.q}
           archived={filters.filter === "archived"}

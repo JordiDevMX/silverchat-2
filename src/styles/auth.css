@@ -170,15 +170,63 @@
 .infrastructure-notice [data-slot="button"] {
   margin-top: 0.75rem;
 }
+.top-banner,
 .connection-banner-v2 {
   box-shadow: var(--shadow-silver);
   animation: public-reveal 150ms ease-out both;
 }
+.top-banner-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  max-width: 1200px;
+  margin-inline: auto;
+}
+.top-banner .infrastructure-notice,
 .connection-banner-v2 .infrastructure-notice {
   border: 0;
   background: transparent;
   justify-content: center;
+  align-items: center;
   padding: 0.25rem;
+}
+.top-banner-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 0.75rem;
+}
+.top-banner-action a,
+.top-banner-action button {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.top-banner-action :is(a, button):focus-visible,
+.top-banner-dismiss:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.top-banner-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-block-size: 28px;
+  min-inline-size: 28px;
+  padding: 0.25rem;
+  border-radius: 6px;
+  color: inherit;
+  opacity: 0.78;
+  cursor: pointer;
+}
+.top-banner-dismiss:hover {
+  opacity: 1;
+  background: color-mix(in oklab, currentColor 10%, transparent);
 }
 .session-expired-dialog {
   animation: public-reveal 200ms ease-out both;
@@ -218,6 +266,7 @@
   .public-surface *,
   .auth-card-v2,
   .auth-card-v2 *,
+  .top-banner,
   .connection-banner-v2,
   .session-expired-dialog {
     /* biome-ignore lint/complexity/noImportantStyles: reduced motion overrides all scoped component reveals */
