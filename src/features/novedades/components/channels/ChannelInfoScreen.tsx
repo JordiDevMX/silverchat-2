@@ -91,7 +91,9 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
   const mute = useMuteChannel(channelId);
   const { user } = useAuth();
   const { say, language } = useMessageText();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(
+    () => new URLSearchParams(window.location.search).get("edit") === "1",
+  );
   const [photo, setPhoto] = useState(false);
   const [muteOpen, setMuteOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);

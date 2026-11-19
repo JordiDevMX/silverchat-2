@@ -22,7 +22,7 @@ export function useConversationController(chatId: string) {
   const router = useRouter();
   const { user } = useAuth();
   const cache = useQueryClient();
-  const { say } = useMessageText();
+  const { say, language } = useMessageText();
   const requests = useRequestMutation();
   const query = useMessages(chatId);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -137,6 +137,7 @@ export function useConversationController(chatId: string) {
     chat,
     send,
     say,
+    language,
     requests,
     query,
     searchOpen,

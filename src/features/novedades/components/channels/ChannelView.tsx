@@ -2,6 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConversationShell } from "@/components/ui/conversation-shell";
 import { SystemPill } from "@/components/ui/conversation-surface";
+import { ChatGrowthCard } from "@/features/chat-growth/components/ChatGrowthCard";
+import { ChatGrowthHost } from "@/features/chat-growth/components/ChatGrowthHost";
+import { useChatGrowthController } from "@/features/chat-growth/hooks/useChatGrowthController";
+import {
+  buildChannelGrowthModel,
+  countUserMessages,
+} from "@/features/chat-growth/lib/growthConfig";
 import { InChatSearch } from "@/features/messages/components/InChatSearch";
 import { MessageActionsProvider } from "@/features/messages/components/MessageActionsProvider";
 import { MessageList } from "@/features/messages/components/MessageList";
@@ -21,7 +28,7 @@ import { ChannelHeader } from "./ChannelHeader";
 import "@/styles/messages.css";
 export function ChannelView({ channelId }: { channelId: string }) {
   const { user } = useAuth();
-  const { say, t } = useMessageText();
+  const { say, t, language } = useMessageText();
   const info = useChannelInfo(channelId);
   const follow = useFollowChannel();
   const channel = info.data?.channel;
@@ -29,6 +36,15 @@ export function ChannelView({ channelId }: { channelId: string }) {
   const following = !!info.data?.follow;
   const messages = useChannelMessages(channelId, true);
   const send = useSendMessage(channelId, true);
+  const growthModel = channel
+    ? buildChannelGrowthModel(channel, user?.id, language, window.location.origin)
+    : null;
+  const userMessageCount = messages.hasNextPage ? 1 : countUserMessages(messages.messages);
+  const growth = useChatGrowthController({
+    model: growthModel,
+    messagesReady: !messages.isPending && !messages.isError,
+    userMessageCount,
+  });
   const [searchOpen, setSearchOpen] = useState(
     () => new URLSearchParams(window.location.search).get("search") === "true",
   );
@@ -110,6 +126,18 @@ export function ChannelView({ channelId }: { channelId: string }) {
           query={messages}
           navigation={navigation}
           onRetry={send.retry}
+          growthCard={
+            growth.visible && growthModel ? (
+              <ChatGrowthCard
+                model={growthModel}
+                onShareToStatus={growth.openStoryShare}
+                onSecondaryAction={growth.openSecondaryInvite}
+                onEditDescription={
+                  growth.canEditDescription ? growth.openEditDescription : undefined
+                }
+              />
+            ) : null
+          }
           topNotices={
             <SystemPill data-slot="channel-created-pill">
               {t("channel.created", { name: channel.name })}
@@ -117,6 +145,7 @@ export function ChannelView({ channelId }: { channelId: string }) {
           }
         />
       </ConversationShell>
+      <ChatGrowthHost model={growthModel} controller={growth} />
     </MessageActionsProvider>
   );
 }

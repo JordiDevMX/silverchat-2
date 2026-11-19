@@ -1,0 +1,194 @@
+/* Inline growth CTA card and channel invite modal. */
+@layer components {
+  .chat-growth-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: min(400px, calc(100% - 16px));
+    margin: 6px auto 10px;
+    padding: 28px 24px 24px;
+    border-radius: 24px;
+    border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);
+    background: color-mix(in oklab, var(--card) 94%, transparent);
+    color: var(--card-foreground);
+    box-shadow:
+      0 12px 32px -10px oklch(0 0 0 / 0.14),
+      var(--shadow-silver);
+    backdrop-filter: blur(8px);
+    animation: chat-growth-enter var(--duration-base) var(--ease-out) both;
+  }
+  .chat-growth-avatar {
+    margin-bottom: 16px;
+    display: grid;
+    place-items: center;
+  }
+  .chat-growth-avatar [data-slot="avatar"] {
+    width: 84px;
+    height: 84px;
+    font-size: 1.75rem;
+  }
+  .chat-growth-avatar-fallback {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    display: inline-grid;
+    place-items: center;
+    background: var(--gradient-neon);
+    color: var(--primary-foreground);
+    box-shadow: var(--shadow-glow);
+  }
+  .chat-growth-title {
+    margin: 0;
+    max-width: 100%;
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+  }
+  .chat-growth-subtitle {
+    margin: 6px 0 0;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+  }
+  .chat-growth-description {
+    margin: 10px 0 0;
+    max-width: 100%;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .chat-growth-add-description {
+    margin: 10px 0 0;
+    padding: 4px 8px;
+    min-height: 36px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+  .chat-growth-add-description:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .chat-growth-actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 22px;
+  }
+  .chat-growth-action-btn {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--foreground);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+  .chat-growth-action-btn:hover {
+    background: color-mix(in oklab, var(--foreground) 6%, transparent);
+    border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
+  }
+  .chat-growth-action-btn svg {
+    flex: none;
+    color: var(--foreground);
+  }
+  .chat-growth-invite-modal .chat-growth-copy-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--card);
+  }
+  .chat-growth-invite-url {
+    min-width: 0;
+    flex: 1;
+    font-size: 0.8rem;
+    color: var(--muted-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chat-growth-invite-list {
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .chat-growth-invite-row {
+    width: 100%;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .chat-growth-invite-row:hover:not(:disabled) {
+    background: var(--accent);
+  }
+  .chat-growth-invite-row > span:nth-child(2) {
+    min-width: 0;
+    flex: 1;
+  }
+  .chat-growth-invite-row strong,
+  .chat-growth-invite-row small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chat-growth-invite-row small {
+    color: var(--muted-foreground);
+  }
+  @keyframes chat-growth-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-growth-card {
+      animation: none;
+    }
+    .chat-growth-add-description,
+    .chat-growth-action-btn {
+      transition: none;
+    }
+  }
+}

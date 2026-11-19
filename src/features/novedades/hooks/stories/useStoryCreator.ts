@@ -6,12 +6,15 @@ import type { Upload } from "@/features/messages/types";
 import { useAuth } from "@/lib/auth-provider";
 import { useCreateStory } from "./useCreateStory";
 import { useMyStories } from "./useMyStories";
-export function useStoryCreator(onClose: () => void) {
+export function useStoryCreator(
+  onClose: () => void,
+  initialMode: "camera" | "gallery" | "text" = "camera",
+) {
   const { user } = useAuth();
   const { say } = useMessageText();
   const create = useCreateStory();
   const mine = useMyStories();
-  const [mode, setMode] = useState<"camera" | "gallery" | "text">("camera");
+  const [mode, setMode] = useState<"camera" | "gallery" | "text">(initialMode);
   const [file, setFile] = useState<File>();
   const [url, setUrl] = useState("");
   const [caption, setCaption] = useState("");

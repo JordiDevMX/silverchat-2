@@ -1,6 +1,7 @@
 @import "tailwindcss" source("../");
 @import "tw-animate-css";
 @import "./app-shell.css";
+@import "./chat-growth.css";
 @import "./file-icon-tile.css";
 @import "./auth.css";
 

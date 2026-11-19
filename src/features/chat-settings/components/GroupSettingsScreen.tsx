@@ -1,5 +1,5 @@
 import { Users } from "lucide-react";
-import { useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatSettingsScreenSurface } from "@/components/ui/chat-settings-surfaces";
 import { CardSurface } from "@/components/ui/settings-row";
@@ -20,11 +20,13 @@ function GroupFields({
   busy,
   onSave,
   context = "group",
+  descriptionRef,
 }: {
   chat: ChatDetails;
   busy: boolean;
   onSave: (patch: { name?: string; description?: string }) => Promise<void>;
   context?: "group" | "community";
+  descriptionRef?: RefObject<HTMLTextAreaElement | null>;
 }) {
   const { say, name, setName, description, setDescription, error, save } = useGroupFields(
     chat,
@@ -47,6 +49,7 @@ function GroupFields({
       <label className="field">
         {say("Description", "Descripción")}
         <textarea
+          ref={descriptionRef}
           value={description}
           maxLength={500}
           rows={4}
@@ -71,6 +74,13 @@ export function GroupSettingsScreen(
   const { say, language } = useMessageText();
   const ui = useChatUIStore();
   const [photo, setPhoto] = useState(false);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!chat) return;
+    if (new URLSearchParams(window.location.search).get("focus") === "description") {
+      descriptionRef.current?.focus();
+    }
+  }, [chat]);
   if (!chat) return <ChatSettingsLoading query={hook.chat} />;
   if (!["group", "community_chat"].includes(chat.type)) return <ChatSettingsLoading />;
   const admin = chat.own?.role === "admin";
@@ -114,6 +124,7 @@ export function GroupSettingsScreen(
             busy={hook.busy}
             onSave={hook.save}
             context={context}
+            descriptionRef={descriptionRef}
           />
         ) : (
           <>
