@@ -51,6 +51,26 @@ export function TimelineDate({ children }: { children: ReactNode }) {
   );
 }
 
+export function SystemPill({
+  icon,
+  children,
+  className,
+  ...props
+}: ComponentProps<"div"> & { icon?: ReactNode }) {
+  return (
+    <div data-slot="system-pill" {...props} className={cn("system-pill-row", className)}>
+      <span className="system-pill">
+        {icon && (
+          <span className="system-pill-icon" aria-hidden="true">
+            {icon}
+          </span>
+        )}
+        <span>{children}</span>
+      </span>
+    </div>
+  );
+}
+
 export function TimelineUnread({ children }: { children: ReactNode }) {
   return (
     <div className="message-unread" data-unread-marker>

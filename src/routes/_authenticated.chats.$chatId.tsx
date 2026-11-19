@@ -1,5 +1,6 @@
 import { useParams, useRouter, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { ConversationShell } from "@/components/ui/conversation-shell";
 import { AppSkeleton, Modal } from "@/features/auth/components";
 import { ChatSettingsLayer } from "@/features/chat-settings/components/ChatSettingsLayer";
 import { ChatHeader } from "@/features/messages/components/ChatHeader";
@@ -69,61 +70,79 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
       onReply={chooseReply}
       onNavigate={navigate}
     >
-      <main id="main" className="conversation-page">
-        {searchOpen ? (
-          <InChatSearch
-            search={search}
-            onClose={() => {
-              setSearchOpen(false);
-              search.setText("");
-              setNavigation(null);
-            }}
-          />
-        ) : (
-          <ChatHeader chat={details} onSearch={() => setSearchOpen(true)} />
-        )}
-        <PinnedMessagesBar chatId={chatId} />
-        <ChatSettingsLayer chat={details} onSearch={() => setSearchOpen(true)} />
-        {details.request && (
-          <div className="conversation-request" role="status">
-            <span>
-              {details.readOnly
-                ? say("Accept this request to reply.", "Acepta esta solicitud para responder.")
-                : say(
-                    "Waiting for your request to be accepted.",
-                    "Esperando a que acepten tu solicitud.",
-                  )}
-            </span>
-            {details.readOnly && (
-              <div>
-                <button
-                  className="button secondary"
-                  type="button"
-                  disabled={requests.busy}
-                  onClick={() => setDecline(true)}
-                >
-                  {say("Decline", "Rechazar")}
-                </button>
-                <button
-                  className="button primary"
-                  type="button"
-                  disabled={requests.busy}
-                  onClick={() => void act(true)}
-                >
-                  {say("Accept", "Aceptar")}
-                </button>
+      <ConversationShell
+        header={
+          searchOpen ? (
+            <InChatSearch
+              search={search}
+              onClose={() => {
+                setSearchOpen(false);
+                search.setText("");
+                setNavigation(null);
+              }}
+            />
+          ) : (
+            <ChatHeader chat={details} onSearch={() => setSearchOpen(true)} />
+          )
+        }
+        banners={
+          <>
+            <PinnedMessagesBar chatId={chatId} />
+            <ChatSettingsLayer chat={details} onSearch={() => setSearchOpen(true)} />
+            {details.request && (
+              <div className="conversation-request" role="status">
+                <span>
+                  {details.readOnly
+                    ? say("Accept this request to reply.", "Acepta esta solicitud para responder.")
+                    : say(
+                        "Waiting for your request to be accepted.",
+                        "Esperando a que acepten tu solicitud.",
+                      )}
+                </span>
+                {details.readOnly && (
+                  <div>
+                    <button
+                      className="button secondary"
+                      type="button"
+                      disabled={requests.busy}
+                      onClick={() => setDecline(true)}
+                    >
+                      {say("Decline", "Rechazar")}
+                    </button>
+                    <button
+                      className="button primary"
+                      type="button"
+                      disabled={requests.busy}
+                      onClick={() => void act(true)}
+                    >
+                      {say("Accept", "Aceptar")}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
-        {error && (
-          <p role="alert">
-            {say(
-              "Unable to update request. Try again.",
-              "No se pudo actualizar la solicitud. Inténtalo de nuevo.",
+            {error && (
+              <p role="alert">
+                {say(
+                  "Unable to update request. Try again.",
+                  "No se pudo actualizar la solicitud. Inténtalo de nuevo.",
+                )}
+              </p>
             )}
-          </p>
-        )}
+          </>
+        }
+        footer={
+          !details.readOnly ? (
+            <Composer
+              chat={details}
+              onSend={sendWithReply}
+              replyTo={reply.data ?? undefined}
+              replyToId={replyId}
+              onClearReply={() => setReplyId(null)}
+            />
+          ) : null
+        }
+      >
         <MessageList
           key={scrollTo ?? "history"}
           chat={details}
@@ -132,15 +151,6 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
           scrollTo={scrollTo}
           onRetry={send.retry}
         />
-        {!details.readOnly && (
-          <Composer
-            chat={details}
-            onSend={sendWithReply}
-            replyTo={reply.data ?? undefined}
-            replyToId={replyId}
-            onClearReply={() => setReplyId(null)}
-          />
-        )}{" "}
         {decline && (
           <Modal
             title={say("Decline request?", "¿Rechazar solicitud?")}
@@ -174,7 +184,7 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
             </div>
           </Modal>
         )}
-      </main>
+      </ConversationShell>
     </MessageActionsProvider>
   );
 }

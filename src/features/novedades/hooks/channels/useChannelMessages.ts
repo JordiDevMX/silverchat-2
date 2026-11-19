@@ -4,7 +4,7 @@ import { enrichMessages } from "@/features/messages/hooks/useMessages";
 import { type Cursor, type Message, messageKey, outboxKey } from "@/features/messages/types";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
-export function useChannelMessages(id: string, enabled: boolean) {
+export function useChannelMessages(id: string, enabled = true) {
   const { user } = useAuth();
   const uid = user?.id ?? "";
   const cache = useQueryClient();

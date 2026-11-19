@@ -421,7 +421,8 @@ try {
   await page.getByRole("button", { name: "Accept", exact: true }).click();
   await page.getByRole("textbox", { name: "Message", exact: true }).waitFor();
   await goto(selfId);
-  await page.getByRole("heading", { name: "A little space for you" }).waitFor();
+  await page.locator('[data-slot="conversation-start-pill"]').waitFor();
+  await page.locator('[data-slot="conversation-encryption-pill"]').waitFor();
   // An unread target outside the latest page is loaded before initial scrolling.
   firstUnread = rows[10].id;
   receipts = rows
@@ -681,6 +682,24 @@ try {
   );
   const composer = await mp.locator(".conversation-composer").boundingBox();
   assert.ok(composer.y + composer.height <= 844 - 68 + 1, "Composer stays above mobile navigation");
+  // Shared conversation shell + both shared pills on regular chats, zero channel leakage, no redundant Today pill.
+  await mp.locator('[data-slot="conversation-shell"]').waitFor();
+  await mp.locator('[data-slot="chat-doodle-pattern"]').waitFor();
+  assert.equal(
+    await mp.locator('[data-slot="conversation-start-pill"]').textContent(),
+    "Start of this conversation",
+  );
+  assert.equal(
+    await mp.locator('[data-slot="conversation-encryption-pill"]').textContent(),
+    "Messages are end-to-end encrypted. No one outside of this chat can read or listen to them.",
+  );
+  assert.equal(await mp.locator('[data-slot="channel-created-pill"]').count(), 0);
+  assert.equal(await mp.locator('[data-slot="channel-follow-cta"]').count(), 0);
+  assert.equal(
+    await mp.locator(".message-date").filter({ hasText: "Today" }).count(),
+    0,
+    "Start of this conversation replaces the initial Today date label",
+  );
   await mobile.close();
   assert.deepEqual(errors, []);
   console.log(

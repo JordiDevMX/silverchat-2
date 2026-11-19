@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { grouped, groupMessages } from "../src/features/messages/lib/groupMessages.ts";
+import { formatConversationText } from "../src/features/messages/lib/conversationStrings.ts";
+import {
+  grouped,
+  groupMessages,
+  shouldShowDateSeparator,
+} from "../src/features/messages/lib/groupMessages.ts";
 import { messageStatus } from "../src/features/messages/lib/messageStatus.ts";
 import type { Member, Message, MessageRow } from "../src/features/messages/types.ts";
 import { dateLabel, formatBytes } from "../src/features/messages/utils/formatMessageTime.ts";
@@ -86,4 +91,81 @@ test("date labels cross year boundaries and bytes remain finite at zero", () => 
   assert.equal(dateLabel(previous, "es", now), "Ayer");
   assert.equal(formatBytes(0, "en"), "0 B");
   assert.equal(formatBytes(1536, "en"), "1.5 KB");
+});
+test("conversation strings resolve en/es translations and interpolate channel names safely", () => {
+  assert.equal(formatConversationText("en", "conversation.start"), "Start of this conversation");
+  assert.equal(formatConversationText("es", "conversation.start"), "Inicio de esta conversación");
+  assert.equal(
+    formatConversationText("en", "chat.encryptionNotice"),
+    "Messages are end-to-end encrypted. No one outside of this chat can read or listen to them.",
+  );
+  assert.equal(
+    formatConversationText("es", "chat.encryptionNotice"),
+    "Los mensajes están cifrados de extremo a extremo. Nadie fuera de este chat puede leerlos ni escucharlos.",
+  );
+  assert.equal(
+    formatConversationText("en", "channel.created", { name: "Deals $100" }),
+    'Channel "Deals $100" was created',
+  );
+  assert.equal(
+    formatConversationText("es", "channel.created", { name: "Novedades" }),
+    'Se creó el canal "Novedades".',
+  );
+  assert.equal(formatConversationText("en", "channel.follow"), "Follow channel");
+  assert.equal(formatConversationText("es", "channel.follow"), "Seguir canal");
+});
+test("date separator suppresses Today on the first message at conversation start but keeps other days", () => {
+  const now = new Date(2026, 10, 18, 15, 0);
+  const today = new Date(2026, 10, 18, 9, 0).toISOString();
+  const yesterday = new Date(2026, 10, 17, 18, 0).toISOString();
+  assert.equal(
+    shouldShowDateSeparator({
+      newDay: true,
+      isFirstMessage: true,
+      atConversationStart: true,
+      createdAt: today,
+      now,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldShowDateSeparator({
+      newDay: true,
+      isFirstMessage: true,
+      atConversationStart: false,
+      createdAt: today,
+      now,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldShowDateSeparator({
+      newDay: true,
+      isFirstMessage: true,
+      atConversationStart: true,
+      createdAt: yesterday,
+      now,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldShowDateSeparator({
+      newDay: true,
+      isFirstMessage: false,
+      atConversationStart: true,
+      createdAt: today,
+      now,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldShowDateSeparator({
+      newDay: false,
+      isFirstMessage: false,
+      atConversationStart: true,
+      createdAt: today,
+      now,
+    }),
+    false,
+  );
 });
