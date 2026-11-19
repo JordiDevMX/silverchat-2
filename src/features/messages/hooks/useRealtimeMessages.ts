@@ -2,13 +2,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
+import { createReconnectRefresh } from "../lib/chatQueryPolicy";
 import { detailKey, messageKey } from "../types";
 export function useRealtimeMessages(chatId: string, enabled = true) {
   const { user } = useAuth();
+  const userId = user?.id ?? "";
   const cache = useQueryClient();
   useEffect(() => {
-    if (!enabled) return;
-    const userId = user?.id ?? "";
+    if (!enabled || !userId) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const refresh = () => {
       clearTimeout(timer);
@@ -76,12 +77,10 @@ export function useRealtimeMessages(chatId: string, enabled = true) {
         },
         refresh,
       )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") refresh();
-      });
+      .subscribe(createReconnectRefresh(refresh));
     return () => {
       clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
-  }, [cache, chatId, user, enabled]);
+  }, [cache, chatId, userId, enabled]);
 }

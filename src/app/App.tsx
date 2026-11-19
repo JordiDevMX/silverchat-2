@@ -10,6 +10,7 @@ import { useOutboxSync } from "@/features/messages/hooks/useOutboxSync";
 import { PreferencesProvider } from "@/features/settings/preferences-provider";
 import { AuthProvider, useAuth } from "@/lib/auth-provider";
 import { isServerError, useSupabaseHealth } from "@/lib/supabase-health";
+import { ClipboardPasteProvider } from "@/lib/clipboard-paste";
 import { ConnectionBanner } from "./connection-banner";
 import { I18nProvider } from "./providers/i18n-provider";
 import { ThemeProvider } from "./providers/theme-provider";
@@ -59,12 +60,14 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <I18nProvider>
-          <ConnectionBanner />
-          <AuthProvider>
-            <PreferencesProvider>
-              <AuthenticatedRouter />
-            </PreferencesProvider>
-          </AuthProvider>
+          <ClipboardPasteProvider>
+            <ConnectionBanner />
+            <AuthProvider>
+              <PreferencesProvider>
+                <AuthenticatedRouter />
+              </PreferencesProvider>
+            </AuthProvider>
+          </ClipboardPasteProvider>
         </I18nProvider>
       </ThemeProvider>
       <TanStackDevtools config={{ hideInAutomation: true, triggerHidden: false }} />

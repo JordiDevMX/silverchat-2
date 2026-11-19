@@ -18,6 +18,7 @@ export function CodeInput({
       <div className="code-inputs">
         {positions.map((index) => (
           <Input
+            data-clipboard-reason="auth-code"
             className="h-12 min-w-0 w-0 flex-1 px-1 text-center text-2xl tabular-nums md:text-2xl"
             key={index}
             ref={(input) => {
@@ -45,8 +46,12 @@ export function CodeInput({
               if (event.key === "Backspace" && !value[index]) refs.current[index - 1]?.focus();
             }}
             onPaste={(event) => {
+              const rawText = event.clipboardData.getData("text");
+              const digits = rawText.replace(/\D/g, "").slice(0, 6);
+              if (!digits && event.clipboardData.files.length > 0) {
+                return;
+              }
               event.preventDefault();
-              const digits = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
               onChange(digits);
               refs.current[Math.min(digits.length, 5)]?.focus();
             }}

@@ -19,6 +19,7 @@ import { ChatEmptyPane } from "@/features/chats/components/ChatLayout";
 import { validateChatSearch } from "@/features/chats/utils/chatSearch";
 import { AuthenticatedLayout, requireAuthentication } from "@/routes/_authenticated";
 import { RouteErrorState } from "./route-error-state";
+import { SecurityBanners } from "./security-banners";
 
 const MfaVerifyPage = lazyRouteComponent(() => import("@/routes/auth.2fa-verify"), "MfaVerifyPage");
 const CheckEmailPage = lazyRouteComponent(
@@ -43,6 +44,7 @@ function Root() {
       <a className="skip-link" href="#main">
         {t("Skip to content")}
       </a>
+      <SecurityBanners />
       <Outlet />
       <SessionExpiredModal />
       <ChatSettingsNotice />
@@ -59,12 +61,6 @@ function AuthenticatedDestination() {
       title={t(`You’re signed in, ${name}.`, `Has iniciado sesión, ${name}.`)}
       subtitle={t("Your SilverChat account is ready.")}
     >
-      {auth.user?.user_metadata.requires_reenrollment &&
-        !auth.user.factors?.some((factor) => factor.status === "verified") && (
-          <InfrastructureNotice>
-            {t("Backup code used. Please re-enable 2FA in settings.")}
-          </InfrastructureNotice>
-        )}
       <Button asChild>
         <a href="/settings">{t("Settings")}</a>
       </Button>

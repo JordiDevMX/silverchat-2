@@ -26,6 +26,7 @@ export function ContactPicker({
       }}
     >
       <Input
+        data-clipboard-reason="search"
         aria-label={say("Search contacts", "Buscar contactos")}
         placeholder={say("Search contacts…", "Buscar contactos…")}
         value={query}

@@ -25,7 +25,7 @@ export function CreateCommunityModal({ onClose }: { onClose: () => void }) {
       onClose={busy ? undefined : onClose}
       paused={photo}
     >
-      <form className="community-creation-form" onSubmit={submit}>
+      <form className="community-creation-form" data-clipboard-reason="avatar-hint" onSubmit={submit}>
         <label className="field">
           {say("Name", "Nombre")}
           <input

@@ -2,17 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { allRows, chunks } from "@/features/chats/hooks/useChats";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
+import { getPresenceTargetIds, PRESENCE_QUERY_OPTIONS } from "../lib/chatQueryPolicy";
 import type { ChatDetails } from "../types";
 export function useChatPresence(chat: ChatDetails) {
   const { user } = useAuth();
-  const ids =
-    chat.type === "direct"
-      ? [chat.other?.id].filter((id): id is string => !!id)
-      : chat.members.map((m) => m.user_id);
+  const ids = getPresenceTargetIds(chat);
   return useQuery({
     queryKey: ["chat-presence", user?.id ?? "", chat.id, ids],
-    enabled: chat.type !== "community_chat" && ids.length > 0,
-    refetchInterval: chat.type === "direct" ? 30000 : 60000,
+    enabled: ids.length > 0,
+    ...PRESENCE_QUERY_OPTIONS,
     queryFn: async () =>
       (
         await Promise.all(

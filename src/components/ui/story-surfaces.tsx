@@ -109,6 +109,7 @@ export function StoryReplySurface({
     <form className="story-reply" data-slot="story-reply" onSubmit={onSubmit}>
       <input
         data-slot="story-reply-input"
+        data-clipboard-reason="story-reply"
         value={text}
         maxLength={500}
         disabled={busy}
