@@ -128,3 +128,22 @@ Round 6 changes no product behavior. It closes the "no migrated instance availab
 **Local verification at `46f710d`:** `pnpm test` 120/120, `pnpm typecheck` exit 0, `pnpm build` exit 0, biome clean on the touched files (checked with LF copies, because the Windows checkout is CRLF while CI is LF). `git merge-tree --write-tree origin/main HEAD` exits 0: no code conflicts with `origin/main` @ `e89a04f`.
 
 **Note on history.** `3452e0c` still contains `graphify-out/` artifacts; `46f710d` removes them, so the net merge does not reintroduce the index. Cleaning that commit out of history would require a rewrite and force-push, which needs explicit authorization and was not performed.
+
+## Round 7 — realtime auth + server-clock incoming verdict (2026-11-18)
+
+**Symptom.** Two Staging devices could not complete a call: the callee answered, but the caller stayed in "ringing" and hung up while the callee's call stayed open until the stale-call timeout. An earlier call never rang at all.
+
+**Diagnosis (evidence-backed; no code changed during diagnosis).**
+
+1. *The answer never reached the caller.* `realtime.subscription` showed both `calls` INSERT channels authenticated, but every per-call `UPDATE ... filter id=eq.<call>` join failed with `invalid column for filter id` at the exact second of each call (17:25:03, 17:26:27, 17:27:13 UTC). A Node probe against Staging reproduced it: after the first channel subscribes, `socket.setAuth()` (no argument) re-reads supabase-js's default `accessToken` callback, which falls back to the anon key because the app never uses GoTrue sessions. Every channel created after the first successful join therefore joined as `anon`, and Realtime rejects a filtered join when the role lacks column SELECT. Fix: `src/lib/supabase.ts` now configures `accessToken: async () => getAccessToken()`, so every join and every post-subscribe refresh uses the app token. Probe after the fix: both joins `authenticated` and the filtered channel reaches `SUBSCRIBED`.
+2. *The ring decision depended on the PC clock.* `decideIncomingCall` compared `started_at` with `Date.now()`; the PC was 21.7 s ahead of the server, so live calls were dropped as "stale". Even with the clock synced, the rule was unsafe in both directions. Fix: the verdict now comes from `public.answerable_incoming_calls(p_call_id)` (new migration `20261118130000_calls_answerable_incoming.sql`), computed from the row status and the server's `now()`. The realtime INSERT is only a hint and the reconnect catch-up uses the same function. The ring deadline and the modal countdown run on `performance.now()`, so wall-clock changes cannot shorten or extend them. Self/stale/status filtering moved into the RPC; `SECURITY INVOKER` keeps the calls RLS in force.
+
+**Tests.** Unit (`tests/calls-state.test.ts`, 21/21): server verdict → ring/ignore/busy, plus explicit assertions that shifting `Date.now` by ±1 h changes nothing and that the countdown reads the monotonic clock. SQL (`supabase/tests/calls.sql`): fresh ringing → 1 row with `expires_in_ms` in 14000..15000; expired (>15 s), canceled, answered, own and non-member rows → 0 rows; the no-argument catch-up variant returns the live call; execute granted to `authenticated` and not to `anon`. Local: `pnpm test` 119/119, `pnpm typecheck` exit 0, `pnpm build` exit 0, biome clean on the touched files (LF copies).
+
+**CI run:** https://github.com/jordidevmx/silverchat-2/actions/runs/44435251264 → **success** on every step, including `supabase start` with the new migration, `supabase/tests/calls.sql` and the generated-types equality check (the committed `database.ts` matches the generator output).
+
+**Commit:** `ad62c03` on `feature/calls`.
+
+**Pending.** The new migration must be applied to Staging before the two-device check can exercise the server verdict; applying a schema change to Staging needs owner approval. The `accessToken` fix needs no migration and unblocks answer/end propagation immediately after a page reload.
+
+**Manual acceptance.** (1) With the PC clock deliberately +2 min, A calls B: B rings, can answer, and the caller's screen leaves the ringing state. (2) A calls and cancels immediately, or B goes offline for >20 s and returns: the late hint must not ring. Restore the clock afterwards.
