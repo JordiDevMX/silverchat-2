@@ -232,10 +232,16 @@ try {
   await textbox.fill("Offline first");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
 
-  // Bubble must immediately appear with Sending state and spinner; composer must be empty without error.
+  // Bubble must immediately appear with Sending state and spinning icon; composer must be empty without error.
   const firstBubble = page.locator("[data-message-id]").filter({ hasText: "Offline first" });
   await firstBubble.waitFor();
   await firstBubble.getByRole("img", { name: "Sending", exact: true }).waitFor();
+  const spinStyle = await firstBubble.locator(".message-status .spin").evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { animationName: s.animationName, iterationCount: s.animationIterationCount };
+  });
+  assert.notEqual(spinStyle.animationName, "none", "In-chat Sending spinner must animate");
+  assert.equal(spinStyle.iterationCount, "infinite");
   assert.equal(await textbox.inputValue(), "");
   assert.equal(await page.locator(".composer-error").count(), 0);
   assert.equal(postedMessages.length, 0);

@@ -224,6 +224,14 @@
   .message-status {
     display: inline-flex;
   }
+  .spin {
+    animation: message-spin 1s linear infinite;
+  }
+  @keyframes message-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
   .message-status.read {
     color: var(--message-read-color);
   }
@@ -972,6 +980,7 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
+    .spin,
     .conversation-page *,
     .media-lightbox * {
       scroll-behavior: auto;
