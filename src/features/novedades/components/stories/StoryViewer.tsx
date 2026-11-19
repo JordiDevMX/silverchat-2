@@ -47,7 +47,7 @@ function ViewerStage({
 
   const gesturesDisabled = closing || sheet || confirm || menu;
   const nav = useStoryNavigation({
-    totalCount: timeline.length,
+    timeline,
     initialIndex,
     disabled: gesturesDisabled,
     onReachEnd: onClose,
@@ -116,15 +116,15 @@ function ViewerStage({
       }
       if (event.key === "ArrowRight") {
         event.preventDefault();
-        nav.navigate(1);
+        nav.navigateStory(1);
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
-        nav.navigate(-1);
+        nav.navigateStory(-1);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closing, sheet, confirm, menu, nav.navigate]);
+  }, [closing, sheet, confirm, menu, nav.navigateStory]);
 
   const mark = useMarkStoryViewed();
   const views = useStoryViewers(story?.id ?? "", mine && !!story);
@@ -164,8 +164,8 @@ function ViewerStage({
     if (closing || !activeStoryId) return;
     if (autoAdvancedVisitRef.current === visitToken) return;
     autoAdvancedVisitRef.current = visitToken;
-    nav.navigate(1);
-  }, [closing, activeStoryId, visitToken, nav.navigate]);
+    nav.navigateStory(1);
+  }, [closing, activeStoryId, visitToken, nav.navigateStory]);
 
   const handleVideoEnded = useCallback(
     (storyId: string) => {
@@ -287,11 +287,11 @@ function ViewerStage({
       </div>
       {story.caption && <p className="story-caption story-chrome">{story.caption}</p>}
       <nav className="story-controls story-chrome">
-        <button type="button" onClick={() => nav.navigate(-1)}>
+        <button type="button" onClick={() => nav.navigateStory(-1)}>
           <ChevronLeft size={16} />
           {say("Previous", "Anterior")}
         </button>
-        <button type="button" onClick={() => nav.navigate(1)}>
+        <button type="button" onClick={() => nav.navigateStory(1)}>
           {say("Next", "Siguiente")}
           <ChevronRight size={16} />
         </button>

@@ -9,8 +9,11 @@ import {
 } from "../src/features/novedades/lib/storyCubeEngine.ts";
 import {
   buildStoryTimeline,
+  getPreloadStoryIndices,
   resolveCursorAfterTimelineChange,
   resolveInitialCursor,
+  resolveStoryNavigationTarget,
+  resolveUserNavigationTarget,
 } from "../src/features/novedades/lib/storyTimeline.ts";
 import type { Story, StoryGroup } from "../src/features/novedades/types.ts";
 
@@ -69,6 +72,46 @@ test("resolveCursorAfterTimelineChange keeps current story id or clamps cleanly"
   assert.equal(resolveCursorAfterTimelineChange(timeline, "deleted", 1), 1);
   assert.equal(resolveCursorAfterTimelineChange(timeline, "deleted", 10), 2);
   assert.equal(resolveCursorAfterTimelineChange([], "s1", 0), -1);
+});
+
+test("story-level vs user-level target resolution splits tray navigation cleanly", () => {
+  const now = 1_700_000_000_000;
+  // u1: [0, 1, 2], u2: [3, 4, 5], u3: [6, 7]
+  const timeline = buildStoryTimeline(
+    [
+      makeGroup("u1", [makeStory("u1-1", "u1"), makeStory("u1-2", "u1"), makeStory("u1-3", "u1")]),
+      makeGroup("u2", [makeStory("u2-1", "u2"), makeStory("u2-2", "u2"), makeStory("u2-3", "u2")]),
+      makeGroup("u3", [makeStory("u3-1", "u3"), makeStory("u3-2", "u3")]),
+    ],
+    ["u1", "u2", "u3"],
+    now,
+  );
+
+  // Story-level (taps / auto-advance): steps 1 story at a time, rolling over at tray edges
+  assert.equal(resolveStoryNavigationTarget(timeline, 0, -1), null);
+  assert.equal(resolveStoryNavigationTarget(timeline, 0, 1), 1);
+  assert.equal(resolveStoryNavigationTarget(timeline, 2, 1), 3); // end of u1 -> u2 first
+  assert.equal(resolveStoryNavigationTarget(timeline, 3, -1), 2); // start of u2 -> u1 last
+  assert.equal(resolveStoryNavigationTarget(timeline, 7, 1), "end");
+
+  // User-level (hold-drag cube): always skips remaining tray stories and lands on target user's FIRST story
+  assert.equal(resolveUserNavigationTarget(timeline, 0, -1), null);
+  assert.equal(resolveUserNavigationTarget(timeline, 1, -1), null); // middle of first user still hits left boundary
+  assert.equal(resolveUserNavigationTarget(timeline, 2, -1), null); // end of first user still hits left boundary
+  assert.equal(resolveUserNavigationTarget(timeline, 0, 1), 3); // u1-1 -> u2-1 (skips u1-2, u1-3)
+  assert.equal(resolveUserNavigationTarget(timeline, 1, 1), 3); // u1-2 -> u2-1 (skips u1-3)
+  assert.equal(resolveUserNavigationTarget(timeline, 4, 1), 6); // u2-2 -> u3-1 (skips u2-3)
+  assert.equal(resolveUserNavigationTarget(timeline, 4, -1), 0); // u2-2 -> u1-1 (target user's FIRST story!)
+  assert.equal(resolveUserNavigationTarget(timeline, 5, -1), 0); // u2-3 -> u1-1 (target user's FIRST story!)
+  assert.equal(resolveUserNavigationTarget(timeline, 6, -1), 3); // u3-1 -> u2-1 (target user's FIRST story!)
+  assert.equal(resolveUserNavigationTarget(timeline, 7, -1), 3); // u3-2 -> u2-1
+  assert.equal(resolveUserNavigationTarget(timeline, 6, 1), null); // start of last user hits right boundary
+  assert.equal(resolveUserNavigationTarget(timeline, 7, 1), null); // end of last user hits right boundary
+
+  // Preloading from middle of u2 (idx 4) includes: u1-1 (0), u2-1 (3), u2-2 (4), u2-3 (5), u3-1 (6)
+  assert.deepEqual(getPreloadStoryIndices(timeline, 4, [0, 4, 6]), [0, 3, 4, 5, 6]);
+  // Preloading from u1-1 (idx 0) includes: u1-1 (0), u1-2 (1), u2-1 (3)
+  assert.deepEqual(getPreloadStoryIndices(timeline, 0, [0, 3]), [0, 1, 3]);
 });
 
 test("computeCubeFaceStyle maps right-drag to NEXT and left-drag to PREVIOUS in 3D cube space", () => {

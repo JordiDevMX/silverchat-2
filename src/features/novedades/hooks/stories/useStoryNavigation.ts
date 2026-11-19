@@ -11,10 +11,15 @@ import {
   computeCubeFaceStyle,
   computeReleaseTarget,
   DEFAULT_SPRING_STIFFNESS,
-  getVisibleIndices,
   REDUCED_MOTION_SPRING_STIFFNESS,
   stepSpring,
 } from "../../lib/storyCubeEngine";
+import {
+  getPreloadStoryIndices,
+  resolveStoryNavigationTarget,
+  resolveUserNavigationTarget,
+  type StoryEntry,
+} from "../../lib/storyTimeline";
 
 const HOLD_CHROME_DELAY_MS = 180;
 const TAP_MAX_DURATION_MS = 250;
@@ -39,7 +44,10 @@ type ActiveGesture = {
   startTime: number;
   phase: GesturePhase;
   anchorPos: number;
-  prePressTarget: number;
+  anchorInt: number;
+  minDragSlot: number;
+  maxDragSlot: number;
+  prePressTargetSlot: number;
   dragOriginX: number;
   dragOriginPos: number;
   samples: VelocitySample[];
@@ -92,18 +100,31 @@ function computeVelocityStoriesPerSec(samples: VelocitySample[], now: number, st
   return pxPerSec / stageWidth;
 }
 
+function buildRestUserSlots(timeline: StoryEntry[], storyIndex: number): Map<number, number> {
+  const slots = new Map<number, number>();
+  if (storyIndex < 0 || storyIndex >= timeline.length) return slots;
+  slots.set(0, storyIndex);
+  const prevUser = resolveUserNavigationTarget(timeline, storyIndex, -1);
+  const nextUser = resolveUserNavigationTarget(timeline, storyIndex, 1);
+  if (prevUser !== null) slots.set(-1, prevUser);
+  if (nextUser !== null) slots.set(1, nextUser);
+  return slots;
+}
+
 /**
- * Unified, interruptible 3D cube transition engine + Instagram-style
- * press-and-hold / horizontal scrub / tap / vertical dismiss Pointer Events controller.
+ * Unified, interruptible 3D cube transition engine with explicit navigation granularity:
+ * - Story-level (`navigateStory`): tap zones, Previous/Next buttons, keyboard, timer auto-advance.
+ * - User-level (hold + drag cube gesture): jumps whole user trays, landing on the target user's first story.
+ * Both route through the same virtual-slot spring and GPU-composited cube transform driver.
  */
 export function useStoryNavigation({
-  totalCount,
+  timeline,
   initialIndex,
   disabled = false,
   onReachEnd,
   onClose,
 }: {
-  totalCount: number;
+  timeline: StoryEntry[];
   initialIndex: number;
   disabled?: boolean;
   onReachEnd: () => void;
@@ -113,18 +134,26 @@ export function useStoryNavigation({
   const reducedMotionRef = useRef(reducedMotion);
   reducedMotionRef.current = reducedMotion;
 
+  const totalCount = timeline.length;
   const clampedInitial = totalCount > 0 ? Math.max(0, Math.min(totalCount - 1, initialIndex)) : -1;
+
   const [activeIndex, setActiveIndex] = useState(clampedInitial);
   const [visibleIndices, setVisibleIndices] = useState<number[]>(() =>
-    clampedInitial >= 0 ? getVisibleIndices(clampedInitial, clampedInitial, totalCount) : [],
+    clampedInitial >= 0
+      ? getPreloadStoryIndices(
+          timeline,
+          clampedInitial,
+          buildRestUserSlots(timeline, clampedInitial).values(),
+        )
+      : [],
   );
   const [isPressed, setIsPressed] = useState(false);
   const [isHolding, setIsHolding] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
 
-  const totalCountRef = useRef(totalCount);
-  totalCountRef.current = totalCount;
+  const timelineRef = useRef(timeline);
+  timelineRef.current = timeline;
   const disabledRef = useRef(disabled);
   disabledRef.current = disabled;
   const onReachEndRef = useRef(onReachEnd);
@@ -133,9 +162,13 @@ export function useStoryNavigation({
   onCloseRef.current = onClose;
 
   const initializedRef = useRef(clampedInitial >= 0);
-  const posRef = useRef(Math.max(clampedInitial, 0));
+  const activeIndexRef = useRef(clampedInitial);
+  const slotToStoryRef = useRef<Map<number, number>>(
+    clampedInitial >= 0 ? buildRestUserSlots(timeline, clampedInitial) : new Map(),
+  );
+  const posRef = useRef(0);
   const velRef = useRef(0);
-  const targetIndexRef = useRef(clampedInitial);
+  const targetSlotRef = useRef(0);
   const springFrameRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number | null>(null);
   const gestureRef = useRef<ActiveGesture | null>(null);
@@ -145,33 +178,58 @@ export function useStoryNavigation({
   const widthRef = useRef(360);
   const faceNodesRef = useRef(new Map<number, FaceNodes>());
 
-  const applySingleFace = useCallback((index: number, nodes: FaceNodes) => {
-    const style = computeCubeFaceStyle(
-      index - posRef.current,
-      widthRef.current,
-      reducedMotionRef.current,
-    );
-    nodes.face.style.visibility = style.visible ? "visible" : "hidden";
-    nodes.face.style.transform = style.transform;
-    nodes.face.style.opacity = String(style.opacity);
-    if (nodes.shade) {
-      nodes.shade.style.opacity = String(style.shadeOpacity);
+  const findSlotForStory = useCallback((storyIndex: number): number | undefined => {
+    let bestSlot: number | undefined;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const [slot, idx] of slotToStoryRef.current) {
+      if (idx !== storyIndex) continue;
+      const dist = Math.abs(slot - posRef.current);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestSlot = slot;
+      }
     }
+    return bestSlot;
   }, []);
 
+  const applySingleFace = useCallback(
+    (storyIndex: number, nodes: FaceNodes) => {
+      const slot = findSlotForStory(storyIndex);
+      if (slot === undefined) {
+        nodes.face.style.visibility = "hidden";
+        nodes.face.style.transform = reducedMotionRef.current ? "none" : "translate3d(0, 0, 0)";
+        nodes.face.style.opacity = "0";
+        if (nodes.shade) nodes.shade.style.opacity = "0";
+        return;
+      }
+      const style = computeCubeFaceStyle(
+        slot - posRef.current,
+        widthRef.current,
+        reducedMotionRef.current,
+      );
+      nodes.face.style.visibility = style.visible ? "visible" : "hidden";
+      nodes.face.style.transform = style.transform;
+      nodes.face.style.opacity = String(style.opacity);
+      if (nodes.shade) {
+        nodes.shade.style.opacity = String(style.shadeOpacity);
+      }
+    },
+    [findSlotForStory],
+  );
+
   const applyAllFaces = useCallback(() => {
-    for (const [index, nodes] of faceNodesRef.current) {
-      applySingleFace(index, nodes);
+    for (const [storyIndex, nodes] of faceNodesRef.current) {
+      applySingleFace(storyIndex, nodes);
     }
   }, [applySingleFace]);
 
-  const syncVisibleWindow = useCallback(() => {
-    const count = totalCountRef.current;
-    if (count <= 0) {
+  const syncMountedSlides = useCallback((focusStoryIndex: number) => {
+    const tl = timelineRef.current;
+    if (!tl.length || focusStoryIndex < 0 || focusStoryIndex >= tl.length) {
       setVisibleIndices((prev) => (prev.length === 0 ? prev : []));
       return;
     }
-    const next = getVisibleIndices(posRef.current, targetIndexRef.current, count);
+    const next = getPreloadStoryIndices(tl, focusStoryIndex, slotToStoryRef.current.values());
     setVisibleIndices((prev) => (sameNumberArray(prev, next) ? prev : next));
   }, []);
 
@@ -183,13 +241,30 @@ export function useStoryNavigation({
     lastFrameTimeRef.current = null;
   }, []);
 
-  const startSpringTo = useCallback(
-    (nextTarget: number, initialVelocity?: number) => {
-      const count = totalCountRef.current;
-      if (count <= 0) return;
-      const clampedTarget = Math.max(0, Math.min(count - 1, nextTarget));
-      targetIndexRef.current = clampedTarget;
-      setActiveIndex(clampedTarget);
+  const rebaseAtStory = useCallback(
+    (storyIndex: number) => {
+      const tl = timelineRef.current;
+      slotToStoryRef.current = buildRestUserSlots(tl, storyIndex);
+      posRef.current = 0;
+      velRef.current = 0;
+      targetSlotRef.current = 0;
+      activeIndexRef.current = storyIndex;
+      setActiveIndex(storyIndex);
+      applyAllFaces();
+      syncMountedSlides(storyIndex);
+    },
+    [applyAllFaces, syncMountedSlides],
+  );
+
+  const startSpringToSlot = useCallback(
+    (nextSlot: number, initialVelocity?: number) => {
+      const targetStory = slotToStoryRef.current.get(nextSlot);
+      if (targetStory === undefined) return;
+
+      targetSlotRef.current = nextSlot;
+      activeIndexRef.current = targetStory;
+      setActiveIndex(targetStory);
+
       if (initialVelocity !== undefined) {
         velRef.current = Math.max(
           -MAX_FLING_VELOCITY,
@@ -197,18 +272,15 @@ export function useStoryNavigation({
         );
       }
 
-      if (Math.abs(posRef.current - clampedTarget) < 0.0015 && Math.abs(velRef.current) < 0.015) {
+      if (Math.abs(posRef.current - nextSlot) < 0.0015 && Math.abs(velRef.current) < 0.015) {
         stopSpring();
-        posRef.current = clampedTarget;
-        velRef.current = 0;
         setIsSettling(false);
-        applyAllFaces();
-        syncVisibleWindow();
+        rebaseAtStory(targetStory);
         return;
       }
 
       setIsSettling(true);
-      syncVisibleWindow();
+      syncMountedSlides(targetStory);
 
       if (springFrameRef.current !== null) return;
       lastFrameTimeRef.current = null;
@@ -223,7 +295,7 @@ export function useStoryNavigation({
         const next = stepSpring(
           posRef.current,
           velRef.current,
-          targetIndexRef.current,
+          targetSlotRef.current,
           dt,
           stiffness,
         );
@@ -235,16 +307,18 @@ export function useStoryNavigation({
           springFrameRef.current = null;
           lastFrameTimeRef.current = null;
           setIsSettling(false);
-          syncVisibleWindow();
+          const settledStory = slotToStoryRef.current.get(targetSlotRef.current);
+          if (settledStory !== undefined) {
+            rebaseAtStory(settledStory);
+          }
         } else {
-          syncVisibleWindow();
           springFrameRef.current = requestAnimationFrame(tick);
         }
       };
 
       springFrameRef.current = requestAnimationFrame(tick);
     },
-    [applyAllFaces, stopSpring, syncVisibleWindow],
+    [applyAllFaces, rebaseAtStory, stopSpring, syncMountedSlides],
   );
 
   // Sync once timeline first populates (e.g. async query load) without bogus startup animation.
@@ -252,9 +326,11 @@ export function useStoryNavigation({
     if (totalCount <= 0) {
       stopSpring();
       initializedRef.current = false;
-      targetIndexRef.current = -1;
+      slotToStoryRef.current = new Map();
       posRef.current = 0;
       velRef.current = 0;
+      targetSlotRef.current = 0;
+      activeIndexRef.current = -1;
       setActiveIndex(-1);
       setVisibleIndices([]);
       setIsSettling(false);
@@ -263,40 +339,26 @@ export function useStoryNavigation({
     if (!initializedRef.current && initialIndex >= 0) {
       const clamped = Math.max(0, Math.min(totalCount - 1, initialIndex));
       initializedRef.current = true;
-      targetIndexRef.current = clamped;
-      posRef.current = clamped;
-      velRef.current = 0;
-      setActiveIndex(clamped);
-      setVisibleIndices(getVisibleIndices(clamped, clamped, totalCount));
       setIsSettling(false);
+      rebaseAtStory(clamped);
       return;
     }
-    if (targetIndexRef.current >= totalCount) {
-      const clamped = totalCount - 1;
+    if (activeIndexRef.current >= totalCount) {
       stopSpring();
-      targetIndexRef.current = clamped;
-      posRef.current = clamped;
-      velRef.current = 0;
-      setActiveIndex(clamped);
-      setVisibleIndices(getVisibleIndices(clamped, clamped, totalCount));
       setIsSettling(false);
+      rebaseAtStory(totalCount - 1);
     }
-  }, [totalCount, initialIndex, stopSpring]);
+  }, [totalCount, initialIndex, rebaseAtStory, stopSpring]);
 
   // Allow caller to snap index when live timeline membership shifts (e.g. story expires).
   const syncIndex = useCallback(
     (nextIndex: number) => {
-      if (nextIndex === targetIndexRef.current) return;
+      if (nextIndex === activeIndexRef.current) return;
       stopSpring();
-      targetIndexRef.current = nextIndex;
-      posRef.current = Math.max(0, nextIndex);
-      velRef.current = 0;
-      setActiveIndex(nextIndex);
       setIsSettling(false);
-      syncVisibleWindow();
-      applyAllFaces();
+      rebaseAtStory(Math.max(0, nextIndex));
     },
-    [applyAllFaces, stopSpring, syncVisibleWindow],
+    [rebaseAtStory, stopSpring],
   );
 
   // Measure viewport width via ResizeObserver so hot pointermove/rAF loops never read layout.
@@ -333,13 +395,13 @@ export function useStoryNavigation({
   }, [reducedMotion, applyAllFaces]);
 
   const registerFace = useCallback(
-    (index: number, face: HTMLElement | null, shade: HTMLElement | null) => {
+    (storyIndex: number, face: HTMLElement | null, shade: HTMLElement | null) => {
       if (face) {
         const nodes: FaceNodes = { face, shade };
-        faceNodesRef.current.set(index, nodes);
-        applySingleFace(index, nodes);
+        faceNodesRef.current.set(storyIndex, nodes);
+        applySingleFace(storyIndex, nodes);
       } else {
-        faceNodesRef.current.delete(index);
+        faceNodesRef.current.delete(storyIndex);
       }
     },
     [applySingleFace],
@@ -352,25 +414,48 @@ export function useStoryNavigation({
     }
   }, []);
 
-  const navigate = useCallback(
+  /**
+   * Story-level navigation (tap zones, buttons, keyboard, timer auto-advance).
+   * Steps one story at a time within the current user's tray and rolls over at tray edges.
+   */
+  const navigateStory = useCallback(
     (delta: 1 | -1) => {
       if (disabledRef.current) return;
-      const count = totalCountRef.current;
-      if (count <= 0) return;
-      const currentTarget = targetIndexRef.current;
-      const nextTarget = currentTarget + delta;
-      if (nextTarget >= count) {
+      const tl = timelineRef.current;
+      if (!tl.length) return;
+
+      const currentSlot = targetSlotRef.current;
+      const currentStory = slotToStoryRef.current.get(currentSlot);
+      if (currentStory === undefined) return;
+
+      const nextSlot = currentSlot + delta;
+      // Preserve visual continuity: if nextSlot is already visible on screen mid-transition,
+      // smoothly reverse back onto it rather than swapping a visible face.
+      if (slotToStoryRef.current.has(nextSlot) && Math.abs(nextSlot - posRef.current) < 1) {
+        startSpringToSlot(nextSlot);
+        return;
+      }
+
+      const resolved = resolveStoryNavigationTarget(tl, currentStory, delta);
+      if (resolved === "end") {
         onReachEndRef.current();
         return;
       }
-      if (nextTarget < 0) {
-        // Already at the first story; settle cleanly if mid-flight.
-        startSpringTo(0);
+      if (resolved === null) {
+        startSpringToSlot(currentSlot);
         return;
       }
-      startSpringTo(nextTarget);
+
+      // Remove any off-screen stale slot carrying the same story so slot lookup remains 1:1.
+      for (const [slot, idx] of slotToStoryRef.current) {
+        if (idx === resolved && Math.abs(slot - posRef.current) >= 1) {
+          slotToStoryRef.current.delete(slot);
+        }
+      }
+      slotToStoryRef.current.set(nextSlot, resolved);
+      startSpringToSlot(nextSlot);
     },
-    [startSpringTo],
+    [startSpringToSlot],
   );
 
   const cancelActiveGesture = useCallback(
@@ -391,9 +476,9 @@ export function useStoryNavigation({
       setIsPressed(false);
       setIsHolding(false);
       setIsDragging(false);
-      startSpringTo(targetIndexRef.current, 0);
+      startSpringToSlot(targetSlotRef.current, 0);
     },
-    [clearGestureTimers, startSpringTo],
+    [clearGestureTimers, startSpringToSlot],
   );
 
   // Cancel active gesture cleanly if viewer becomes disabled (closing / modal opened).
@@ -418,7 +503,8 @@ export function useStoryNavigation({
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (disabledRef.current || totalCountRef.current <= 0) return;
+      const tl = timelineRef.current;
+      if (disabledRef.current || !tl.length) return;
       if (!e.isPrimary) return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
       if (gestureRef.current !== null) return;
@@ -429,11 +515,52 @@ export function useStoryNavigation({
       }
 
       const now = performance.now();
-      const prePressTarget = targetIndexRef.current;
+      const prePressTargetSlot = targetSlotRef.current;
       stopSpring();
       setIsSettling(false);
 
       const anchorPos = posRef.current;
+      const anchorInt = Math.round(anchorPos);
+      const anchorStory = slotToStoryRef.current.get(anchorInt);
+
+      // Prepare user-level drag targets on off-screen adjacent slots without mutating any visible face.
+      if (anchorStory !== undefined) {
+        const prevUser = resolveUserNavigationTarget(tl, anchorStory, -1);
+        const nextUser = resolveUserNavigationTarget(tl, anchorStory, 1);
+
+        if (Math.abs(anchorInt - 1 - anchorPos) >= 1) {
+          if (prevUser !== null) {
+            for (const [s, idx] of slotToStoryRef.current) {
+              if (idx === prevUser && Math.abs(s - anchorPos) >= 1) {
+                slotToStoryRef.current.delete(s);
+              }
+            }
+            slotToStoryRef.current.set(anchorInt - 1, prevUser);
+          } else {
+            slotToStoryRef.current.delete(anchorInt - 1);
+          }
+        }
+        if (Math.abs(anchorInt + 1 - anchorPos) >= 1) {
+          if (nextUser !== null) {
+            for (const [s, idx] of slotToStoryRef.current) {
+              if (idx === nextUser && Math.abs(s - anchorPos) >= 1) {
+                slotToStoryRef.current.delete(s);
+              }
+            }
+            slotToStoryRef.current.set(anchorInt + 1, nextUser);
+          } else {
+            slotToStoryRef.current.delete(anchorInt + 1);
+          }
+        }
+      }
+
+      const minDragSlot = slotToStoryRef.current.has(anchorInt - 1)
+        ? anchorInt - 1
+        : Math.floor(anchorPos);
+      const maxDragSlot = slotToStoryRef.current.has(anchorInt + 1)
+        ? anchorInt + 1
+        : Math.ceil(anchorPos);
+
       const gesture: ActiveGesture = {
         pointerId: e.pointerId,
         startX: e.clientX,
@@ -441,7 +568,10 @@ export function useStoryNavigation({
         startTime: now,
         phase: "pressing",
         anchorPos,
-        prePressTarget,
+        anchorInt,
+        minDragSlot,
+        maxDragSlot,
+        prePressTargetSlot,
         dragOriginX: e.clientX,
         dragOriginPos: anchorPos,
         samples: [{ x: e.clientX, t: now }],
@@ -489,7 +619,7 @@ export function useStoryNavigation({
           g.samples = [{ x: e.clientX, t: now }];
           setIsHolding(true);
           setIsDragging(true);
-          syncVisibleWindow();
+          syncMountedSlides(activeIndexRef.current);
           return;
         }
         if (g.phase === "pressing" && dy >= VERTICAL_LOCK_PX && absDy > absDx * 1.3) {
@@ -502,14 +632,12 @@ export function useStoryNavigation({
 
       if (g.phase === "dragging") {
         const width = Math.max(1, widthRef.current);
-        // Locked direction mapping: dragging RIGHT (+dx) advances toward NEXT (+1),
-        // dragging LEFT (-dx) returns toward PREVIOUS (-1).
-        const dragDeltaStories = (e.clientX - g.dragOriginX) / width;
-        const anchorInt = Math.round(g.anchorPos);
-        const rawPos = g.dragOriginPos + dragDeltaStories;
-        const clampedPerGesture = Math.max(anchorInt - 1, Math.min(anchorInt + 1, rawPos));
-        const maxIndex = Math.max(0, totalCountRef.current - 1);
-        const boundedPos = applyBoundaryResistance(clampedPerGesture, 0, maxIndex);
+        // Locked direction mapping: dragging RIGHT (+dx) advances to NEXT user (+1),
+        // dragging LEFT (-dx) returns to PREVIOUS user (-1).
+        const dragDelta = (e.clientX - g.dragOriginX) / width;
+        const rawPos = g.dragOriginPos + dragDelta;
+        const clampedPerGesture = Math.max(g.anchorInt - 1, Math.min(g.anchorInt + 1, rawPos));
+        const boundedPos = applyBoundaryResistance(clampedPerGesture, g.minDragSlot, g.maxDragSlot);
 
         posRef.current = boundedPos;
         velRef.current = 0;
@@ -522,7 +650,7 @@ export function useStoryNavigation({
         }
       }
     },
-    [applyAllFaces, clearGestureTimers, syncVisibleWindow],
+    [applyAllFaces, clearGestureTimers, syncMountedSlides],
   );
 
   const onPointerUp = useCallback(
@@ -554,35 +682,38 @@ export function useStoryNavigation({
           onCloseRef.current();
           return;
         }
-        startSpringTo(Math.round(posRef.current), 0);
+        const settleSlot = Math.max(
+          g.minDragSlot,
+          Math.min(g.maxDragSlot, Math.round(posRef.current)),
+        );
+        startSpringToSlot(settleSlot, 0);
         return;
       }
 
       if (g.phase === "dragging") {
         const velStoriesPerSec = computeVelocityStoriesPerSec(g.samples, now, widthRef.current);
-        const maxIndex = Math.max(0, totalCountRef.current - 1);
-        const commitTarget = computeReleaseTarget({
+        const commitSlot = computeReleaseTarget({
           pos: posRef.current,
           anchorPos: g.anchorPos,
           velocityStoriesPerSec: velStoriesPerSec,
-          minIndex: 0,
-          maxIndex,
+          minIndex: g.minDragSlot,
+          maxIndex: g.maxDragSlot,
         });
-        startSpringTo(commitTarget, velStoriesPerSec);
+        startSpringToSlot(commitSlot, velStoriesPerSec);
         return;
       }
 
       if (g.phase === "holding") {
-        // Released after a hold without dragging -> never trigger tap; settle smoothly if caught mid-flight.
-        const settleTarget = Math.max(
-          0,
-          Math.min(Math.max(0, totalCountRef.current - 1), Math.round(posRef.current)),
+        // Released after a hold without dragging -> never trigger tap; settle cleanly if caught mid-flight.
+        const settleSlot = Math.max(
+          g.minDragSlot,
+          Math.min(g.maxDragSlot, Math.round(posRef.current)),
         );
-        startSpringTo(settleTarget, 0);
+        startSpringToSlot(settleSlot, 0);
         return;
       }
 
-      // Phase === "pressing": check swipe-down dismiss first, then quick tap.
+      // Phase === "pressing": check swipe-down dismiss first, then quick story-level tap.
       if (dy > DISMISS_MIN_DY && Math.abs(dx) < DISMISS_MAX_DX) {
         onCloseRef.current();
         return;
@@ -591,18 +722,18 @@ export function useStoryNavigation({
       if (elapsedMs < TAP_MAX_DURATION_MS && Math.hypot(dx, dy) < DRAG_LOCK_PX) {
         const rect = e.currentTarget.getBoundingClientRect();
         const isLeftTap = e.clientX - rect.left < rect.width * 0.3;
-        targetIndexRef.current = g.prePressTarget;
-        navigate(isLeftTap ? -1 : 1);
+        targetSlotRef.current = g.prePressTargetSlot;
+        navigateStory(isLeftTap ? -1 : 1);
         return;
       }
 
-      const settleTarget = Math.max(
-        0,
-        Math.min(Math.max(0, totalCountRef.current - 1), Math.round(posRef.current)),
+      const settleSlot = Math.max(
+        g.minDragSlot,
+        Math.min(g.maxDragSlot, Math.round(posRef.current)),
       );
-      startSpringTo(settleTarget, 0);
+      startSpringToSlot(settleSlot, 0);
     },
-    [clearGestureTimers, navigate, startSpringTo],
+    [clearGestureTimers, navigateStory, startSpringToSlot],
   );
 
   const onPointerCancel = useCallback(
@@ -632,7 +763,7 @@ export function useStoryNavigation({
     isSettling,
     chromeHidden: isHolding || isDragging,
     reducedMotion,
-    navigate,
+    navigateStory,
     syncIndex,
     setViewportRef,
     registerFace,
