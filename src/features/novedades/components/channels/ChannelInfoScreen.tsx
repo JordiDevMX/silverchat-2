@@ -1,9 +1,12 @@
-import { BadgeCheck, BellOff, Pencil, Trash2 } from "lucide-react";
+import { BadgeCheck, BellOff, Pencil, Trash2, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChannelFollowButton, ChannelInfoSurface } from "@/components/ui/channel-surfaces";
 import { MotionOverlay } from "@/components/ui/motion-overlay";
 import { SettingsRow } from "@/components/ui/settings-row";
+import { ChatGrowthHost } from "@/features/chat-growth/components/ChatGrowthHost";
+import { useChatGrowthController } from "@/features/chat-growth/hooks/useChatGrowthController";
+import { buildChannelGrowthModel } from "@/features/chat-growth/lib/growthConfig";
 import { MuteSubmenu } from "@/features/chat-settings/components/MuteSubmenu";
 import { saveGroupAvatar } from "@/features/chat-settings/lib/groupAvatar";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
@@ -91,12 +94,23 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
   const mute = useMuteChannel(channelId);
   const { user } = useAuth();
   const { say, language } = useMessageText();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(
+    () => new URLSearchParams(window.location.search).get("edit") === "1",
+  );
   const [photo, setPhoto] = useState(false);
   const [muteOpen, setMuteOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const c = q.data?.channel;
   const follow = q.data?.follow ?? null;
+  const growthModel = c
+    ? buildChannelGrowthModel(c, user?.id, language, window.location.origin)
+    : null;
+  const growth = useChatGrowthController({
+    userId: user?.id,
+    model: growthModel,
+    autoShowEnabled: false,
+    onEditDescriptionOverride: () => setEditing(true),
+  });
   return (
     <main id="main" className="novedades-page channel-info">
       <NavLink href={`/channels/${channelId}`}>
@@ -163,6 +177,11 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
             {c.owner_id === user?.id && (
               <>
                 <SettingsRow
+                  icon={<TrendingUp />}
+                  label={say("Grow channel", "Aumentar seguidores")}
+                  onClick={growth.openManually}
+                />
+                <SettingsRow
                   icon={<Pencil />}
                   label={say("Edit channel", "Editar canal")}
                   onClick={() => setEditing(true)}
@@ -215,6 +234,7 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
                   onClose={() => setPhoto(false)}
                 />
               )}
+              <ChatGrowthHost model={growthModel} controller={growth} />
             </>
           )}
           {confirm && (

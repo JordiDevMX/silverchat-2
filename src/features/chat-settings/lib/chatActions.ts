@@ -4,6 +4,7 @@ export type ChatAction =
   | "view_group_info"
   | "change_chat_photo"
   | "view_community_info"
+  | "grow_chat"
   | "search_in_chat"
   | "mute"
   | "unmute"
@@ -33,22 +34,25 @@ export function getAvailableChatActions(chat: ChatDetails): ChatAction[] {
     "clear_chat",
   ];
   if (chat.type === "direct") return ["view_profile", ...common, "block", "report"];
+  const isAdmin = chat.own?.role === "admin";
   if (chat.type === "community_chat")
     return [
       "view_community_info",
-      ...(chat.own?.role === "admin" ? ["change_chat_photo" as const] : []),
+      ...(isAdmin ? ["grow_chat" as const, "change_chat_photo" as const] : []),
       ...common,
     ];
   return [
     "view_group_info",
+    ...(isAdmin ? ["grow_chat" as const] : []),
     ...common,
     "view_members",
-    ...(chat.own?.role === "admin" ? ["add_members" as const] : []),
+    ...(isAdmin ? ["add_members" as const] : []),
     "leave_group",
   ];
 }
 export type ChannelAction =
   | "view_channel_info"
+  | "grow_channel"
   | "search_in_chat"
   | "mute"
   | "mark_unread"
@@ -59,10 +63,12 @@ export type ChannelActionContext = {
   following: boolean;
   canSearch: boolean;
   hasLink: boolean;
+  isOwner?: boolean;
 };
 export function getAvailableChannelActions(context: ChannelActionContext): ChannelAction[] {
   return [
     "view_channel_info",
+    ...(context.isOwner ? ["grow_channel" as const] : []),
     ...(context.canSearch ? ["search_in_chat" as const] : []),
     ...(context.following ? ["mute" as const, "mark_unread" as const] : []),
     context.following ? "unfollow" : "follow",

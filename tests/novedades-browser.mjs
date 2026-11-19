@@ -987,6 +987,11 @@ try {
   await page.waitForFunction(() => document.documentElement.lang === "en");
   await saveEn;
   await goto(`/channels/${owned}`);
+  const growthDialog = page.locator('[data-slot="chat-growth-dialog"]');
+  await growthDialog.waitFor();
+  assert.match(await growthDialog.textContent(), /You created 'My broadcast'/);
+  await page.keyboard.press("Escape");
+  await growthDialog.waitFor({ state: "detached" });
   await page.getByRole("textbox", { name: "Message", exact: true }).fill("Owner broadcast");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await page.getByText("Owner broadcast", { exact: true }).waitFor();

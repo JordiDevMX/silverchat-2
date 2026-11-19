@@ -1,8 +1,11 @@
-import { Users } from "lucide-react";
-import { useState } from "react";
+import { TrendingUp, Users } from "lucide-react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatSettingsScreenSurface } from "@/components/ui/chat-settings-surfaces";
-import { CardSurface } from "@/components/ui/settings-row";
+import { CardSurface, SettingsRow } from "@/components/ui/settings-row";
+import { ChatGrowthHost } from "@/features/chat-growth/components/ChatGrowthHost";
+import { useChatGrowthController } from "@/features/chat-growth/hooks/useChatGrowthController";
+import { buildChatGrowthModel } from "@/features/chat-growth/lib/growthConfig";
 import { CommunitySettingsActions } from "@/features/communities/components/CommunitySettingsActions";
 import { useMessageText } from "@/features/messages/i18n";
 import type { ChatDetails } from "@/features/messages/types";
@@ -20,11 +23,13 @@ function GroupFields({
   busy,
   onSave,
   context = "group",
+  descriptionRef,
 }: {
   chat: ChatDetails;
   busy: boolean;
   onSave: (patch: { name?: string; description?: string }) => Promise<void>;
   context?: "group" | "community";
+  descriptionRef?: RefObject<HTMLTextAreaElement | null>;
 }) {
   const { say, name, setName, description, setDescription, error, save } = useGroupFields(
     chat,
@@ -47,6 +52,7 @@ function GroupFields({
       <label className="field">
         {say("Description", "Descripción")}
         <textarea
+          ref={descriptionRef}
           value={description}
           maxLength={500}
           rows={4}
@@ -71,6 +77,29 @@ export function GroupSettingsScreen(
   const { say, language } = useMessageText();
   const ui = useChatUIStore();
   const [photo, setPhoto] = useState(false);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const growthModel =
+    chat && ["group", "community_chat"].includes(chat.type)
+      ? buildChatGrowthModel(
+          chat,
+          user?.id,
+          language,
+          window.location.origin,
+          hook.community ?? null,
+        )
+      : null;
+  const growth = useChatGrowthController({
+    userId: user?.id,
+    model: growthModel,
+    autoShowEnabled: false,
+    onEditDescriptionOverride: () => descriptionRef.current?.focus(),
+  });
+  useEffect(() => {
+    if (!chat) return;
+    if (new URLSearchParams(window.location.search).get("focus") === "description") {
+      descriptionRef.current?.focus();
+    }
+  }, [chat]);
   if (!chat) return <ChatSettingsLoading query={hook.chat} />;
   if (!["group", "community_chat"].includes(chat.type)) return <ChatSettingsLoading />;
   const admin = chat.own?.role === "admin";
@@ -114,6 +143,7 @@ export function GroupSettingsScreen(
             busy={hook.busy}
             onSave={hook.save}
             context={context}
+            descriptionRef={descriptionRef}
           />
         ) : (
           <>
@@ -132,6 +162,17 @@ export function GroupSettingsScreen(
         <p>
           {hook.community?.member_count ?? chat.members.length} {say("members", "miembros")}
         </p>
+        {admin && (
+          <SettingsRow
+            icon={<TrendingUp />}
+            label={
+              context === "community"
+                ? say("Grow community", "Hacer crecer comunidad")
+                : say("Grow group", "Hacer crecer grupo")
+            }
+            onClick={growth.openManually}
+          />
+        )}
       </CardSurface>
       {context === "community" && hook.community ? (
         <CommunitySettingsActions community={hook.community} chat={chat} />
@@ -174,6 +215,14 @@ export function GroupSettingsScreen(
         />
       )}
       {context === "group" && <ChatSettingsLayer chat={chat} />}
+      {admin && (
+        <ChatGrowthHost
+          model={growthModel}
+          controller={growth}
+          addMembersChat={chat}
+          addMembersContext={context}
+        />
+      )}
     </ChatSettingsScreenSurface>
   );
 }

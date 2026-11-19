@@ -11,13 +11,15 @@ export function ChannelHeader({
   channel: c,
   follow,
   onSearch,
+  onGrow,
 }: {
   channel: Channel;
   follow: Follow | null;
   onSearch?: () => void;
+  onGrow?: () => void;
 }) {
   const { say, user, add, remove, mute, open, setOpen, menu, setMenu, closeMenu, action } =
-    useChannelHeaderActions(c, onSearch);
+    useChannelHeaderActions(c, onSearch, onGrow);
   return (
     <>
       <ConversationHeaderSurface className="channel-header">
@@ -71,11 +73,16 @@ export function ChannelHeader({
             following: !!follow,
             canSearch: !!follow || c.owner_id === user?.id,
             hasLink: true,
+            isOwner: c.owner_id === user?.id,
           }}
           point={menu}
           onClose={closeMenu}
           onChoose={(choice) => {
             closeMenu();
+            if (choice === "grow_channel" && onGrow) {
+              onGrow();
+              return;
+            }
             action.mutate(choice);
           }}
         />

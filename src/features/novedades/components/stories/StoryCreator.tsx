@@ -3,7 +3,15 @@ import { Button } from "@/components/ui/button";
 import { StoryOverlay } from "@/components/ui/story-overlay";
 import { useStoryCreator } from "../../hooks/stories/useStoryCreator";
 import { StoryTextEditor } from "./StoryTextEditor";
-export function StoryCreator({ onClose }: { onClose: () => void }) {
+export function StoryCreator({
+  onClose,
+  initialMode = "camera",
+  initialText,
+}: {
+  onClose: () => void;
+  initialMode?: "camera" | "gallery" | "text";
+  initialText?: string;
+}) {
   const {
     say,
     mine,
@@ -22,7 +30,7 @@ export function StoryCreator({ onClose }: { onClose: () => void }) {
     select,
     publish,
     cancelPending,
-  } = useStoryCreator(onClose);
+  } = useStoryCreator(onClose, initialMode);
   return (
     <StoryOverlay
       title={say("Create story", "Crear historia")}
@@ -35,7 +43,8 @@ export function StoryCreator({ onClose }: { onClose: () => void }) {
         <>
           {mode === "text" ? (
             <StoryTextEditor
-              onClose={() => setMode("camera")}
+              initialText={initialText}
+              onClose={() => (initialMode === "text" ? close() : setMode("camera"))}
               onSaved={onClose}
               onBusyChange={setBusy}
             />

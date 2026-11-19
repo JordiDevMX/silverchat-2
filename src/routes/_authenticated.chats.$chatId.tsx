@@ -2,7 +2,13 @@ import { useParams, useRouter, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { ConversationShell } from "@/components/ui/conversation-shell";
 import { AppSkeleton, Modal } from "@/features/auth/components";
+import { ChatGrowthHost } from "@/features/chat-growth/components/ChatGrowthHost";
+import { useChatGrowthController } from "@/features/chat-growth/hooks/useChatGrowthController";
+import { buildChatGrowthModel } from "@/features/chat-growth/lib/growthConfig";
 import { ChatSettingsLayer } from "@/features/chat-settings/components/ChatSettingsLayer";
+import { useCommunity } from "@/features/communities/hooks/useCommunity";
+import { useCommunityMembers } from "@/features/communities/hooks/useCommunityMembers";
+import { communityDetails } from "@/features/communities/lib/communityDetails";
 import { ChatHeader } from "@/features/messages/components/ChatHeader";
 import { Composer } from "@/features/messages/components/Composer";
 import { InChatSearch } from "@/features/messages/components/InChatSearch";
@@ -11,6 +17,7 @@ import { MessageList } from "@/features/messages/components/MessageList";
 import { PinnedMessagesBar } from "@/features/messages/components/PinnedMessagesBar";
 import { useChat } from "@/features/messages/hooks/useChat";
 import { useConversationController } from "@/features/messages/hooks/useConversationController";
+import { useAuth } from "@/lib/auth-provider";
 import "@/styles/messages.css";
 export function ChatPage() {
   const { chatId } = useParams({ from: "/_authenticated/chats/$chatId" });
@@ -29,10 +36,12 @@ export function ChatPage() {
   return <Conversation key={chatId} chatId={chatId} scrollTo={scrollTo} />;
 }
 export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: string }) {
+  const { user } = useAuth();
   const {
     chat,
     send,
     say,
+    language,
     requests,
     query,
     searchOpen,
@@ -51,6 +60,25 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
     setDecline,
     act,
   } = useConversationController(chatId);
+  const communityIdForGrowth =
+    chat.data?.type === "community_chat" && chat.data.communityId ? chat.data.communityId : "";
+  const community = useCommunity(communityIdForGrowth);
+  const communityMembers = useCommunityMembers(communityIdForGrowth);
+  const growthModel = chat.data
+    ? buildChatGrowthModel(
+        chat.data,
+        user?.id,
+        language,
+        window.location.origin,
+        community.data ?? null,
+      )
+    : null;
+  const growth = useChatGrowthController({
+    userId: user?.id,
+    model: growthModel,
+    messagesReady: !query.isPending && !query.isError,
+    messageCount: query.messages.length,
+  });
   if (chat.isPending) return <AppSkeleton />;
   if (chat.isError)
     return (
@@ -63,6 +91,12 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
     );
   if (!chat.data) return null;
   const details = chat.data;
+  const addMembersChat =
+    details.type === "group" && details.own?.role === "admin"
+      ? details
+      : details.type === "community_chat" && community.data?.role === "admin"
+        ? communityDetails(community.data, communityMembers.data ?? [], user?.id ?? "")
+        : null;
   return (
     <MessageActionsProvider
       chat={details}
@@ -88,7 +122,11 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
         banners={
           <>
             <PinnedMessagesBar chatId={chatId} />
-            <ChatSettingsLayer chat={details} onSearch={() => setSearchOpen(true)} />
+            <ChatSettingsLayer
+              chat={details}
+              onSearch={() => setSearchOpen(true)}
+              onGrow={growth.openManually}
+            />
             {details.request && (
               <div className="conversation-request" role="status">
                 <span>
@@ -185,6 +223,12 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
           </Modal>
         )}
       </ConversationShell>
+      <ChatGrowthHost
+        model={growthModel}
+        controller={growth}
+        addMembersChat={addMembersChat}
+        addMembersContext={details.type === "community_chat" ? "community" : "group"}
+      />
     </MessageActionsProvider>
   );
 }

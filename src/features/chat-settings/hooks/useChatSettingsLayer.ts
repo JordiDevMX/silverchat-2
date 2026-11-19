@@ -14,6 +14,7 @@ export function useChatSettingsLayer(
   chat: ChatDetails,
   onSearch?: () => void,
   context: "group" | "community" = "group",
+  onGrow?: () => void,
 ) {
   const ui = useChatUIStore();
   const { user } = useAuth();
@@ -79,6 +80,10 @@ export function useChatSettingsLayer(
       await router.navigate({
         href: `/chats/${chat.id}/${action === "view_members" ? "members" : "info"}`,
       });
+      return;
+    }
+    if (action === "grow_chat") {
+      onGrow?.();
       return;
     }
     if (action === "search_in_chat") {
