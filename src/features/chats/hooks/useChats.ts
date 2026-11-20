@@ -54,7 +54,7 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
       `
     chat_id, user_id, joined_at, last_read_at, pinned_at, favorited_at, archived_at, muted_until, manually_unread,
     chat:chats!chat_members_chat_id_fkey!inner(
-      id,type,status,community_id,name,avatar_url,only_admins_can_send,direct_pair_key,last_message_at,last_message_preview,last_message_id,
+      *,
       last_message:messages!chats_last_message_id_fkey(id,sender_id,type,deleted_for_everyone)
     )`,
     )
