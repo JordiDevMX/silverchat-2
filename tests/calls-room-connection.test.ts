@@ -128,6 +128,31 @@ test.afterEach(() => {
   useCallStore.setState({ call: null, room: null });
 });
 
+test("a voice call can display and hide the peer camera in the same room", async () => {
+  const attempt = makeHarness().start();
+  try {
+    attempt.gate.resolve(TOKEN);
+    await flush();
+    const room = attempt.room;
+    assert.ok(room);
+    assert.equal(useCallStore.getState().isCameraEnabled, false);
+    const track = { kind: "video" };
+    const publication = { track, videoTrack: track };
+    const peer = { identity: "other-user" };
+    room.emit("trackSubscribed", track);
+    assert.equal(useCallStore.getState().remoteVideoTrack, track);
+    room.emit("trackMuted", publication, peer);
+    assert.equal(useCallStore.getState().remoteVideoTrack, null);
+    room.emit("trackUnmuted", publication, peer);
+    assert.equal(useCallStore.getState().remoteVideoTrack, track);
+    assert.equal(useCallStore.getState().isCameraEnabled, false);
+    assert.equal(room.connectCalls, 1);
+  } finally {
+    attempt.dispose();
+    useCallStore.setState({ remoteVideoTrack: null });
+  }
+});
+
 test("a disposed attempt's late token rejection cannot end its replacement (identical ids)", async () => {
   const h = makeHarness();
   const first = h.start();

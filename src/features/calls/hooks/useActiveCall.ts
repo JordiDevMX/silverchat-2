@@ -28,31 +28,46 @@ export function useCallLifecycle(onEnded: (note: CallEndedNote) => void) {
   useEffect(() => {
     if ((phase !== "outgoing-ringing" && phase !== "incoming-ringing") || !callId) return;
     const isOutgoing = phase === "outgoing-ringing";
+    let disposed = false;
+    const applyStatus = (updated: {
+      status: string;
+      decline_reason: string | null;
+      answered_at: string | null;
+    }) => {
+      const current = useCallStore.getState();
+      if (disposed || current.call?.id !== callId || current.phase !== phase) return;
+      if (updated.status === "answered") {
+        if (isOutgoing)
+          useCallStore.setState({ phase: "answered", answeredAt: updated.answered_at });
+      } else if (updated.status !== "ringing") {
+        const note = mapRemoteEnd(updated.status, updated.decline_reason);
+        resetCallStore();
+        if (isOutgoing && note === "busy") useCallStore.setState({ busyPeer: current.other });
+        else if (isOutgoing) notify.current(note);
+      }
+    };
     const channel = supabase
       .channel(`call:${callId}`)
-      .on(
+      .on<{ status: string; decline_reason: string | null; answered_at: string | null }>(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "calls", filter: `id=eq.${callId}` },
-        ({ new: updated }) => {
-          const current = useCallStore.getState();
-          if (current.call?.id !== callId) return;
-          if (updated.status === "answered") {
-            if (!isOutgoing) return; // own accept echo; acceptIncomingCall owns this transition
-            useCallStore.setState({
-              phase: "answered",
-              answeredAt: updated.answered_at ?? new Date().toISOString(),
-            });
-            return;
-          }
-          if (updated.status !== "ringing") {
-            // The peer already resolved the row; nothing left to write.
-            if (isOutgoing) notify.current(mapRemoteEnd(updated.status, updated.decline_reason));
-            resetCallStore();
-          }
-        },
+        ({ new: updated }) => applyStatus(updated),
       )
-      .subscribe();
+      .subscribe((status) => {
+        // A quick busy reply may land between start_call and this subscription.
+        if (status === "SUBSCRIBED" && isOutgoing) {
+          void supabase
+            .from("calls")
+            .select("status, decline_reason, answered_at")
+            .eq("id", callId)
+            .maybeSingle()
+            .then(({ data }) => {
+              if (data) applyStatus(data);
+            });
+        }
+      });
     return () => {
+      disposed = true;
       void supabase.removeChannel(channel);
     };
   }, [phase, callId]);

@@ -55,7 +55,7 @@ dialog.call-modal-video .call-modal-body {
   overflow: hidden;
 }
 
-dialog.call-modal-video > h2 {
+dialog.call-modal > h2 {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -169,4 +169,75 @@ dialog.call-modal-video > h2 {
   border-radius: 9999px;
   background: color-mix(in oklab, var(--background) 55%, transparent);
   backdrop-filter: blur(12px);
+}
+
+.call-video-footer {
+  position: absolute;
+  inset-inline: 12px;
+  bottom: max(2.5rem, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 26rem;
+  max-width: calc(100% - 24px);
+  margin-inline: auto;
+  padding: 12px 12px 14px;
+  border: 1px solid rgb(255 255 255 / 65%);
+  border-radius: 24px;
+  background: rgb(15 20 30 / 90%);
+}
+
+.call-video-footer > :last-child {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(24rem, 100%);
+  align-items: start;
+  gap: clamp(4px, 1.5vw, 16px);
+}
+
+.call-video-footer button {
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+:root[data-theme="light"] dialog.call-modal-video {
+  background: #e5e9ee;
+}
+
+:root[data-theme="light"] .call-modal-video .call-modal-body::before {
+  content: none;
+}
+
+:root[data-theme="light"] .call-video-footer {
+  border-color: #c9d1dc;
+  background: #f9fafc;
+  color: #202c3c;
+  box-shadow: 0 4px 24px rgb(21 34 51 / 15%);
+}
+
+:root[data-theme="light"] .call-video-footer .call-glass-info {
+  padding: 0;
+  color: inherit;
+  background: none;
+  backdrop-filter: none;
+}
+
+:root[data-theme="light"] .call-video-footer span {
+  color: #445267;
+}
+
+:root[data-theme="light"] .call-video-footer button[aria-pressed] {
+  color: #25374c;
+  background: #e3e9f0;
+}
+
+:root[data-theme="light"] .call-video-footer button[aria-pressed="true"] {
+  color: white;
+  background: #35475e;
+}
+
+:root[data-theme="light"] .call-video-footer button:hover {
+  filter: brightness(0.93);
 }

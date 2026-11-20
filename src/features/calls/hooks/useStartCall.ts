@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { requestCallPermissions } from "../lib/callActions";
 import { invokeStartCall } from "../lib/startCallRpc";
-import { enterOutgoingCall } from "../stores/callStore";
+import { enterOutgoingCall, useCallStore } from "../stores/callStore";
 import type { CallParticipant, CallType } from "../types";
 
 /** Typed start failure so the UI can pick the right toast. Parameter
@@ -74,12 +74,16 @@ async function startCall(input: StartCallInput, userId: string): Promise<void> {
 
   const { data: call, error: callError } = await supabase
     .from("calls")
-    .select("id, chat_id, type, livekit_room_name, initiator_id")
+    .select("id, chat_id, type, livekit_room_name, initiator_id, status, decline_reason")
     .eq("id", callId as string)
     .single();
   if (callError || !call) throw new CallStartError("error", callError);
 
   const other = await resolveParticipant(call.chat_id, userId);
+  if (call.decline_reason === "busy") {
+    if (useCallStore.getState().phase === "idle") useCallStore.setState({ busyPeer: other });
+    return;
+  }
   enterOutgoingCall(
     {
       id: call.id,

@@ -142,12 +142,20 @@ export function ringTimeoutOutcome(phase: CallPhase, now: Date = new Date()): Ri
   return { kind: "none" };
 }
 
-export type CallEndedNote = "declined" | "no-answer" | "canceled" | "failed" | "peer-hangup";
+export type CallEndedNote =
+  | "busy"
+  | "declined"
+  | "no-answer"
+  | "canceled"
+  | "failed"
+  | "peer-hangup";
 
 /** Local status note for a remotely-ended call (CallProvider renders it via
  * the store note; kept pure so tests cover every notification path). */
 export function noteText(note: CallEndedNote, say: (text: string) => string): string {
   switch (note) {
+    case "busy":
+      return say("Busy");
     case "declined":
       return say("Call declined");
     case "no-answer":
@@ -163,8 +171,9 @@ export function noteText(note: CallEndedNote, say: (text: string) => string): st
 
 /** Map a remote UPDATE on my outgoing call to the local "call ended" note. */
 export function mapRemoteEnd(status: string, declineReason: string | null): CallEndedNote {
+  if (declineReason === "busy") return "busy";
   if (status === "declined") return "declined";
-  if (status === "missed" || declineReason === "busy") return "no-answer";
+  if (status === "missed") return "no-answer";
   if (status === "canceled") return "canceled";
   return "failed";
 }

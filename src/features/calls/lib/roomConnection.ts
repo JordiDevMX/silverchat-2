@@ -84,6 +84,27 @@ export function startRoomConnection(
           (track as { attach(): void }).attach();
         }
       })
+      .on("trackMuted", (publication: { track?: unknown }, participant: { identity: string }) => {
+        if (
+          !disposed &&
+          participant.identity !== room?.localParticipant.identity &&
+          publication.track === useCallStore.getState().remoteVideoTrack
+        ) {
+          useCallStore.setState({ remoteVideoTrack: null });
+        }
+      })
+      .on(
+        "trackUnmuted",
+        (publication: { videoTrack?: RemoteVideoTrack }, participant: { identity: string }) => {
+          if (
+            !disposed &&
+            participant.identity !== room?.localParticipant.identity &&
+            publication.videoTrack
+          ) {
+            useCallStore.setState({ remoteVideoTrack: publication.videoTrack });
+          }
+        },
+      )
       .on("trackUnsubscribed", (track: unknown) => {
         // AUD-003 (round 5): the probe interleaving — the old room's late
         // unsubscription nulled the replacement's remoteVideoTrack. Store

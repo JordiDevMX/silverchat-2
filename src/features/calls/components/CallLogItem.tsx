@@ -47,13 +47,16 @@ export function CallLogItem({
   const DirectionIcon = directionIcon[direction];
   const missed = direction === "incoming-missed" || direction === "outgoing-no-answer";
   const connected = entry.durationSeconds != null && entry.durationSeconds > 0;
-  const label = connected
-    ? say(entry.type === "video" ? "Video call" : "Voice call")
-    : entry.status === "declined"
-      ? say("Declined")
-      : entry.status === "canceled"
-        ? say("Canceled")
-        : say("Missed");
+  const label =
+    entry.declineReason === "busy"
+      ? say(entry.isOutgoing ? "Busy" : "Missed while busy")
+      : connected
+        ? say(entry.type === "video" ? "Video call" : "Voice call")
+        : entry.status === "declined"
+          ? say("Declined")
+          : entry.status === "canceled"
+            ? say("Canceled")
+            : say("Missed");
 
   return (
     <li

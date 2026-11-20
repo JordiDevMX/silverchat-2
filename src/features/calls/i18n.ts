@@ -14,6 +14,11 @@ const es: Record<string, string> = {
   "No missed calls": "No hay llamadas perdidas",
   "Calls you miss will appear here.": "Las llamadas que pierdas aparecerán aquí.",
   "Could not load calls.": "No se pudieron cargar las llamadas.",
+  Busy: "Ocupado",
+  "Missed while busy": "Perdida mientras estabas en otra llamada",
+  "{name} is busy": "{name} está ocupado",
+  "Try again later.": "Inténtalo más tarde.",
+  Close: "Cerrar",
   // Log rows
   "Voice call": "Llamada de voz",
   "Video call": "Videollamada",

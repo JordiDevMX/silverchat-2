@@ -1,5 +1,3 @@
-// 11.2/12.3 — circular call controls. Voice shows Mic + Speaker + Hangup;
-// video adds Camera (locked revision: no camera-upgrade button in voice).
 import { Mic, MicOff, PhoneOff, Video, VideoOff, Volume2, VolumeX } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -42,13 +40,12 @@ function CallRoundButton({
 
 export interface CallControlState {
   isMicEnabled: boolean;
-  isCameraEnabled?: boolean;
+  isCameraEnabled: boolean;
   isSpeakerOn: boolean;
 }
 
 export function CallControls({
   state,
-  showCamera,
   onToggleMic,
   onToggleSpeaker,
   onToggleCamera,
@@ -56,10 +53,9 @@ export function CallControls({
   labels,
 }: {
   state: CallControlState;
-  showCamera: boolean;
   onToggleMic: () => void;
   onToggleSpeaker: () => void;
-  onToggleCamera?: () => void;
+  onToggleCamera: () => void;
   onHangup: () => void;
   labels: {
     mute: string;
@@ -87,15 +83,13 @@ export function CallControls({
       >
         {state.isSpeakerOn ? <Volume2 size={24} /> : <VolumeX size={24} />}
       </CallRoundButton>
-      {showCamera && onToggleCamera && (
-        <CallRoundButton
-          label={state.isCameraEnabled ? labels.cameraOff : labels.cameraOn}
-          active={!state.isCameraEnabled}
-          onClick={onToggleCamera}
-        >
-          {state.isCameraEnabled ? <Video size={24} /> : <VideoOff size={24} />}
-        </CallRoundButton>
-      )}
+      <CallRoundButton
+        label={state.isCameraEnabled ? labels.cameraOff : labels.cameraOn}
+        active={!state.isCameraEnabled}
+        onClick={onToggleCamera}
+      >
+        {state.isCameraEnabled ? <Video size={24} /> : <VideoOff size={24} />}
+      </CallRoundButton>
       <CallRoundButton label={labels.hangup} danger onClick={onHangup}>
         <PhoneOff size={24} />
       </CallRoundButton>

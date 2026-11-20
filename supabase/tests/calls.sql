@@ -29,12 +29,6 @@
 -- - the outsider block no longer demands both "0 visible rows" and
 --   "permission denied" for the same UPDATE: RLS genuinely filters for a
 --   non-member, so only the filtered-state pattern applies.
--- - per roadmap L12 (round-3 decision), start_call has NO recipient-busy
---   pre-check: a second call toward a busy callee is inserted and rings,
---   then the busy callee's client silently rejects it as a missed/busy
---   write (persisted call-log entry); with the callee offline the stale-ring
---   cron records it missed. The suite exercises that full path.
---
 -- Round-2 corrections retained: profiles come from the on_auth_user_created
 -- trigger only; outsider state is verified via filtered row counts and then
 -- re-checked under a member identity; cancel-then-accept race order.
@@ -75,8 +69,7 @@ INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES
 -- a111: alice+bob direct (the main call). a222: alice+carol group (direct-only).
 -- a333: bob+carol direct (caller-side busy as the callee of a111).
 -- a444: alice+carol direct (initiator busy across chats).
--- a666: erin+bob direct (busy-path L12 flow: the second call rings and the
---        busy callee's client records it missed/busy).
+-- a666: erin+bob direct (busy-path L12 flow: the second attempt is recorded as busy).
 INSERT INTO public.chats(id,type,status,direct_pair_key) VALUES
  ('a1111111-1111-4111-8111-111111111111','direct','active','e1111111-1111-4111-8111-111111111111::e2222222-2222-4222-8222-222222222222'),
  ('a2222222-2222-4222-8222-222222222222','group','active',NULL),
@@ -211,30 +204,31 @@ SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-22222222
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.rejects($q$SELECT public.start_call('a3333333-3333-4333-8333-333333333333','voice')$q$,'already in a call');
 RESET ROLE;
--- ─── AUD-004 round 3: busy path per roadmap L12 (no recipient pre-check) ───
--- Erin calls busy Bob: the call is INSERTED and rings (start_call has no
--- recipient-busy pre-check). Bob's client then silently rejects it — the
--- conditional missed/busy write IS the persisted call-log entry (L12), and
--- the original a111 call stays untouched.
+-- Carol calls Alice while Alice is dialing Bob (third-party reproduction).
+SELECT set_config('request.jwt.claims','{"sub":"e3333333-3333-4333-8333-333333333333","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT public.start_call('a4444444-4444-4444-8444-444444444444','video') AS dialing_busy \gset
+SELECT pg_temp.assert_true(EXISTS (
+  SELECT 1 FROM public.calls WHERE id=:'dialing_busy' AND status='missed' AND decline_reason='busy'
+), 'The first caller remains reserved even before the other participant answers');
+RESET ROLE;
+-- Erin calls Bob while the Alice/Bob call is still ringing.
 SELECT set_config('request.jwt.claims','{"sub":"e5555555-5555-4555-8555-555555555555","role":"authenticated","aal":"aal1"}',true);
 SET LOCAL ROLE authenticated;
 SELECT public.start_call('a6666666-6666-4666-8666-666666666666','voice') AS busy_call \gset
+SELECT pg_temp.assert_true(EXISTS (
+  SELECT 1 FROM public.calls WHERE id=:'busy_call' AND status='missed'
+    AND decline_reason='busy' AND ended_at IS NOT NULL
+), 'Caller immediately sees the persisted busy result');
 RESET ROLE;
 SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
 SET LOCAL ROLE authenticated;
-SELECT pg_temp.assert_true(
-  EXISTS (SELECT 1 FROM public.calls WHERE id=:'busy_call' AND status='ringing'),
-  'A second call toward a busy callee rings (no recipient pre-check, L12)');
-WITH updated AS (
-  UPDATE public.calls SET status='missed', decline_reason='busy', ended_at=now()
-  WHERE id=:'busy_call' AND status='ringing'
-  RETURNING id
-) SELECT count(*) AS busy_reject_rows FROM updated \gset
-SELECT pg_temp.assert_true((:'busy_reject_rows'::int)=1,
-  'Busy callee client writes exactly one missed/busy entry (L12 log path)');
-SELECT pg_temp.assert_true(
-  (SELECT decline_reason='busy' FROM public.calls WHERE id=:'busy_call'),
-  'The busy entry is persisted with decline_reason=busy');
+SELECT pg_temp.assert_true(EXISTS (
+  SELECT 1 FROM public.calls WHERE id=:'busy_call' AND decline_reason='busy'
+), 'Recipient sees the same attempt in history');
+SELECT pg_temp.assert_true(NOT EXISTS (
+  SELECT 1 FROM public.answerable_incoming_calls(:'busy_call')
+), 'The second call cannot ring or be answered');
 RESET ROLE;
 
 -- ─── start_call validation (SECURITY DEFINER re-checks membership) ─────────
@@ -258,6 +252,13 @@ WITH updated AS (
   RETURNING id
 ) SELECT count(*) AS accepted_rows FROM updated \gset
 SELECT pg_temp.assert_true((:'accepted_rows'::int)=1,'Callee accept matches the ringing precondition (1 row)');
+RESET ROLE;
+SELECT set_config('request.jwt.claims','{"sub":"e5555555-5555-4555-8555-555555555555","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT public.start_call('a6666666-6666-4666-8666-666666666666','voice') AS answered_busy \gset
+SELECT pg_temp.assert_true(EXISTS (
+  SELECT 1 FROM public.calls WHERE id=:'answered_busy' AND status='missed' AND decline_reason='busy'
+), 'A connected recipient also gets a history entry without a second ring');
 RESET ROLE;
 SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
 SET LOCAL ROLE authenticated;

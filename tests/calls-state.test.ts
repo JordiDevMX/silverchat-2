@@ -178,7 +178,7 @@ test("a terminal winning status needs no reconciliation write", () => {
 test("remote end statuses map to the right user-facing note", () => {
   assert.equal(mapRemoteEnd("declined", "declined"), "declined");
   assert.equal(mapRemoteEnd("missed", "missed"), "no-answer");
-  assert.equal(mapRemoteEnd("missed", "busy"), "no-answer");
+  assert.equal(mapRemoteEnd("missed", "busy"), "busy");
   assert.equal(mapRemoteEnd("canceled", "canceled"), "canceled");
   assert.equal(mapRemoteEnd("failed", null), "failed");
 });

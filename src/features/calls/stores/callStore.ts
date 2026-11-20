@@ -22,6 +22,7 @@ export interface ActiveCall {
 }
 
 const defaults = {
+  busyPeer: null as CallParticipant | null,
   phase: "idle" as CallPhase,
   call: null as ActiveCall | null,
   other: null as CallParticipant | null,

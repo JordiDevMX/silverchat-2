@@ -9,7 +9,7 @@ import { useCallText } from "../i18n";
 import { noteText } from "../lib/callState";
 import { notifyCall, useCallStore } from "../stores/callStore";
 import { ActiveCallModal } from "./ActiveCallModal";
-import { ActiveVideoCallModal } from "./ActiveVideoCallModal";
+import { CallModalShell } from "./CallModalShell";
 import { IncomingCallModal } from "./IncomingCallModal";
 import { OutgoingCallModal } from "./OutgoingCallModal";
 
@@ -31,7 +31,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const say = useCallText();
   const { user, mfaRequired } = useAuth();
   const phase = useCallStore((state) => state.phase);
-  const call = useCallStore((state) => state.call);
+
+  const busyPeer = useCallStore((state) => state.busyPeer);
+  const closeBusy = () => useCallStore.setState({ busyPeer: null });
+  const busyTitle = say("{name} is busy").replace(
+    "{name}",
+    () => busyPeer?.display_name?.trim() || say("Unavailable contact"),
+  );
 
   useIncomingCall(user && !mfaRequired ? user.id : undefined);
   useCallLifecycle((note) => notifyCall(noteText(note, say)));
@@ -41,10 +47,22 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     <>
       {children}
       <CallNotice />
+      {user && phase === "idle" && busyPeer && (
+        <CallModalShell title={busyTitle} onClose={closeBusy}>
+          <h2 className="text-2xl font-semibold">{busyTitle}</h2>
+          <p>{say("Try again later.")}</p>
+          <button
+            type="button"
+            className="mt-3 min-h-11 rounded-full bg-primary px-6 font-semibold text-primary-foreground"
+            onClick={closeBusy}
+          >
+            {say("Close")}
+          </button>
+        </CallModalShell>
+      )}
       {phase === "incoming-ringing" && <IncomingCallModal />}
       {phase === "outgoing-ringing" && <OutgoingCallModal />}
-      {phase === "answered" && call?.type === "voice" && <ActiveCallModal />}
-      {phase === "answered" && call?.type === "video" && <ActiveVideoCallModal />}
+      {phase === "answered" && <ActiveCallModal />}
     </>
   );
 }

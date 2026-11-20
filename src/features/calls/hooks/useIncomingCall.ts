@@ -4,6 +4,7 @@
 // clock, so a wrong PC clock can neither drop a live call nor ring an expired
 // or canceled one. The same function recovers calls missed while briefly
 // disconnected. Local decisions (expired/busy) live in lib/callState.
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { busyRejectCall } from "../lib/callActions";
@@ -14,6 +15,7 @@ import type { CallParticipant, IncomingCallVerdict } from "../types";
 export function useIncomingCall(userId: string | undefined) {
   // Realtime payloads for the same call can race the catch-up query; process
   // each call id once per session (sync marker before any await).
+  const queryClient = useQueryClient();
   const handled = useRef(new Set<string>());
   useEffect(() => {
     if (!userId) return;
@@ -85,19 +87,31 @@ export function useIncomingCall(userId: string | undefined) {
       for (const row of data ?? []) await handle(row.id);
     };
 
+    const refreshHistory = () => queryClient.invalidateQueries({ queryKey: ["calls", userId] });
     const channel = supabase
       .channel(`incoming-calls:${userId}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "calls" },
-        ({ new: call }) => void handle((call as { id: string }).id),
+        ({ new: call }) => {
+          void refreshHistory();
+          if (call.status === "ringing") void handle(call.id);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "calls" },
+        () => void refreshHistory(),
       )
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") void catchUp();
+        if (status === "SUBSCRIBED") {
+          void refreshHistory();
+          void catchUp();
+        }
       });
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, queryClient]);
 }
