@@ -50,12 +50,14 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
   // The roadmap's root-chats order(pinned_at) targets a nonexistent column.
   const result = await supabase
     .from("chat_members")
-    .select(`
+    .select(
+      `
     chat_id, user_id, joined_at, last_read_at, pinned_at, favorited_at, archived_at, muted_until, manually_unread,
     chat:chats!chat_members_chat_id_fkey!inner(
-      id,type,status,community_id,name,avatar_url,direct_pair_key,last_message_at,last_message_preview,last_message_id,
+      *,
       last_message:messages!chats_last_message_id_fkey(id,sender_id,type,deleted_for_everyone)
-    )`)
+    )`,
+    )
     .eq("user_id", userId)
     .eq("chat.status", "active")
     .order("pinned_at", { ascending: false, nullsFirst: false })
@@ -238,6 +240,15 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
       const recipients = c.type === "direct" && otherId ? [otherId] : others.map((o) => o.user_id);
       const chatReactionEntries = allHydratedEntries.filter((entry) => entry.chatId === c.id);
       const reactionData = buildChatReactionSummary(chatReactionEntries);
+      const ownRole = members.find(
+        (member) => member.chat_id === c.id && member.user_id === userId,
+      )?.role;
+      const onlyAdminsCanSend = !!c.only_admins_can_send;
+      const canSend = !(
+        (c.type === "group" || c.type === "community_chat") &&
+        onlyAdminsCanSend &&
+        ownRole !== "admin"
+      );
       return {
         id: c.id,
         type: c.type,
@@ -261,7 +272,10 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
                 username: otherProfile.username ?? "",
               })
             : c.type === "self" && own
-              ? getInitials({ display_name: own.display_name ?? "", username: own.username ?? "" })
+              ? getInitials({
+                  display_name: own.display_name ?? "",
+                  username: own.username ?? "",
+                })
               : undefined,
         otherUserId: otherId,
         otherUsername: other?.username ?? fallback?.username ?? undefined,
@@ -295,11 +309,9 @@ export async function fetchChats(userId: string): Promise<Chat[]> {
         archivedAt: m.archived_at,
         mutedUntil: m.muted_until,
         isBlocked: blocks.some((b) => b.blocked_id === otherId),
-        isLastAdmin:
-          members.some(
-            (member) =>
-              member.chat_id === c.id && member.user_id === userId && member.role === "admin",
-          ) && !others.some((o) => o.role === "admin"),
+        isLastAdmin: ownRole === "admin" && !others.some((o) => o.role === "admin"),
+        onlyAdminsCanSend,
+        canSend,
       };
     }),
   );
@@ -472,7 +484,9 @@ export function useChatsRealtime() {
         refreshProfiles = false;
         void cache.invalidateQueries({ queryKey: chatKey(userId) });
         void cache.invalidateQueries({ queryKey: ["community-chats", userId] });
-        void cache.invalidateQueries({ queryKey: ["message-requests", userId] });
+        void cache.invalidateQueries({
+          queryKey: ["message-requests", userId],
+        });
         if (shouldRefreshProfiles) {
           for (const key of [
             "direct-contacts",
@@ -547,7 +561,9 @@ export function useChatsRealtime() {
       if (!active || !target) return;
 
       if (isViewingChatPath(pathnameRef.current, target.chatId, document.visibilityState)) {
-        void cache.invalidateQueries({ queryKey: messageKey(userId, target.chatId) });
+        void cache.invalidateQueries({
+          queryKey: messageKey(userId, target.chatId),
+        });
         refresh(false);
         return;
       }
@@ -580,9 +596,17 @@ export function useChatsRealtime() {
         { event: "*", schema: "public", table: "message_reactions" },
         (payload) => void handleReaction(payload as ReactionPayload),
       )
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chats" }, () =>
+        refresh(false),
+      )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "chat_members", filter: `user_id=eq.${userId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_members",
+          filter: `user_id=eq.${userId}`,
+        },
         (payload) => refresh(shouldRefreshProfilesForMembershipEvent(payload.eventType)),
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "message_receipts" }, () =>
@@ -600,7 +624,12 @@ export function useChatsRealtime() {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "chat_requests", filter: `sender_id=eq.${userId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_requests",
+          filter: `sender_id=eq.${userId}`,
+        },
         () => refresh(true),
       )
       .subscribe(createReconnectRefresh(() => refresh(false)));

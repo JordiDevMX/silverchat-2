@@ -64,6 +64,11 @@ export function useRealtimeMessages(chatId: string, enabled = true) {
       )
       .on(
         "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "chats", filter: `id=eq.${chatId}` },
+        refresh,
+      )
+      .on(
+        "postgres_changes",
         { event: "*", schema: "public", table: "chat_requests", filter: `chat_id=eq.${chatId}` },
         refresh,
       )

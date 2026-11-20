@@ -85,6 +85,9 @@ let reactions = [],
   failForwardResponse = false,
   forwardCalls = [];
 const targets = Array.from({ length: 6 }, (_, i) => uid(200 + i));
+const restrictedForwardId = uid(206);
+const adminForwardId = uid(207);
+let liveRestrictedTarget = false;
 
 const groupRows = [
   message(300, { chat_id: groupId, content: "Welcome to the weekend group", created_at: ago(10) }),
@@ -154,20 +157,58 @@ async function setup(context) {
     }
     if (p.endsWith("/chat_members")) {
       if (s.get("select")?.includes("chat:chats"))
-        return result(
-          [chatId, ...targets].map((id, i) => ({
+        return result([
+          ...[chatId, ...targets].map((id, i) => ({
             ...member(id),
             archived_at: null,
             chat: {
               ...chat(id, "group"),
               name: i ? `Forward target ${i}` : "Current chat",
+              only_admins_can_send: id === targets[5] && liveRestrictedTarget,
               last_message_id: own.id,
               last_message: own,
               last_message_at: ago(1),
               last_message_preview: own.content,
             },
           })),
-        );
+          {
+            ...member(restrictedForwardId),
+            role: "member",
+            archived_at: null,
+            chat: {
+              ...chat(restrictedForwardId, "group"),
+              name: "Admins only member group",
+              only_admins_can_send: true,
+              last_message_id: own.id,
+              last_message: own,
+              last_message_at: ago(1),
+              last_message_preview: own.content,
+            },
+          },
+          {
+            ...member(adminForwardId),
+            role: "admin",
+            archived_at: null,
+            chat: {
+              ...chat(adminForwardId, "group"),
+              name: "Admins only admin group",
+              only_admins_can_send: true,
+              last_message_id: own.id,
+              last_message: own,
+              last_message_at: ago(1),
+              last_message_preview: own.content,
+            },
+          },
+        ]);
+      if (s.get("select") === "chat_id,user_id,role")
+        return result([
+          ...[chatId, ...targets, restrictedForwardId].map((id) => ({
+            chat_id: id,
+            user_id: me,
+            role: "member",
+          })),
+          { chat_id: adminForwardId, user_id: me, role: "admin" },
+        ]);
       const id = s.get("chat_id")?.slice(3) ?? chatId;
       return result(
         (id === pendingId && !accepted) || removedMember
@@ -604,6 +645,19 @@ try {
   assert.equal(forwardCalls.length, 2);
   assert.deepEqual(forwardCalls[0].p_message_ids, forwardCalls[1].p_message_ids);
   assert.equal(rows.filter((m) => m.forwarded_from_message_id === incoming.id).length, 5);
+  await menu(incoming.id, "Forward");
+  await page.getByRole("checkbox", { name: "Admins only admin group", exact: true }).waitFor();
+  assert.equal(
+    await page.getByRole("checkbox", { name: "Admins only member group", exact: true }).count(),
+    0,
+  );
+  await page.getByRole("checkbox", { name: "Forward target 6", exact: true }).waitFor();
+  liveRestrictedTarget = true;
+  emit("chats", { ...chat(targets[5], "group"), only_admins_can_send: true }, "UPDATE");
+  await page
+    .getByRole("checkbox", { name: "Forward target 6", exact: true })
+    .waitFor({ state: "detached" });
+  await page.keyboard.press("Escape");
   await menu(reply.id, "Delete for everyone");
   await page
     .getByRole("dialog")

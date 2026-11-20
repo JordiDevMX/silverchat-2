@@ -48,6 +48,7 @@ profiles.push(
 let groupName = "Weekend people",
   description = "Weekend plans",
   groupAvatar = null,
+  onlyAdminsCanSend = false,
   memberMode = false,
   reports = [],
   mutedUntil = null,
@@ -79,6 +80,7 @@ const chat = (id = chatId, type = "direct") => ({
   direct_pair_key: [me, other].sort().join("::"),
   status: "active",
   avatar_url: type === "group" ? groupAvatar : null,
+  only_admins_can_send: type === "group" ? onlyAdminsCanSend : false,
   community_id: null,
 });
 const member = (id = chatId, who = me) => ({
@@ -321,6 +323,8 @@ async function setup(context) {
         if (body.p_name !== undefined) groupName = body.p_name;
         if (body.p_description !== undefined) description = body.p_description;
         if (body.p_avatar_url !== undefined) groupAvatar = body.p_avatar_url || null;
+        if (body.p_only_admins_can_send !== undefined)
+          onlyAdminsCanSend = body.p_only_admins_can_send;
         return response(route, null);
       }
       if (p.endsWith("/promote_chat_admin") || p.endsWith("/demote_chat_admin")) {
@@ -745,6 +749,13 @@ try {
   await popup.waitForURL(/storage/);
   await popup.close();
   await goto(groupId, "/info");
+  const adminToggle = page.getByRole("switch", { name: /Only admins can send messages/i });
+  await adminToggle.waitFor();
+  assert.equal(await adminToggle.getAttribute("aria-checked"), "false");
+  await adminToggle.click();
+  await settle();
+  assert.equal(onlyAdminsCanSend, true);
+  assert.equal(await adminToggle.getAttribute("aria-checked"), "true");
   memberMode = true;
   emit("chat_members", { ...member(groupId), role: "member" }, "UPDATE");
   await page
@@ -752,6 +763,10 @@ try {
     .waitFor({ state: "detached" });
   assert.equal(await page.getByRole("textbox", { name: "Group name", exact: true }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "Change photo", exact: true }).count(), 0);
+  assert.equal(
+    await page.getByRole("switch", { name: /Only admins can send messages/i }).count(),
+    0,
+  );
   await goto(groupId);
   await page.getByRole("button", { name: "Chat options", exact: true }).click();
   assert.equal(await page.getByRole("menuitem", { name: "Add members", exact: true }).count(), 0);

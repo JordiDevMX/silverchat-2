@@ -5,10 +5,7 @@ import { AppSkeleton, Modal } from "@/features/auth/components";
 import { ChatGrowthCard } from "@/features/chat-growth/components/ChatGrowthCard";
 import { ChatGrowthHost } from "@/features/chat-growth/components/ChatGrowthHost";
 import { useChatGrowthController } from "@/features/chat-growth/hooks/useChatGrowthController";
-import {
-  buildChatGrowthModel,
-  countUserMessages,
-} from "@/features/chat-growth/lib/growthConfig";
+import { buildChatGrowthModel, countUserMessages } from "@/features/chat-growth/lib/growthConfig";
 import { ChatSettingsLayer } from "@/features/chat-settings/components/ChatSettingsLayer";
 import { useCommunity } from "@/features/communities/hooks/useCommunity";
 import { useCommunityMembers } from "@/features/communities/hooks/useCommunityMembers";
@@ -19,8 +16,10 @@ import { InChatSearch } from "@/features/messages/components/InChatSearch";
 import { MessageActionsProvider } from "@/features/messages/components/MessageActionsProvider";
 import { MessageList } from "@/features/messages/components/MessageList";
 import { PinnedMessagesBar } from "@/features/messages/components/PinnedMessagesBar";
+import { RestrictedComposerNotice } from "@/features/messages/components/RestrictedComposerNotice";
 import { useChat } from "@/features/messages/hooks/useChat";
 import { useConversationController } from "@/features/messages/hooks/useConversationController";
+import { isWriteRestricted } from "@/features/messages/lib/writePermissions";
 import { useAuth } from "@/lib/auth-provider";
 import "@/styles/messages.css";
 export function ChatPage() {
@@ -170,7 +169,9 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
           </>
         }
         footer={
-          !details.readOnly ? (
+          details.readOnly ? null : isWriteRestricted(details) ? (
+            <RestrictedComposerNotice />
+          ) : (
             <Composer
               chat={details}
               onSend={sendWithReply}
@@ -178,7 +179,7 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
               replyToId={replyId}
               onClearReply={() => setReplyId(null)}
             />
-          ) : null
+          )
         }
       >
         <MessageList

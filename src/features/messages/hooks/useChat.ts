@@ -95,6 +95,7 @@ export function useChat(chatId: string) {
         communityId: chat.data?.community_id ?? null,
         communityName,
         request,
+        onlyAdminsCanSend: !!chat.data?.only_admins_can_send,
         readOnly: pendingRecipient,
       };
     },

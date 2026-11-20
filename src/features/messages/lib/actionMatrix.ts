@@ -14,6 +14,7 @@ export function getAvailableActions(
   userId: string,
   readOnly = false,
   now = Date.now(),
+  writeRestricted = false,
 ): MessageAction[] {
   if (message.type === "system" || message.localStatus || message.id.startsWith("temp-")) return [];
   if (readOnly)
@@ -30,7 +31,7 @@ export function getAvailableActions(
           ...(["text", "file"].includes(message.type) && message.content ? ["copy" as const] : []),
         ];
   if (message.deleted_for_everyone) return ["delete_for_me"];
-  const actions: MessageAction[] = ["reply", "react"];
+  const actions: MessageAction[] = writeRestricted ? ["react"] : ["reply", "react"];
   if (["text", "file"].includes(message.type) && message.content) actions.push("copy");
   actions.push("forward", message.is_pinned_in_chat ? "unpin" : "pin");
   const age = now - Date.parse(message.created_at);

@@ -3,12 +3,17 @@ import { useAuth } from "@/lib/auth-provider";
 import { useMessageText } from "../i18n";
 import { getAvailableActions, type MessageAction } from "../lib/actionMatrix";
 import type { Message } from "../types";
-export function useMessageMenu(message: Message, readOnly: boolean, onClose: () => void) {
+export function useMessageMenu(
+  message: Message,
+  readOnly: boolean,
+  onClose: () => void,
+  writeRestricted = false,
+) {
   const { user } = useAuth();
   const { say } = useMessageText();
   const ref = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(Date.now());
-  const actions = getAvailableActions(message, user?.id ?? "", readOnly, now);
+  const actions = getAvailableActions(message, user?.id ?? "", readOnly, now, writeRestricted);
   const labels: Record<MessageAction, string> = {
     reply: say("Reply", "Responder"),
     react: say("React", "Reaccionar"),

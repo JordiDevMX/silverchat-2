@@ -153,4 +153,12 @@ test("isOfflineOrNetworkError separates offline/transport failures from HTTP ser
   // HTTP 503 with message "Offline" while navigator is online is a server error, not offline transport.
   assert.equal(isOfflineOrNetworkError({ message: "Offline" }, 503, true), false);
   assert.equal(isOfflineOrNetworkError({ message: "new row violates RLS" }, 403, true), false);
+  assert.equal(
+    isOfflineOrNetworkError(
+      { code: "42501", message: 'new row violates row-level security policy for table "messages"' },
+      undefined,
+      true,
+    ),
+    false,
+  );
 });

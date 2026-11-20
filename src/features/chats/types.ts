@@ -54,6 +54,8 @@ export interface Chat {
   mutedUntil: string | null;
   isBlocked: boolean;
   isLastAdmin: boolean;
+  onlyAdminsCanSend?: boolean;
+  canSend?: boolean;
 }
 export interface MessageRequest {
   id: string;

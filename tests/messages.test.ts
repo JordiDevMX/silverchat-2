@@ -9,18 +9,23 @@ import {
 } from "../src/features/messages/lib/chatQueryPolicy.ts";
 import { formatConversationText } from "../src/features/messages/lib/conversationStrings.ts";
 import {
-  computeSignedUrlRefreshMs,
-  getSignedUrlPolicy,
-  shouldRetrySignedUrl,
-} from "../src/lib/signed-url-policy.ts";
-import {
   grouped,
   groupMessages,
   shouldShowDateSeparator,
 } from "../src/features/messages/lib/groupMessages.ts";
 import { messageStatus } from "../src/features/messages/lib/messageStatus.ts";
+import { formatSystemMessageText } from "../src/features/messages/lib/systemMessageText.ts";
+import {
+  canManageGroupWriteRule,
+  isWriteRestricted,
+} from "../src/features/messages/lib/writePermissions.ts";
 import type { Member, Message, MessageRow } from "../src/features/messages/types.ts";
 import { dateLabel, formatBytes } from "../src/features/messages/utils/formatMessageTime.ts";
+import {
+  computeSignedUrlRefreshMs,
+  getSignedUrlPolicy,
+  shouldRetrySignedUrl,
+} from "../src/lib/signed-url-policy.ts";
 
 const message = (patch: Partial<MessageRow> = {}): MessageRow => ({
   id: "one",
@@ -238,4 +243,96 @@ test("chat_members realtime updates do not trigger global profile and avatar inv
   assert.equal(shouldRefreshProfilesForMembershipEvent("DELETE"), true);
   assert.equal(shouldRefreshProfilesForMembershipEvent("UPDATE"), false);
   assert.equal(shouldRefreshProfilesForMembershipEvent(undefined), false);
+});
+test("systemMessageText localizes leave and removal notices including apostrophes and Member fallback", () => {
+  assert.equal(formatSystemMessageText("'Alice' left the chat", "en"), "'Alice' left the chat");
+  assert.equal(formatSystemMessageText("'Alice' left the chat", "es"), "'Alice' salió del chat");
+  assert.equal(
+    formatSystemMessageText("'O'Connor' left the chat", "es"),
+    "'O'Connor' salió del chat",
+  );
+  assert.equal(formatSystemMessageText("'Member' left the chat", "es"), "'Miembro' salió del chat");
+  assert.equal(
+    formatSystemMessageText("'Alice' was removed from the chat", "es"),
+    "'Alice' fue eliminado del chat",
+  );
+  assert.equal(
+    formatSystemMessageText("'Member' was removed from the chat", "es"),
+    "'Miembro' fue eliminado del chat",
+  );
+  assert.equal(formatSystemMessageText("'Alice' joined the chat", "en"), "'Alice' joined the chat");
+  assert.equal(formatSystemMessageText("'Alice' joined the chat", "es"), "'Alice' se unió al chat");
+  assert.equal(
+    formatSystemMessageText("'O'Connor' joined the chat", "es"),
+    "'O'Connor' se unió al chat",
+  );
+  assert.equal(
+    formatSystemMessageText("'Member' joined the chat", "es"),
+    "'Miembro' se unió al chat",
+  );
+  assert.equal(formatSystemMessageText("Custom notice", "es"), "Custom notice");
+  assert.equal(formatSystemMessageText(null, "es"), "");
+});
+test("isWriteRestricted gates non-admin members in admin-only groups and community chats while excluding channels", () => {
+  assert.equal(
+    isWriteRestricted({
+      type: "group",
+      onlyAdminsCanSend: true,
+      channelMode: false,
+      own: { role: "member" } as never,
+    }),
+    true,
+  );
+  assert.equal(
+    isWriteRestricted({
+      type: "community_chat",
+      onlyAdminsCanSend: true,
+      channelMode: false,
+      own: { role: "member" } as never,
+    }),
+    true,
+  );
+  assert.equal(
+    isWriteRestricted({
+      type: "group",
+      onlyAdminsCanSend: true,
+      channelMode: false,
+      own: { role: "admin" } as never,
+    }),
+    false,
+  );
+  assert.equal(
+    isWriteRestricted({
+      type: "group",
+      onlyAdminsCanSend: false,
+      channelMode: false,
+      own: { role: "member" } as never,
+    }),
+    false,
+  );
+  assert.equal(
+    isWriteRestricted({
+      type: "direct",
+      onlyAdminsCanSend: true,
+      channelMode: false,
+      own: { role: "member" } as never,
+    }),
+    false,
+  );
+  assert.equal(
+    isWriteRestricted({
+      type: "direct",
+      onlyAdminsCanSend: true,
+      channelMode: true,
+      own: undefined,
+    }),
+    false,
+  );
+});
+test("canManageGroupWriteRule allows only group admins in group context and excludes community_chat", () => {
+  assert.equal(canManageGroupWriteRule("group", "group", "admin"), true);
+  assert.equal(canManageGroupWriteRule("group", "group", "member"), false);
+  assert.equal(canManageGroupWriteRule("group", "community_chat", "admin"), false);
+  assert.equal(canManageGroupWriteRule("community", "group", "admin"), false);
+  assert.equal(canManageGroupWriteRule("community", "community_chat", "admin"), false);
 });

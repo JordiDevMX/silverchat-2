@@ -62,6 +62,7 @@ export function MessageActionsProvider({
             message={message}
             point={selected.point ?? { x: 20, y: 80 }}
             readOnly={chat.readOnly}
+            writeRestricted={ui.writeRestricted}
             onChoose={choose}
             onClose={close}
           />

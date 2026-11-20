@@ -11,6 +11,7 @@ export function channelChat(c: Channel, canReact = true): ChatDetails {
     createdAt: c.created_at,
     description: c.description,
     members: [],
+    onlyAdminsCanSend: false,
     readOnly: !canReact,
     channelMode: true,
   };

@@ -1,4 +1,6 @@
+import type { Language } from "../../../lib/language.ts";
 import type { OutboxEntry } from "../../messages/lib/outbox.ts";
+import { formatSystemMessageText } from "../../messages/lib/systemMessageText.ts";
 import type { Chat, Draft, FilterKey, MessageType } from "../types.ts";
 import { aggregateReactionSummary } from "./reactionNotifications.ts";
 
@@ -8,14 +10,24 @@ const mediaPreviewRules: Partial<Record<MessageType, { prefix: RegExp; fallback:
   audio: { prefix: /^🎤\s*(?:Audio(?:\s*—\s*|$))?/u, fallback: "Audio" },
   file: { prefix: /^📄\s*/u, fallback: "File" },
   sticker: { prefix: /^🎨\s*(?:Sticker(?:\s*—\s*|$))?/u, fallback: "Sticker" },
-  location: { prefix: /^📍\s*(?:Location(?:\s*—\s*|$))?/u, fallback: "Location" },
+  location: {
+    prefix: /^📍\s*(?:Location(?:\s*—\s*|$))?/u,
+    fallback: "Location",
+  },
   contact: { prefix: /^👤\s*(?:Contact(?:\s*—\s*|$))?/u, fallback: "Contact" },
 };
 
 function resolveMessagePreview(
   type: MessageType | null,
   rawPreview: string | null,
+  language: Language,
 ): { text: string; translateText: boolean } {
+  if (type === "system" && rawPreview) {
+    return {
+      text: formatSystemMessageText(rawPreview, language),
+      translateText: false,
+    };
+  }
   const rule = type ? mediaPreviewRules[type] : undefined;
   if (rule) {
     const cleaned = (rawPreview ?? "").trim().replace(rule.prefix, "").trim();
@@ -75,7 +87,11 @@ export function orderChats(chats: Chat[]) {
   });
 }
 export function receiptStatus(
-  receipts: { user_id: string; delivered_at: string | null; read_at: string | null }[],
+  receipts: {
+    user_id: string;
+    delivered_at: string | null;
+    read_at: string | null;
+  }[],
   recipients: string[],
 ): "sent" | "delivered" | "read" {
   // Missing/hidden receipts never imply delivery or read. Respect fair-trade RLS.
@@ -85,9 +101,10 @@ export function receiptStatus(
   if (rows.every((r) => r?.delivered_at)) return "delivered";
   return "sent";
 }
-function resolveOutboxPreview(
-  input: OutboxEntry["input"],
-): { text: string; translateText: boolean } {
+function resolveOutboxPreview(input: OutboxEntry["input"]): {
+  text: string;
+  translateText: boolean;
+} {
   const text = input.content?.trim();
   if (text) return { text, translateText: false };
   if (input.type === "file" && input.upload?.original_filename) {
@@ -185,20 +202,25 @@ export function computeChatDisplay(
       status: null,
     } as const;
   const prefix =
-    chat.type === "self"
+    chat.lastMessageType === "system" || chat.type === "self"
       ? ""
       : chat.isMyLastMessage
         ? "You"
         : chat.type === "group" || chat.type === "community_chat"
           ? chat.senderName
           : "";
-  const preview = resolveMessagePreview(chat.lastMessageType, chat.lastMessagePreview);
+  const preview = resolveMessagePreview(chat.lastMessageType, chat.lastMessagePreview, language);
   return {
     state: "message",
     text: preview.text,
     translateText: preview.translateText,
     prefix,
-    status: chat.isMyLastMessage ? chat.lastMessageStatus : null,
+    status:
+      chat.lastMessageType === "system"
+        ? null
+        : chat.isMyLastMessage
+          ? chat.lastMessageStatus
+          : null,
   } as const;
 }
 export function badgeText(count: number) {

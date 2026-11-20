@@ -37,6 +37,9 @@ const profiles = [
 ];
 const jwt = `${Buffer.from('{"alg":"HS256"}').toString("base64url")}.${Buffer.from(JSON.stringify({ sub: me, aal: "aal2", exp: Math.floor(Date.now() / 1000) + 3600 })).toString("base64url")}.signature`;
 const ago = (n) => new Date(Date.now() - n * 60000).toISOString();
+let language = "en",
+  groupOnlyAdmins = false,
+  groupRole = "member";
 const chat = (id = chatId, type = "direct") => ({
   id,
   type,
@@ -44,12 +47,13 @@ const chat = (id = chatId, type = "direct") => ({
   direct_pair_key: type === "direct" ? `${me}::${other}` : null,
   status: "active",
   avatar_url: null,
+  only_admins_can_send: type === "group" ? groupOnlyAdmins : false,
   community_id: null,
 });
 const member = (id = chatId, who = me) => ({
   chat_id: id,
   user_id: who,
-  role: "member",
+  role: id === groupId && who === me ? groupRole : "member",
   joined_at: "2020-01-01T00:00:00Z",
   manually_unread: false,
 });
@@ -68,7 +72,11 @@ const message = (n, patch = {}) => ({
 });
 const rows = Array.from({ length: 80 }, (_, i) => message(i));
 const groupRows = [
-  message(300, { chat_id: groupId, content: "Welcome to the weekend group", created_at: ago(10) }),
+  message(300, {
+    chat_id: groupId,
+    content: "Welcome to the weekend group",
+    created_at: ago(10),
+  }),
 ];
 let receipts = rows
   .filter((m) => m.sender_id !== me)
@@ -91,7 +99,11 @@ let accepted = false,
   removedMember = false;
 const channels = new Map();
 const response = (route, body, status = 200) =>
-  route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+  route.fulfill({
+    status,
+    contentType: "application/json",
+    body: JSON.stringify(body),
+  });
 const errors = [];
 async function setup(context) {
   await context.route("https://cdn.jsdelivr.net/npm/emojibase-data@*/**", (route) => route.abort());
@@ -119,7 +131,7 @@ async function setup(context) {
         user_id: me,
         theme: "light",
         accent: "blue",
-        language: "en",
+        language,
         read_receipts_enabled: true,
       });
     if (p.endsWith("/profiles_visible"))
@@ -174,7 +186,12 @@ async function setup(context) {
       if (s.get("select")?.includes("message:messages"))
         return result(
           firstUnread
-            ? [{ message_id: firstUnread, message: { chat_id: chatId, created_at: ago(180) } }]
+            ? [
+                {
+                  message_id: firstUnread,
+                  message: { chat_id: chatId, created_at: ago(180) },
+                },
+              ]
             : [],
         );
       if (s.has("message_id"))
@@ -203,7 +220,9 @@ async function setup(context) {
       return result(uploads.filter((u) => !s.get("id") || s.get("id").includes(u.id)));
     }
     if (method === "POST" && p.includes("/storage/v1/object/sign/"))
-      return response(route, { signedURL: "/object/sign/chat-media/test.png?token=signed" });
+      return response(route, {
+        signedURL: "/object/sign/chat-media/test.png?token=signed",
+      });
     if (p.includes("/storage/v1/object/")) {
       if (method === "POST") {
         assert.equal(req.headers().authorization, `Bearer ${jwt}`);
@@ -229,8 +248,20 @@ async function setup(context) {
       if (method === "POST") {
         const body = req.postDataJSON();
         if (sendDelay) await new Promise((r) => setTimeout(r, sendDelay));
+        if (failSend === "rls")
+          return response(
+            route,
+            {
+              code: "42501",
+              message: 'new row violates row-level security policy for table "messages"',
+            },
+            403,
+          );
         if (failSend) return response(route, { message: "Offline" }, 503);
-        const data = message(400, { ...body, created_at: new Date().toISOString() });
+        const data = message(400, {
+          ...body,
+          created_at: new Date().toISOString(),
+        });
         (body.chat_id === groupId ? groupRows : rows).push(data);
         return result([data]);
       }
@@ -258,7 +289,10 @@ async function setup(context) {
       if (p.endsWith("/mark_chat_as_read")) {
         readCalls++;
         firstUnread = null;
-        receipts = receipts.map((r) => ({ ...r, read_at: new Date().toISOString() }));
+        receipts = receipts.map((r) => ({
+          ...r,
+          read_at: new Date().toISOString(),
+        }));
         return response(route, null);
       }
       if (p.endsWith("/own_upload_is_referenced")) return response(route, false);
@@ -274,7 +308,10 @@ async function setup(context) {
     socket.onMessage((raw) => {
       const [join, ref, topic, event, payload] = JSON.parse(String(raw));
       if (event === "phx_join") {
-        const config = (payload.config.postgres_changes ?? []).map((c, i) => ({ ...c, id: i + 1 }));
+        const config = (payload.config.postgres_changes ?? []).map((c, i) => ({
+          ...c,
+          id: i + 1,
+        }));
         channels.set(topic, { socket, config });
         socket.send(
           JSON.stringify([
@@ -309,7 +346,10 @@ function emit(table, record, type = "INSERT") {
             schema: "public",
             table,
             type,
-            columns: Object.keys(record).map((name) => ({ name, type: "text" })),
+            columns: Object.keys(record).map((name) => ({
+              name,
+              type: "text",
+            })),
             record,
             old_record: {},
             errors: null,
@@ -320,7 +360,9 @@ function emit(table, record, type = "INSERT") {
     );
   }
 }
-const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+const context = await browser.newContext({
+  viewport: { width: 1280, height: 900 },
+});
 await setup(context);
 const page = await context.newPage();
 page.on("pageerror", (e) => errors.push(e.message));
@@ -427,7 +469,12 @@ try {
   firstUnread = rows[10].id;
   receipts = rows
     .filter((m) => m.sender_id !== me)
-    .map((m) => ({ message_id: m.id, user_id: me, delivered_at: m.created_at, read_at: null }));
+    .map((m) => ({
+      message_id: m.id,
+      user_id: me,
+      delivered_at: m.created_at,
+      read_at: null,
+    }));
   readCalls = 0;
   await goto();
   await page.locator("[data-unread-marker]").waitFor();
@@ -443,7 +490,12 @@ try {
     content: "Read after half a second",
   });
   rows.push(next);
-  receipts.push({ message_id: next.id, user_id: me, delivered_at: next.created_at, read_at: null });
+  receipts.push({
+    message_id: next.id,
+    user_id: me,
+    delivered_at: next.created_at,
+    read_at: null,
+  });
   emit("messages", next);
   await page.getByText(next.content).waitFor();
   const readsBefore = readCalls;
@@ -590,7 +642,10 @@ try {
     .getByRole("dialog", { name: "Attach", exact: true })
     .getByRole("button", { name: "Contact", exact: true })
     .click();
-  const contactPicker = page.getByRole("dialog", { name: "Share a contact", exact: true });
+  const contactPicker = page.getByRole("dialog", {
+    name: "Share a contact",
+    exact: true,
+  });
   await contactPicker.getByRole("textbox", { name: "Search contacts" }).fill("sofia");
   await contactPicker.locator(".contact-picker-list button").first().click();
   await contactPicker.waitFor({ state: "hidden" });
@@ -602,21 +657,42 @@ try {
   // Render every remaining type, deleted content, reply previews and safe links.
   const sample = uploads[0];
   const extra = [
-    message(801, { type: "audio", file_upload_id: sample.id, content: "Audio caption" }),
-    message(802, { type: "file", file_upload_id: sample.id, content: "File caption" }),
+    message(801, {
+      type: "audio",
+      file_upload_id: sample.id,
+      content: "Audio caption",
+    }),
+    message(802, {
+      type: "file",
+      file_upload_id: sample.id,
+      content: "File caption",
+    }),
     message(803, { type: "sticker", file_upload_id: sample.id }),
-    message(804, { type: "location", location_data: { latitude: 19.4326, longitude: -99.1332 } }),
+    message(804, {
+      type: "location",
+      location_data: { latitude: 19.4326, longitude: -99.1332 },
+    }),
     message(805, {
       type: "contact",
-      contact_data: { user_id: other, username: "sofia", display_name: "Sofia Reyes" },
+      contact_data: {
+        user_id: other,
+        username: "sofia",
+        display_name: "Sofia Reyes",
+      },
     }),
     message(806, { type: "system", content: "Sofia joined the conversation" }),
-    message(807, { deleted_for_everyone: true, content: "NEVER SHOW DELETED CONTENT" }),
+    message(807, {
+      deleted_for_everyone: true,
+      content: "NEVER SHOW DELETED CONTENT",
+    }),
     message(808, {
       content: "Read https://example.test and javascript:alert(1)",
       reply_to_message_id: rows[0].id,
     }),
-  ].map((m, i) => ({ ...m, created_at: new Date(Date.now() + 2000 + i).toISOString() }));
+  ].map((m, i) => ({
+    ...m,
+    created_at: new Date(Date.now() + 2000 + i).toISOString(),
+  }));
   rows.push(...extra);
   emit("messages", extra.at(-1));
   await page.getByText("Sofia joined the conversation").waitFor();
@@ -630,14 +706,20 @@ try {
   assert.equal(await page.getByText("NEVER SHOW DELETED CONTENT").count(), 0);
   await page.getByText("This message was deleted", { exact: true }).waitFor();
   await page.locator(".message-reply").waitFor();
-  const external = page.getByRole("link", { name: "https://example.test", exact: true });
+  const external = page.getByRole("link", {
+    name: "https://example.test",
+    exact: true,
+  });
   assert.equal(await external.getAttribute("rel"), "noopener noreferrer nofollow");
   assert.equal(await page.locator('a[href^="javascript:"]').count(), 0);
   // Hidden documents never mark messages; returning at bottom marks immediately.
   await scroll(999999);
   await page.waitForTimeout(600);
   await page.evaluate(() => {
-    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "hidden",
+    });
     document.dispatchEvent(new Event("visibilitychange"));
   });
   const hiddenMessage = message(900, {
@@ -701,6 +783,86 @@ try {
     "Start of this conversation replaces the initial Today date label",
   );
   await mobile.close();
+
+  // Group leave system pills and admin-only composer restriction (with live Realtime toggle).
+  groupRows.push(
+    message(850, {
+      chat_id: groupId,
+      sender_id: null,
+      type: "system",
+      content: "'Sofia Reyes' left the chat",
+      created_at: new Date(Date.now() + 20000).toISOString(),
+    }),
+    message(851, {
+      chat_id: groupId,
+      sender_id: null,
+      type: "system",
+      content: "'O'Connor' left the chat",
+      created_at: new Date(Date.now() + 21000).toISOString(),
+    }),
+    message(852, {
+      chat_id: groupId,
+      sender_id: null,
+      type: "system",
+      content: "'Sofia Reyes' joined the chat",
+      created_at: new Date(Date.now() + 22000).toISOString(),
+    }),
+  );
+  await goto(groupId);
+  await page.getByText("'Sofia Reyes' left the chat", { exact: true }).waitFor();
+  await page.getByText("'O'Connor' left the chat", { exact: true }).waitFor();
+  await page.getByText("'Sofia Reyes' joined the chat", { exact: true }).waitFor();
+  await page.getByRole("textbox", { name: "Message", exact: true }).waitFor();
+
+  groupOnlyAdmins = true;
+  emit("chats", { ...chat(groupId, "group"), only_admins_can_send: true }, "UPDATE");
+  await page.locator('[data-slot="restricted-composer-notice"]').waitFor();
+  assert.equal(
+    await page.locator('[data-slot="restricted-composer-notice"]').textContent(),
+    "Only admins are allowed to chat here",
+  );
+  assert.equal(await page.getByRole("textbox", { name: "Message", exact: true }).count(), 0);
+  await page
+    .locator(`[data-message-id="${groupRows[0].id}"] .message-overflow`)
+    .click({ force: true });
+  await page.getByRole("menu").waitFor();
+  assert.equal(await page.getByRole("menuitem", { name: "Reply", exact: true }).count(), 0);
+  await page.getByRole("menuitem", { name: "React", exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+
+  language = "es";
+  await goto(groupId);
+  await page.getByText("'Sofia Reyes' salió del chat", { exact: true }).waitFor();
+  await page.getByText("'O'Connor' salió del chat", { exact: true }).waitFor();
+  await page.getByText("'Sofia Reyes' se unió al chat", { exact: true }).waitFor();
+  assert.equal(
+    await page.locator('[data-slot="restricted-composer-notice"]').textContent(),
+    "Solo los administradores pueden enviar mensajes aquí",
+  );
+
+  language = "en";
+  groupRole = "admin";
+  await goto(groupId);
+  await page.getByRole("textbox", { name: "Message", exact: true }).waitFor();
+  assert.equal(await page.locator('[data-slot="restricted-composer-notice"]').count(), 0);
+
+  // A 403/42501 RLS rejection settles immediately as failed without retrying.
+  let rlsPosts = 0;
+  page.on("request", (req) => {
+    if (req.method() === "POST" && new URL(req.url()).pathname.endsWith("/messages")) rlsPosts += 1;
+  });
+  failSend = "rls";
+  await page.getByRole("textbox", { name: "Message", exact: true }).fill("Rejected by RLS");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await page
+    .locator("[data-message-id]")
+    .filter({ hasText: "Rejected by RLS" })
+    .getByRole("button", { name: "Send failed. Retry" })
+    .waitFor();
+  await page.waitForTimeout(2500);
+  assert.equal(rlsPosts, 1, "RLS 403 rejection should not retry in background");
+  failSend = false;
+
   assert.deepEqual(errors, []);
   console.log(
     "PASS: paging, scroll anchoring, Realtime, optimistic send/retry, drafts, mentions, multiline, requests, unread timing, deep links, image upload/lightbox, video thumbnails, cancelled uploads, nine renderers, emoji caret, hidden tabs, desktop/mobile layout.",
