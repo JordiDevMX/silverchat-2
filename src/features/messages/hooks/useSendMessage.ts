@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-provider";
 import { enqueueAndSendMessage } from "../lib/outboxSync";
+import { senderProfile } from "../lib/senderProfile";
 import type { Message, SendInput } from "../types";
 
 export function useSendMessage(chatId: string, channelMode = false) {
@@ -22,7 +23,7 @@ export function useSendMessage(chatId: string, channelMode = false) {
         chatId,
         channelMode,
         input,
-        sender: profile ?? undefined,
+        sender: profile ? senderProfile(profile) : undefined,
         clientId,
       }),
   });

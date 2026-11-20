@@ -30,3 +30,12 @@ export const supabase = createClient<Database>(
     },
   },
 );
+
+// Realtime re-reads its token after every successful subscribe and on each
+// heartbeat. Without a callback it falls back to the anon key (this app never
+// uses a GoTrue session), so channels created after the first join would lose
+// the user's role and filtered joins would be rejected with
+// "invalid column for filter <col>". Set the callback on the Realtime client
+// directly: supabase-js's `accessToken` option would replace supabase.auth
+// with a throwing proxy, and auth-provider still uses supabase.auth.getUser.
+supabase.realtime.accessToken = async () => getAccessToken();

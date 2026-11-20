@@ -1,14 +1,13 @@
 import "@/styles/communities.css";
-import { Info, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import { SearchField } from "@/components/ui/search-field";
 import { SidebarActions } from "@/features/chats/components/SidebarActions";
 import { useMessageText } from "@/features/messages/i18n";
-import { NavLink, QueryState } from "@/features/settings/components/shared";
+import { QueryState } from "@/features/settings/components/shared";
 import { useCommunityChats } from "../hooks/useCommunityChats";
 import type { Community } from "../types";
 import { CommunityChatListItem } from "./CommunityChatListItem";
-import { CreateCommunityChatModal } from "./CreateCommunityChatModal";
 export function CommunityChatSidebar({
   community,
   activeChatId,
@@ -18,7 +17,7 @@ export function CommunityChatSidebar({
 }) {
   const { say } = useMessageText();
   const chats = useCommunityChats(community.id);
-  const [create, setCreate] = useState(false);
+  const [, setCreate] = useState(false);
   const [filter, setFilter] = useState("");
   const visible = chats.data?.filter((chat) =>
     chat.name?.toLocaleLowerCase().includes(filter.trim().toLocaleLowerCase()),
@@ -44,16 +43,10 @@ export function CommunityChatSidebar({
           retry={() => void chats.refetch()}
         />
         {visible?.map((chat) => (
-          <CommunityChatListItem
-            key={chat.id}
-            chat={chat}
-            isActive={chat.id === activeChatId}
-          />
+          <CommunityChatListItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} />
         ))}
         {chats.isSuccess && !chats.data.length && (
-          <p className="p-4 text-muted-foreground">
-            {say("No chats yet", "Aún no hay chats")}
-          </p>
+          <p className="p-4 text-muted-foreground">{say("No chats yet", "Aún no hay chats")}</p>
         )}
         {chats.isSuccess && !!chats.data.length && !visible?.length && (
           <p className="p-4 text-muted-foreground">
@@ -61,11 +54,7 @@ export function CommunityChatSidebar({
           </p>
         )}
         {community.role === "admin" && (
-          <button
-            type="button"
-            className="community-new-chat"
-            onClick={() => setCreate(true)}
-          >
+          <button type="button" className="community-new-chat" onClick={() => setCreate(true)}>
             <Plus size={18} />
             {say("New chat", "Nuevo chat")}
           </button>

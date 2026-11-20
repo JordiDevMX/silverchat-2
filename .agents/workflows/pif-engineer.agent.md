@@ -27,7 +27,7 @@ Do not modify approved project requirements,
 strategic decisions, or canonical governance status
 without authorization.
 
-Read the shared project context as specified in AGENTS.md.
+Read the shared project context as specified in pif-instructions.md
 
 # Full Engineering Protocol
 

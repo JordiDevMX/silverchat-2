@@ -1,10 +1,4 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[];
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
   public: {
@@ -35,8 +29,10 @@ export type Database = {
         Row: {
           answered_at: string | null;
           chat_id: string;
+          decline_reason: string | null;
           duration_seconds: number | null;
           ended_at: string | null;
+          ended_reason: string | null;
           id: string;
           initiator_id: string | null;
           livekit_room_name: string;
@@ -48,8 +44,10 @@ export type Database = {
         Insert: {
           answered_at?: string | null;
           chat_id: string;
+          decline_reason?: string | null;
           duration_seconds?: number | null;
           ended_at?: string | null;
+          ended_reason?: string | null;
           id?: string;
           initiator_id?: string | null;
           livekit_room_name: string;
@@ -60,8 +58,10 @@ export type Database = {
         Update: {
           answered_at?: string | null;
           chat_id?: string;
+          decline_reason?: string | null;
           duration_seconds?: number | null;
           ended_at?: string | null;
+          ended_reason?: string | null;
           id?: string;
           initiator_id?: string | null;
           livekit_room_name?: string;
@@ -102,25 +102,25 @@ export type Database = {
       };
       channel_followers: {
         Row: {
-          muted_until: string | null;
           channel_id: string;
           followed_at: string;
           last_read_at: string;
+          muted_until: string | null;
           user_id: string;
         };
         ComputedFields: never;
         Insert: {
-          muted_until?: string | null;
           channel_id: string;
           followed_at?: string;
           last_read_at?: string;
+          muted_until?: string | null;
           user_id: string;
         };
         Update: {
-          muted_until?: string | null;
           channel_id?: string;
           followed_at?: string;
           last_read_at?: string;
+          muted_until?: string | null;
           user_id?: string;
         };
         Relationships: [
@@ -868,7 +868,6 @@ export type Database = {
       };
       messages: {
         Row: {
-          reply_to_story_id: string | null;
           channel_id: string | null;
           chat_id: string | null;
           contact_data: Json | null;
@@ -886,13 +885,13 @@ export type Database = {
           media_thumbnail_upload_id: string | null;
           mentions: string[] | null;
           reply_to_message_id: string | null;
+          reply_to_story_id: string | null;
           sender_id: string | null;
           type: Database["public"]["Enums"]["message_type"];
           compute_message_preview: string | null;
         };
         ComputedFields: "compute_message_preview";
         Insert: {
-          reply_to_story_id?: string | null;
           channel_id?: string | null;
           chat_id?: string | null;
           contact_data?: Json | null;
@@ -910,11 +909,11 @@ export type Database = {
           media_thumbnail_upload_id?: string | null;
           mentions?: string[] | null;
           reply_to_message_id?: string | null;
+          reply_to_story_id?: string | null;
           sender_id?: string | null;
           type?: Database["public"]["Enums"]["message_type"];
         };
         Update: {
-          reply_to_story_id?: string | null;
           channel_id?: string | null;
           chat_id?: string | null;
           contact_data?: Json | null;
@@ -932,17 +931,11 @@ export type Database = {
           media_thumbnail_upload_id?: string | null;
           mentions?: string[] | null;
           reply_to_message_id?: string | null;
+          reply_to_story_id?: string | null;
           sender_id?: string | null;
           type?: Database["public"]["Enums"]["message_type"];
         };
         Relationships: [
-          {
-            foreignKeyName: "messages_reply_to_story_id_fkey";
-            columns: ["reply_to_story_id"];
-            isOneToOne: false;
-            referencedRelation: "stories";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "messages_channel_id_fkey";
             columns: ["channel_id"];
@@ -983,6 +976,13 @@ export type Database = {
             columns: ["reply_to_message_id"];
             isOneToOne: false;
             referencedRelation: "messages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_reply_to_story_id_fkey";
+            columns: ["reply_to_story_id"];
+            isOneToOne: false;
+            referencedRelation: "stories";
             referencedColumns: ["id"];
           },
           {
@@ -1190,53 +1190,53 @@ export type Database = {
       };
       stories: {
         Row: {
-          media_thumbnail_upload_id: string | null;
           background_color: string | null;
           caption: string | null;
           created_at: string;
           expires_at: string;
           file_upload_id: string | null;
           id: string;
+          media_thumbnail_upload_id: string | null;
           media_type: Database["public"]["Enums"]["story_media_type"];
           text_content: string | null;
           user_id: string;
         };
         ComputedFields: never;
         Insert: {
-          media_thumbnail_upload_id?: string | null;
           background_color?: string | null;
           caption?: string | null;
           created_at?: string;
           expires_at?: string;
           file_upload_id?: string | null;
           id?: string;
+          media_thumbnail_upload_id?: string | null;
           media_type: Database["public"]["Enums"]["story_media_type"];
           text_content?: string | null;
           user_id: string;
         };
         Update: {
-          media_thumbnail_upload_id?: string | null;
           background_color?: string | null;
           caption?: string | null;
           created_at?: string;
           expires_at?: string;
           file_upload_id?: string | null;
           id?: string;
+          media_thumbnail_upload_id?: string | null;
           media_type?: Database["public"]["Enums"]["story_media_type"];
           text_content?: string | null;
           user_id?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "stories_media_thumbnail_upload_id_fkey";
-            columns: ["media_thumbnail_upload_id"];
+            foreignKeyName: "stories_file_upload_id_fkey";
+            columns: ["file_upload_id"];
             isOneToOne: false;
             referencedRelation: "file_uploads";
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "stories_file_upload_id_fkey";
-            columns: ["file_upload_id"];
+            foreignKeyName: "stories_media_thumbnail_upload_id_fkey";
+            columns: ["media_thumbnail_upload_id"];
             isOneToOne: false;
             referencedRelation: "file_uploads";
             referencedColumns: ["id"];
@@ -1499,6 +1499,7 @@ export type Database = {
     Views: {
       profiles_blocked: {
         Row: {
+          avatar_initials: string | null;
           display_name: string | null;
           id: string | null;
           username: string | null;
@@ -1508,6 +1509,7 @@ export type Database = {
       };
       profiles_visible: {
         Row: {
+          avatar_initials: string | null;
           avatar_url: string | null;
           bio: string | null;
           created_at: string | null;
@@ -1523,116 +1525,29 @@ export type Database = {
       };
     };
     Functions: {
-      create_community_chat: {
-        Args: {
-          p_community_id: string;
-          p_name: string;
-          p_description?: string;
-          p_only_admins_can_send?: boolean;
-        };
-        Returns: string;
-      };
-      leave_community: { Args: { p_community_id: string }; Returns: undefined };
-      mute_community: {
-        Args: { p_community_id: string; p_muted_until: string | null };
-        Returns: undefined;
-      };
-      update_community_chat_avatar: {
-        Args: { p_chat_id: string; p_avatar_url: string };
-        Returns: undefined;
-      };
-      update_community_info: {
-        Args: {
-          p_community_id: string;
-          p_name?: string;
-          p_description?: string;
-          p_avatar_url?: string;
-        };
-        Returns: undefined;
-      };
-      remove_community_member: {
-        Args: { p_community_id: string; p_user_id: string };
-        Returns: undefined;
-      };
-      promote_community_admin: {
-        Args: { p_community_id: string; p_user_id: string };
-        Returns: undefined;
-      };
-      demote_community_admin: {
-        Args: { p_community_id: string; p_user_id: string };
-        Returns: undefined;
-      };
-      delete_community: {
-        Args: { p_community_id: string };
-        Returns: undefined;
-      };
-      update_channel_info: {
-        Args: {
-          p_channel_id: string;
-          p_name?: string;
-          p_slug?: string;
-          p_description?: string;
-          p_avatar_url?: string;
-        };
-        Returns: undefined;
-      };
-      unfollow_channel: { Args: { p_channel_id: string }; Returns: undefined };
-      get_story_viewers: {
-        Args: { p_story_id: string };
+      accept_chat_request: { Args: { p_request_id: string }; Returns: undefined };
+      add_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
+      add_chat_members: { Args: { p_chat_id: string; p_user_ids: string[] }; Returns: number };
+      answerable_incoming_calls: {
+        Args: { p_call_id?: string };
         Returns: {
-          viewer_id: string;
-          username: string;
-          display_name: string;
-          avatar_url: string;
-          viewed_at: string;
+          chat_id: string;
+          expires_in_ms: number;
+          id: string;
+          initiator_id: string;
+          livekit_room_name: string;
+          started_at: string;
+          type: Database["public"]["Enums"]["call_type"];
         }[];
       };
-      delete_story: { Args: { p_story_id: string }; Returns: undefined };
-      mark_story_viewed: { Args: { p_story_id: string }; Returns: undefined };
-      create_story: {
-        Args: {
-          p_media_type: Database["public"]["Enums"]["story_media_type"];
-          p_file_upload_id?: string;
-          p_text_content?: string;
-          p_background_color?: string;
-          p_caption?: string;
-          p_thumbnail_upload_id?: string;
-          p_story_id?: string;
-        };
-        Returns: string;
-      };
-      accept_chat_request: {
-        Args: { p_request_id: string };
-        Returns: undefined;
-      };
-      add_chat_member: {
-        Args: { p_chat_id: string; p_user_id: string };
-        Returns: undefined;
-      };
-      add_chat_members: {
-        Args: { p_chat_id: string; p_user_ids: string[] };
-        Returns: number;
-      };
-      auth_mfa_satisfied: {
-        Args: Record<PropertyKey, never>;
-        Returns: boolean;
-      };
+      auth_mfa_satisfied: { Args: Record<PropertyKey, never>; Returns: boolean };
       can_access_chat_message: {
         Args: { p_include_deleted?: boolean; p_message_id: string };
         Returns: boolean;
       };
-      can_view_avatar: {
-        Args: { p_owner: string; p_viewer: string };
-        Returns: boolean;
-      };
-      can_view_story: {
-        Args: { p_owner: string; p_viewer: string };
-        Returns: boolean;
-      };
-      cancel_account_deletion: {
-        Args: Record<PropertyKey, never>;
-        Returns: undefined;
-      };
+      can_view_avatar: { Args: { p_owner: string; p_viewer: string }; Returns: boolean };
+      can_view_story: { Args: { p_owner: string; p_viewer: string }; Returns: boolean };
+      cancel_account_deletion: { Args: Record<PropertyKey, never>; Returns: undefined };
       clear_chat_for_me: { Args: { p_chat_id: string }; Returns: number };
       compute_message_preview: {
         Args: {
@@ -1644,54 +1559,55 @@ export type Database = {
         Returns: string;
       };
       consume_backup_code: {
-        Args: {
-          p_challenge_id: string;
-          p_code_hash: string;
-          p_user_id: string;
-        };
+        Args: { p_challenge_id: string; p_code_hash: string; p_user_id: string };
         Returns: boolean;
       };
       create_channel: {
         Args: { p_description: string; p_name: string; p_slug: string };
         Returns: string;
       };
-      create_community: {
-        Args: { p_description: string; p_name: string };
+      create_community: { Args: { p_description?: string; p_name: string }; Returns: string };
+      create_community_chat: {
+        Args: {
+          p_community_id: string;
+          p_description?: string;
+          p_name: string;
+          p_only_admins_can_send?: boolean;
+        };
         Returns: string;
       };
       create_direct_chat_request: {
         Args: { p_initial_content: string; p_target_user_id: string };
         Returns: string;
       };
-      create_group_chat: {
-        Args: { p_member_ids: string[]; p_name: string };
+      create_group_chat: { Args: { p_member_ids: string[]; p_name: string }; Returns: string };
+      create_self_chat: { Args: Record<PropertyKey, never>; Returns: string };
+      create_story: {
+        Args: {
+          p_background_color?: string;
+          p_caption?: string;
+          p_file_upload_id?: string;
+          p_media_type: Database["public"]["Enums"]["story_media_type"];
+          p_story_id?: string;
+          p_text_content?: string;
+          p_thumbnail_upload_id?: string;
+        };
         Returns: string;
       };
-      create_self_chat: { Args: Record<PropertyKey, never>; Returns: string };
-      delete_chat_message_for_me: {
-        Args: { p_message_id: string };
-        Returns: undefined;
-      };
-      delete_direct_chat_for_me: {
-        Args: { p_chat_id: string };
-        Returns: undefined;
-      };
-      delete_message_for_everyone: {
-        Args: { p_message_id: string };
-        Returns: undefined;
-      };
+      delete_chat_message_for_me: { Args: { p_message_id: string }; Returns: undefined };
+      delete_community: { Args: { p_community_id: string }; Returns: undefined };
+      delete_direct_chat_for_me: { Args: { p_chat_id: string }; Returns: undefined };
+      delete_message_for_everyone: { Args: { p_message_id: string }; Returns: undefined };
       delete_self_chat: { Args: { p_chat_id: string }; Returns: undefined };
-      demote_chat_admin: {
-        Args: { p_chat_id: string; p_user_id: string };
+      delete_story: { Args: { p_story_id: string }; Returns: undefined };
+      demote_chat_admin: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
+      demote_community_admin: {
+        Args: { p_community_id: string; p_user_id: string };
         Returns: undefined;
       };
       follow_channel: { Args: { p_channel_id: string }; Returns: undefined };
       forward_chat_message: {
-        Args: {
-          p_chat_ids: string[];
-          p_message_id: string;
-          p_message_ids: string[];
-        };
+        Args: { p_chat_ids: string[]; p_message_id: string; p_message_ids: string[] };
         Returns: undefined;
       };
       get_chat_messages: {
@@ -1725,87 +1641,90 @@ export type Database = {
           isSetofReturn: true;
         };
       };
-      get_my_storage_usage: {
-        Args: Record<PropertyKey, never>;
-        Returns: number;
+      get_my_storage_usage: { Args: Record<PropertyKey, never>; Returns: number };
+      get_story_viewers: {
+        Args: { p_story_id: string };
+        Returns: {
+          avatar_url: string;
+          display_name: string;
+          username: string;
+          viewed_at: string;
+          viewer_id: string;
+        }[];
       };
-      has_read_receipts_enabled: {
-        Args: { p_user_id: string };
-        Returns: boolean;
-      };
-      is_blocked: {
-        Args: { p_blocked: string; p_blocker: string };
-        Returns: boolean;
-      };
-      is_blocked_either_way: {
-        Args: { p_user_a: string; p_user_b: string };
-        Returns: boolean;
-      };
-      is_channel_follower: {
-        Args: { p_channel_id: string; p_user_id: string };
-        Returns: boolean;
-      };
-      is_channel_owner: {
-        Args: { p_channel_id: string; p_user_id: string };
-        Returns: boolean;
-      };
+      has_read_receipts_enabled: { Args: { p_user_id: string }; Returns: boolean };
+      is_blocked: { Args: { p_blocked: string; p_blocker: string }; Returns: boolean };
+      is_blocked_either_way: { Args: { p_user_a: string; p_user_b: string }; Returns: boolean };
+      is_channel_follower: { Args: { p_channel_id: string; p_user_id: string }; Returns: boolean };
+      is_channel_owner: { Args: { p_channel_id: string; p_user_id: string }; Returns: boolean };
       is_chat_active: { Args: { p_chat_id: string }; Returns: boolean };
-      is_chat_admin: {
-        Args: { p_chat_id: string; p_user_id: string };
-        Returns: boolean;
-      };
-      is_chat_member: {
-        Args: { p_chat_id: string; p_user_id: string };
-        Returns: boolean;
-      };
+      is_chat_admin: { Args: { p_chat_id: string; p_user_id: string }; Returns: boolean };
+      is_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: boolean };
       is_community_member: {
         Args: { p_community_id: string; p_user_id: string };
         Returns: boolean;
       };
-      is_contact: {
-        Args: { p_user_a: string; p_user_b: string };
-        Returns: boolean;
-      };
+      is_contact: { Args: { p_user_a: string; p_user_b: string }; Returns: boolean };
       is_message_deleted_for_user: {
         Args: { p_message_id: string; p_user_id: string };
         Returns: boolean;
       };
-      join_community: {
-        Args: { p_community_id: string; p_user_id?: string };
-        Returns: undefined;
-      };
+      join_community:
+        | { Args: { p_community_id: string }; Returns: undefined }
+        | { Args: { p_community_id: string; p_user_id: string }; Returns: undefined };
+      leave_community: { Args: { p_community_id: string }; Returns: undefined };
       mark_chat_as_read: { Args: { p_chat_id: string }; Returns: undefined };
       mark_chat_as_unread: { Args: { p_chat_id: string }; Returns: undefined };
-      own_upload_is_referenced: {
-        Args: { p_upload_id: string };
-        Returns: boolean;
-      };
-      promote_chat_admin: {
-        Args: { p_chat_id: string; p_user_id: string };
+      mark_story_viewed: { Args: { p_story_id: string }; Returns: undefined };
+      mute_community: {
+        Args: { p_community_id: string; p_muted_until: string };
         Returns: undefined;
       };
-      reject_chat_request: {
-        Args: { p_request_id: string };
+      own_upload_is_referenced: { Args: { p_upload_id: string }; Returns: boolean };
+      promote_chat_admin: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
+      promote_community_admin: {
+        Args: { p_community_id: string; p_user_id: string };
         Returns: undefined;
       };
-      remove_chat_member: {
-        Args: { p_chat_id: string; p_user_id: string };
+      reject_chat_request: { Args: { p_request_id: string }; Returns: undefined };
+      remove_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
+      remove_community_member: {
+        Args: { p_community_id: string; p_user_id: string };
         Returns: undefined;
       };
-      replace_backup_codes: {
-        Args: { p_hashes: string[]; p_user_id: string };
-        Returns: undefined;
-      };
-      schedule_account_deletion: {
-        Args: Record<PropertyKey, never>;
-        Returns: string;
-      };
-      set_message_pin: {
-        Args: { p_message_id: string; p_pin: boolean };
-        Returns: undefined;
-      };
+      replace_backup_codes: { Args: { p_hashes: string[]; p_user_id: string }; Returns: undefined };
+      schedule_account_deletion: { Args: Record<PropertyKey, never>; Returns: string };
+      set_message_pin: { Args: { p_message_id: string; p_pin: boolean }; Returns: undefined };
       set_message_reaction: {
         Args: { p_emoji?: string; p_message_id: string };
+        Returns: undefined;
+      };
+      start_call: {
+        Args: { p_chat_id: string; p_type: Database["public"]["Enums"]["call_type"] };
+        Returns: string;
+      };
+      unfollow_channel: { Args: { p_channel_id: string }; Returns: undefined };
+      update_channel_info: {
+        Args: {
+          p_avatar_url?: string;
+          p_channel_id: string;
+          p_description?: string;
+          p_name?: string;
+          p_slug?: string;
+        };
+        Returns: undefined;
+      };
+      update_community_chat_avatar: {
+        Args: { p_avatar_url: string; p_chat_id: string };
+        Returns: undefined;
+      };
+      update_community_info: {
+        Args: {
+          p_avatar_url?: string;
+          p_community_id: string;
+          p_description?: string;
+          p_name?: string;
+        };
         Returns: undefined;
       };
       update_group_info: {
@@ -1821,13 +1740,7 @@ export type Database = {
     };
     Enums: {
       accent_theme: "blue" | "purple" | "red" | "orange" | "yellow" | "green";
-      call_status:
-        | "ringing"
-        | "answered"
-        | "missed"
-        | "declined"
-        | "canceled"
-        | "failed";
+      call_status: "ringing" | "answered" | "missed" | "declined" | "canceled" | "failed" | "ended";
       call_type: "voice" | "video";
       chat_member_role: "admin" | "member";
       chat_request_status: "pending" | "accepted" | "rejected";
@@ -1847,12 +1760,7 @@ export type Database = {
       report_status: "pending" | "reviewed" | "resolved" | "dismissed";
       story_media_type: "image" | "video" | "text";
       theme_preference: "light" | "dark" | "system";
-      upload_status:
-        | "pending"
-        | "uploading"
-        | "completed"
-        | "failed"
-        | "aborted";
+      upload_status: "pending" | "uploading" | "completed" | "failed" | "aborted";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -1862,10 +1770,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<
-  keyof Database,
-  "public"
->];
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
@@ -1877,19 +1782,15 @@ export type Tables<
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R;
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R;
       }
       ? R
@@ -1905,9 +1806,7 @@ export type TablesInsert<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I;
     }
@@ -1930,9 +1829,7 @@ export type TablesUpdate<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U;
     }
@@ -1955,9 +1852,7 @@ export type Enums<
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
@@ -1972,9 +1867,7 @@ export type CompositeTypes<
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
-}
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
@@ -1984,14 +1877,7 @@ export const Constants = {
   public: {
     Enums: {
       accent_theme: ["blue", "purple", "red", "orange", "yellow", "green"],
-      call_status: [
-        "ringing",
-        "answered",
-        "missed",
-        "declined",
-        "canceled",
-        "failed",
-      ],
+      call_status: ["ringing", "answered", "missed", "declined", "canceled", "failed", "ended"],
       call_type: ["voice", "video"],
       chat_member_role: ["admin", "member"],
       chat_request_status: ["pending", "accepted", "rejected"],

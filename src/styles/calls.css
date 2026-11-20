@@ -1,0 +1,243 @@
+/* Prompt #12 — call overlays: fullscreen modals, pulse ring, audio waveform,
+ * countdown and video PiP. Colors reuse the global theme vars. */
+
+.call-modal-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 0;
+  padding: 24px;
+  text-align: center;
+  color: var(--foreground);
+}
+
+.call-modal-body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    color-mix(in oklab, var(--neon) 14%, transparent),
+    transparent 65%
+  );
+}
+
+dialog.call-modal[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.call-modal {
+  max-width: none;
+  max-height: none;
+  width: 100vw;
+  height: 100dvh;
+  border: 0;
+  padding: 0;
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+/* Video calls own the whole dialog: the shared body becomes the video stage,
+ * so the absolutely positioned video/controls are not covered by an in-flow
+ * transparent box that would swallow every click. The title stays for screen
+ * readers through the dialog's aria-label. */
+dialog.call-modal-video .call-modal-body {
+  position: absolute;
+  inset: 0;
+  display: block;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+dialog.call-modal > h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Expanding pulse ring behind the avatar while ringing (CSS-only by design). */
+@keyframes call-pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.call-pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--neon);
+  animation: call-pulse-ring 1.5s var(--ease-out, ease-out) infinite;
+  pointer-events: none;
+}
+
+.call-pulse-ring:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.call-pulse-ring:nth-child(3) {
+  animation-delay: 1s;
+}
+
+/* Concentric waveform rings while the peer is speaking (answered voice). */
+.call-wave-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--neon);
+  transform: scale(1);
+  opacity: 0;
+  transition:
+    transform 120ms linear,
+    opacity 120ms linear;
+  pointer-events: none;
+}
+
+/* Accept button breathing (locked L3). */
+@keyframes call-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.call-breathe {
+  animation: call-breathe 1.8s ease-in-out infinite;
+}
+
+/* Circular countdown around the incoming avatar (SVG ring driven by JS). */
+.call-countdown {
+  position: absolute;
+  inset: -14px;
+  pointer-events: none;
+}
+
+.call-countdown circle {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-pulse-ring,
+  .call-breathe {
+    animation: none;
+  }
+}
+
+/* Local video PiP: fixed on mobile, draggable on desktop (12.2). */
+.call-pip {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, var(--silver, #c0c0c8) 40%, transparent);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 40%);
+  cursor: grab;
+  touch-action: none;
+}
+
+.call-pip:active {
+  cursor: grabbing;
+}
+
+.call-glass-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--background) 55%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.call-video-footer {
+  position: absolute;
+  inset-inline: 12px;
+  bottom: max(2.5rem, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 26rem;
+  max-width: calc(100% - 24px);
+  margin-inline: auto;
+  padding: 12px 12px 14px;
+  border: 1px solid rgb(255 255 255 / 65%);
+  border-radius: 24px;
+  background: rgb(15 20 30 / 90%);
+}
+
+.call-video-footer > :last-child {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(24rem, 100%);
+  align-items: start;
+  gap: clamp(4px, 1.5vw, 16px);
+}
+
+.call-video-footer button {
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+:root[data-theme="light"] dialog.call-modal-video {
+  background: #e5e9ee;
+}
+
+:root[data-theme="light"] .call-modal-video .call-modal-body::before {
+  content: none;
+}
+
+:root[data-theme="light"] .call-video-footer {
+  border-color: #c9d1dc;
+  background: #f9fafc;
+  color: #202c3c;
+  box-shadow: 0 4px 24px rgb(21 34 51 / 15%);
+}
+
+:root[data-theme="light"] .call-video-footer .call-glass-info {
+  padding: 0;
+  color: inherit;
+  background: none;
+  backdrop-filter: none;
+}
+
+:root[data-theme="light"] .call-video-footer span {
+  color: #445267;
+}
+
+:root[data-theme="light"] .call-video-footer button[aria-pressed] {
+  color: #25374c;
+  background: #e3e9f0;
+}
+
+:root[data-theme="light"] .call-video-footer button[aria-pressed="true"] {
+  color: white;
+  background: #35475e;
+}
+
+:root[data-theme="light"] .call-video-footer button:hover {
+  filter: brightness(0.93);
+}

@@ -235,3 +235,13 @@ policies are already included in the migrations.
 Auth email templates still need manual configuration. Cleanup of orphaned
 Storage objects remains deferred: existing cron jobs delete metadata and do
 not remove the underlying stored files.
+
+## Automated SQL tests
+
+`pnpm test:db` runs `supabase/tests/calls.sql` against a reachable Postgres. It needs the `psql` client and a database with every migration applied.
+
+- Local Supabase: `supabase start`, then `pnpm test:db`.
+- Other database: set `SUPABASE_DB_URL` (and `PSQL_PATH` if psql is not on PATH).
+- Any suite: `pnpm test:db supabase/tests/<name>.sql`.
+
+CI (`.github/workflows/ci.yml`) runs on every PR update: it starts a local Supabase stack (all migrations), runs the unit, typecheck and build checks, the SQL suite, and verifies that `src/types/database.ts` matches the complete schema.

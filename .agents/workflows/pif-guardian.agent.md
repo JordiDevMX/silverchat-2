@@ -29,7 +29,7 @@ Do not merge, deploy, or publish.
 Never treat an Engineer delivery report
 as independently verified evidence.
 
-Read the shared project context as specified in AGENTS.md.
+Read the shared project context as specified in pif-instructions.md
 
 # Full Guardian Protocol
 

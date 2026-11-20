@@ -27,7 +27,11 @@ export function communityApi(client: Client) {
       ),
     leave: (id: string) => result(client.rpc("leave_community", { p_community_id: id })),
     mute: (id: string, until: string | null) =>
-      result(client.rpc("mute_community", { p_community_id: id, p_muted_until: until })),
+      result(
+        // `p_muted_until` is nullable in SQL (NULL clears the mute), but the type
+        // generator exposes function arguments as non-nullable.
+        client.rpc("mute_community", { p_community_id: id, p_muted_until: until as string }),
+      ),
     update: (id: string, patch: CommunityInfoPatch) =>
       result(
         client.rpc("update_community_info", {

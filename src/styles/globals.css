@@ -4,6 +4,10 @@
 @import "./chat-growth.css";
 @import "./file-icon-tile.css";
 @import "./auth.css";
+/* Call overlays are mounted by the authenticated layout, not by /calls, so
+ * their styles must load with the app shell (a tab that never opened /calls
+ * still has to render an incoming call full screen). */
+@import "./calls.css";
 
 /* Theme state is owned by the existing data-theme provider, not OS-only dark variants. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));

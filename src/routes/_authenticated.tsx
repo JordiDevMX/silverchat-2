@@ -2,6 +2,7 @@ import { Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { AppSkeleton } from "@/features/auth/components";
 import { nextDestination, safeRedirect } from "@/features/auth/navigation";
 import type { AuthState } from "@/features/auth/types";
+import { CallProvider } from "@/features/calls/components/CallProvider";
 import { ChatDetailsPanel } from "@/features/chats/components/ChatDetailsPanel";
 import { ChatLayout } from "@/features/chats/components/ChatLayout";
 import { ChatList } from "@/features/chats/components/ChatList";
@@ -32,15 +33,13 @@ export function AuthenticatedLayout() {
     select: (state) => state.location.pathname.split("/")[1]?.toLowerCase(),
   });
   if (!auth.user || auth.mfaRequired) return <AppSkeleton />;
-  if (section === "onboarding")
-    return (
+  const content =
+    section === "onboarding" ? (
       <>
         <PendingDeletionBanner />
         <Outlet />
       </>
-    );
-  if (section === "communities")
-    return (
+    ) : section === "communities" ? (
       <ChatLayout>
         <main
           id="main"
@@ -52,8 +51,12 @@ export function AuthenticatedLayout() {
           </p>
         </main>
       </ChatLayout>
+    ) : (
+      <SectionLayout />
     );
-  return <SectionLayout />;
+  // Incoming-call realtime, lifecycle and modals stay live in every
+  // authenticated section (Prompt #12 section 14).
+  return <CallProvider>{content}</CallProvider>;
 }
 
 function SectionLayout() {

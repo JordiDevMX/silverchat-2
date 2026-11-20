@@ -1,0 +1,447 @@
+-- Prompt #12 calls (Guardian round-5 revision): RLS permissions, realtime
+-- publication membership, one-active-call exclusivity (AUD-004), MFA gate on
+-- the SECURITY DEFINER path (AUD-002), conditional-write races in both
+-- orders (AUD-003) and security-boundary-accurate assertions (AUD-005).
+--
+-- Round-6 (CI automation): the helpers report expected vs actual values and
+-- the suite asserts the effective privileges of the 2c REVOKE directly, so
+-- the G3 privileges probe runs on every CI execution.
+--
+-- Round-5 correction per Guardian:
+-- - fixture labeling only: the forged-initiator case (c) now really switches
+--   to Bob's claims before inserting the row that names Alice (previously the
+--   label said Bob while the session was still Alice's). No assertion changes;
+--   after the REVOKE the denial is the privilege boundary either way.
+--
+-- Round-4 corrections per Guardian:
+-- - direct client INSERTs are REVOKED by the migration (section 2c): the
+--   0002 grant let a chat member bypass start_call's caller-busy invariant
+--   (a receiver of an active call could originate another in a different
+--   chat — neither unique index conflicts) and the direct/self chat-type
+--   restriction. The suite asserts permission denied on every direct
+--   INSERT variant, including the receiver-then-originator path; the RPC
+--   side of that invariant is asserted separately ("already in a call").
+-- - the lifecycle UPDATE column grant pre-existed in the migration's
+--   section 5 (the round-3 delivery wrongly claimed it as a new fix; the
+--   duplicate grant statement added then has been removed).
+--
+-- Round-3 corrections retained:
+-- - the outsider block no longer demands both "0 visible rows" and
+--   "permission denied" for the same UPDATE: RLS genuinely filters for a
+--   non-member, so only the filtered-state pattern applies.
+-- Round-2 corrections retained: profiles come from the on_auth_user_created
+-- trigger only; outsider state is verified via filtered row counts and then
+-- re-checked under a member identity; cancel-then-accept race order.
+--
+-- Requires migration 20261116120000 applied. Runs in CI against a local
+-- Supabase stack with every migration (see .github/workflows/ci.yml and
+-- `pnpm test:db`); locally it needs a reachable Postgres and the psql client.
+BEGIN;
+CREATE FUNCTION pg_temp.assert_true(value boolean, message text) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  IF value IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'ASSERTION FAILED: % (expected true, got %)',
+      message, coalesce(value::text, 'NULL');
+  END IF;
+END $$;
+CREATE FUNCTION pg_temp.rejects(statement text, expected text) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  BEGIN EXECUTE statement;
+  EXCEPTION WHEN OTHERS THEN
+    IF position(expected IN SQLERRM) = 0 THEN
+      RAISE EXCEPTION 'ASSERTION FAILED: expected error "%", got "%"', expected, SQLERRM;
+    END IF;
+    RETURN;
+  END;
+  RAISE EXCEPTION 'ASSERTION FAILED: expected error "%", but the statement succeeded: %',
+    expected, statement;
+END $$;
+
+-- Fixtures: alice (caller), bob (callee), carol (outsider for the a111/a222
+-- chats), erin (second caller toward the busy callee bob). Trigger-created
+-- profiles: user_e1111111, user_e2222222, ... (username = 'user_' || id[1:8]).
+INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES
+ ('e1111111-1111-4111-8111-111111111111','calls-alice@example.test','{}'),
+ ('e2222222-2222-4222-8222-222222222222','calls-bob@example.test','{}'),
+ ('e3333333-3333-4333-8333-333333333333','calls-carol@example.test','{}'),
+ ('e5555555-5555-4555-8555-555555555555','calls-erin@example.test','{}');
+
+-- a111: alice+bob direct (the main call). a222: alice+carol group (direct-only).
+-- a333: bob+carol direct (caller-side busy as the callee of a111).
+-- a444: alice+carol direct (initiator busy across chats).
+-- a666: erin+bob direct (busy-path L12 flow: the second attempt is recorded as busy).
+INSERT INTO public.chats(id,type,status,direct_pair_key) VALUES
+ ('a1111111-1111-4111-8111-111111111111','direct','active','e1111111-1111-4111-8111-111111111111::e2222222-2222-4222-8222-222222222222'),
+ ('a2222222-2222-4222-8222-222222222222','group','active',NULL),
+ ('a3333333-3333-4333-8333-333333333333','direct','active','e2222222-2222-4222-8222-222222222222::e3333333-3333-4333-8333-333333333333'),
+ ('a4444444-4444-4444-8444-444444444444','direct','active','e1111111-1111-4111-8111-111111111111::e3333333-3333-4333-8333-333333333333'),
+ ('a6666666-6666-4666-8666-666666666666','direct','active','e5555555-5555-4555-8555-555555555555::e2222222-2222-4222-8222-222222222222');
+INSERT INTO public.chat_members(chat_id,user_id) VALUES
+ ('a1111111-1111-4111-8111-111111111111','e1111111-1111-4111-8111-111111111111'),
+ ('a1111111-1111-4111-8111-111111111111','e2222222-2222-4222-8222-222222222222'),
+ ('a2222222-2222-4222-8222-222222222222','e1111111-1111-4111-8111-111111111111'),
+ ('a2222222-2222-4222-8222-222222222222','e3333333-3333-4333-8333-333333333333'),
+ ('a3333333-3333-4333-8333-333333333333','e2222222-2222-4222-8222-222222222222'),
+ ('a3333333-3333-4333-8333-333333333333','e3333333-3333-4333-8333-333333333333'),
+ ('a4444444-4444-4444-8444-444444444444','e1111111-1111-4111-8111-111111111111'),
+ ('a4444444-4444-4444-8444-444444444444','e3333333-3333-4333-8333-333333333333'),
+ ('a6666666-6666-4666-8666-666666666666','e5555555-5555-4555-8555-555555555555'),
+ ('a6666666-6666-4666-8666-666666666666','e2222222-2222-4222-8222-222222222222');
+
+-- ─── Notification enabler: calls must replicate to realtime subscribers ────
+SELECT pg_temp.assert_true(
+  EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='calls'),
+  'calls table is in the supabase_realtime publication (incoming/outgoing events)');
+
+-- ─── AUD-004: one-active-call exclusivity indexes exist as the invariant ───
+SELECT pg_temp.assert_true(
+  EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='uq_calls_active_chat'),
+  'per-chat active-call unique index present');
+SELECT pg_temp.assert_true(
+  EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='uq_calls_active_initiator'),
+  'per-initiator active-call unique index present');
+
+-- ─── AUD-004: effective privileges (G3 probe on a migrated database) ───────
+-- Migration section 2c revokes INSERT from authenticated. PostgreSQL revokes
+-- the matching column-level grants along with the table privilege, so both
+-- the table and the column checks must be false. The lifecycle UPDATE grants
+-- and the RPC execute grants are asserted as the positive counterpart.
+SELECT pg_temp.assert_true(
+  NOT has_table_privilege('authenticated','public.calls','INSERT'),
+  'authenticated has no table-level INSERT on calls (2c REVOKE)');
+SELECT pg_temp.assert_true(
+  NOT has_column_privilege('authenticated','public.calls','initiator_id','INSERT'),
+  'authenticated has no column-level INSERT on calls.initiator_id (2c REVOKE)');
+SELECT pg_temp.assert_true(
+  NOT has_column_privilege('authenticated','public.calls','livekit_room_name','INSERT'),
+  'authenticated has no column-level INSERT on calls.livekit_room_name (2c REVOKE)');
+SELECT pg_temp.assert_true(
+  has_column_privilege('authenticated','public.calls','decline_reason','UPDATE'),
+  'authenticated may update decline_reason (lifecycle grant)');
+SELECT pg_temp.assert_true(
+  has_column_privilege('authenticated','public.calls','ended_reason','UPDATE'),
+  'authenticated may update ended_reason (lifecycle grant)');
+SELECT pg_temp.assert_true(
+  has_function_privilege('authenticated','public.start_call(uuid, public.call_type)','EXECUTE'),
+  'authenticated may execute start_call (single supported creation path)');
+SELECT pg_temp.assert_true(
+  NOT has_function_privilege('anon','public.start_call(uuid, public.call_type)','EXECUTE'),
+  'anon may not execute start_call');
+
+-- ─── AUD-002: MFA boundary on the SECURITY DEFINER start_call ──────────────
+-- AAL1 without any verified enrolled factor is legitimate (0004 policy).
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(public.start_call('a1111111-1111-4111-8111-111111111111','voice') IS NOT NULL,
+  'AAL1 session without enrolled factors may start a call (0004 policy)');
+-- Clean up the probe row with the client's conditional write (AUD-003).
+WITH updated AS (
+  UPDATE public.calls SET status='canceled', decline_reason='canceled', ended_at=now()
+  WHERE chat_id='a1111111-1111-4111-8111-111111111111' AND status='ringing'
+  RETURNING id
+) SELECT count(*) AS canceled_rows FROM updated \gset
+SELECT pg_temp.assert_true((:'canceled_rows'::int)=1,'Caller cancels the MFA-probe ringing row (1 row)');
+RESET ROLE;
+-- Alice now enrolls a verified factor; her AAL1 session must be refused...
+INSERT INTO auth.mfa_factors(id,user_id,factor_type,status,created_at,updated_at)
+VALUES (gen_random_uuid(),'e1111111-1111-4111-8111-111111111111','totp','verified',now(),now());
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.rejects($q$SELECT public.start_call('a1111111-1111-4111-8111-111111111111','voice')$q$,'MFA required');
+RESET ROLE;
+-- ...while her AAL2 session passes and opens THE active call.
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(public.start_call('a1111111-1111-4111-8111-111111111111','voice') IS NOT NULL,
+  'AAL2 session with an enrolled factor may start a call');
+
+-- ─── AUD-004/005 round 4: client INSERT boundary — deliberately closed ──────
+-- History: the round-2 suite asserted "permission denied" here (correct
+-- boundary, wrong premise — 0002:704-705 DID grant INSERT); round 3 found
+-- the real grant and exercised the unique indexes on it; round 4 closes
+-- the path deliberately (migration section 2c): a direct INSERT bypasses
+-- start_call's caller-busy invariant (a user RECEIVING an active call can
+-- originate another in a different chat — neither unique index conflicts)
+-- and the direct/self chat-type restriction. After the REVOKE, start_call
+-- is the single supported creation path and every direct INSERT fails at
+-- the privilege check.
+-- (a) Same-chat duplicate while the a111 call is ringing.
+SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
+  VALUES ('e1111111-1111-4111-8111-111111111111','a1111111-1111-4111-8111-111111111111','voice','call_dup_probe')$q$,
+  'permission denied');
+-- (b) Second ringing call by the same caller in her OTHER idle chat.
+SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
+  VALUES ('e1111111-1111-4111-8111-111111111111','a4444444-4444-4444-8444-444444444444','voice','call_cross_probe')$q$,
+  'permission denied');
+-- (c) Forged initiator: chat member Bob inserts a row claiming Alice. The
+--     identity switch is real (Bob's claims, round 5 fixture fix): the denial
+--     is the privilege boundary below, which historically also carried the
+--     RLS WITH CHECK (initiator_id = auth.uid()) for this scenario.
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
+  VALUES ('e1111111-1111-4111-8111-111111111111','a1111111-1111-4111-8111-111111111111','voice','call_forged_by_bob')$q$,
+  'permission denied');
+-- (d) Receiver-then-originator on the direct path (AUD-004 round 4): Bob is
+--     the CALLEE of the active a111 call; inserting a call in his idle
+--     a333 chat must be impossible without the RPC's caller-busy check.
+SELECT pg_temp.rejects($q$INSERT INTO public.calls(initiator_id,chat_id,type,livekit_room_name)
+  VALUES ('e2222222-2222-4222-8222-222222222222','a3333333-3333-4333-8333-333333333333','voice','call_busy_receiver')$q$,
+  'permission denied');
+RESET ROLE;
+-- The same invariant through the RPC is asserted below (Bob start_call in
+-- a333 → "already in a call"): both creation paths enforce the rule.
+
+-- ─── AUD-004: caller-busy across chats ──────────────────────────────────────
+-- Alice (back in her own AAL2 session) is the initiator of the active a111
+-- call: starting one in her other direct chat must fail on the caller check.
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.rejects($q$SELECT public.start_call('a4444444-4444-4444-8444-444444444444','voice')$q$,'already in a call');
+RESET ROLE;
+-- Bob is the callee of the active a111 call: starting one in his other
+-- direct chat must fail on the busy check too.
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.rejects($q$SELECT public.start_call('a3333333-3333-4333-8333-333333333333','voice')$q$,'already in a call');
+RESET ROLE;
+-- Carol calls Alice while Alice is dialing Bob (third-party reproduction).
+SELECT set_config('request.jwt.claims','{"sub":"e3333333-3333-4333-8333-333333333333","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT public.start_call('a4444444-4444-4444-8444-444444444444','video') AS dialing_busy \gset
+SELECT pg_temp.assert_true(EXISTS (
+  SELECT 1 FROM public.calls WHERE id=:'dialing_busy' AND status='missed' AND decline_reason='busy'
+), 'The first caller remains reserved even before the other participant answers');
+RESET ROLE;
+-- Erin calls Bob while the Alice/Bob call is still ringing.
+SELECT set_config('request.jwt.claims','{"sub":"e5555555-5555-4555-8555-555555555555","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT public.start_call('a6666666-6666-4666-8666-666666666666','voice') AS busy_call \gset
+SELECT pg_temp.assert_true(EXISTS (
+  SELECT 1 FROM public.calls WHERE id=:'busy_call' AND status='missed'
+    AND decline_reason='busy' AND ended_at IS NOT NULL
+), 'Caller immediately sees the persisted busy result');
+RESET ROLE;
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(EXISTS (
+  SELECT 1 FROM public.calls WHERE id=:'busy_call' AND decline_reason='busy'
+), 'Recipient sees the same attempt in history');
+SELECT pg_temp.assert_true(NOT EXISTS (
+  SELECT 1 FROM public.answerable_incoming_calls(:'busy_call')
+), 'The second call cannot ring or be answered');
+RESET ROLE;
+
+-- ─── start_call validation (SECURITY DEFINER re-checks membership) ─────────
+SELECT set_config('request.jwt.claims','{"sub":"e3333333-3333-4333-8333-333333333333","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.rejects($q$SELECT public.start_call('a1111111-1111-4111-8111-111111111111','voice')$q$,'Not a member');
+SELECT pg_temp.rejects($q$SELECT public.start_call('a2222222-2222-4222-8222-222222222222','voice')$q$,'only supported in direct chats');
+RESET ROLE;
+
+-- ─── Callee permissions: read the ringing row (notification path) ──────────
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  EXISTS (SELECT 1 FROM public.calls WHERE chat_id='a1111111-1111-4111-8111-111111111111' AND status='ringing'),
+  'Callee can read the caller ringing row (notification path)');
+
+-- ─── AUD-003 race A: callee accept wins, caller cancel loses ───────────────
+WITH updated AS (
+  UPDATE public.calls SET status='answered', answered_at=now()
+  WHERE chat_id='a1111111-1111-4111-8111-111111111111' AND status='ringing'
+  RETURNING id
+) SELECT count(*) AS accepted_rows FROM updated \gset
+SELECT pg_temp.assert_true((:'accepted_rows'::int)=1,'Callee accept matches the ringing precondition (1 row)');
+RESET ROLE;
+SELECT set_config('request.jwt.claims','{"sub":"e5555555-5555-4555-8555-555555555555","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT public.start_call('a6666666-6666-4666-8666-666666666666','voice') AS answered_busy \gset
+SELECT pg_temp.assert_true(EXISTS (
+  SELECT 1 FROM public.calls WHERE id=:'answered_busy' AND status='missed' AND decline_reason='busy'
+), 'A connected recipient also gets a history entry without a second ring');
+RESET ROLE;
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
+SET LOCAL ROLE authenticated;
+WITH updated AS (
+  UPDATE public.calls SET status='canceled', decline_reason='canceled', ended_at=now()
+  WHERE chat_id='a1111111-1111-4111-8111-111111111111' AND status='ringing'
+  RETURNING id
+) SELECT count(*) AS late_cancel_rows FROM updated \gset
+SELECT pg_temp.assert_true((:'late_cancel_rows'::int)=0,'Caller cancel after bob accept touches zero rows');
+-- The hangup-intent reconciliation (AUD-003 round 2): reading the winner and
+-- closing the call with the winner's answered_at is the client behavior.
+SELECT pg_temp.assert_true(
+  EXISTS (SELECT 1 FROM public.calls
+          WHERE chat_id='a1111111-1111-4111-8111-111111111111'
+            AND status='answered' AND answered_at IS NOT NULL),
+  'Winner state is answered with an answered_at the losing client reconciles from');
+WITH updated AS (
+  UPDATE public.calls SET status='ended', ended_reason='hangup', ended_at=now(), duration_seconds=42
+  WHERE chat_id='a1111111-1111-4111-8111-111111111111' AND status='answered'
+  RETURNING id
+) SELECT count(*) AS ended_rows FROM updated \gset
+SELECT pg_temp.assert_true((:'ended_rows'::int)=1,'Ended reason and duration are writable by the caller');
+RESET ROLE;
+
+-- ─── AUD-003: cancel-then-accept (the previously missing order) ─────────────
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
+SET LOCAL ROLE authenticated;
+SELECT public.start_call('a1111111-1111-4111-8111-111111111111','video') AS ca_call \gset
+WITH updated AS (
+  UPDATE public.calls SET status='canceled', decline_reason='canceled', ended_at=now()
+  WHERE id=:'ca_call' AND status='ringing'
+  RETURNING id
+) SELECT count(*) AS cancel_first_rows FROM updated \gset
+SELECT pg_temp.assert_true((:'cancel_first_rows'::int)=1,'Caller cancel wins when it lands first (1 row)');
+RESET ROLE;
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+WITH updated AS (
+  UPDATE public.calls SET status='answered', answered_at=now()
+  WHERE id=:'ca_call' AND status='ringing'
+  RETURNING id
+) SELECT count(*) AS late_accept_rows FROM updated \gset
+SELECT pg_temp.assert_true((:'late_accept_rows'::int)=0,'Callee accept after a committed cancel touches zero rows');
+SELECT pg_temp.assert_true(
+  (SELECT status='canceled' FROM public.calls WHERE id=:'ca_call' AND ended_at IS NOT NULL),
+  'Terminal canceled status survives the losing accept');
+RESET ROLE;
+
+-- ─── AUD-003 race B: callee decline wins, caller cancel loses ──────────────
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
+SET LOCAL ROLE authenticated;
+SELECT public.start_call('a1111111-1111-4111-8111-111111111111','voice') AS race_call \gset
+RESET ROLE;
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+WITH updated AS (
+  UPDATE public.calls SET status='declined', decline_reason='declined', ended_at=now()
+  WHERE id=:'race_call' AND status='ringing'
+  RETURNING id
+) SELECT count(*) AS decline_rows FROM updated \gset
+SELECT pg_temp.assert_true((:'decline_rows'::int)=1,'Callee decline matches the ringing precondition (1 row)');
+-- A stale busy write against the already-terminal row must move nothing.
+WITH updated AS (
+  UPDATE public.calls SET status='missed', decline_reason='busy', ended_at=now()
+  WHERE id=:'race_call' AND status='ringing'
+  RETURNING id
+) SELECT count(*) AS stale_busy_rows FROM updated \gset
+SELECT pg_temp.assert_true((:'stale_busy_rows'::int)=0,'Stale busy write on a terminal row touches zero rows');
+RESET ROLE;
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
+SET LOCAL ROLE authenticated;
+WITH updated AS (
+  UPDATE public.calls SET status='canceled', decline_reason='canceled', ended_at=now()
+  WHERE id=:'race_call' AND status='ringing'
+  RETURNING id
+) SELECT count(*) AS loser_rows FROM updated \gset
+SELECT pg_temp.assert_true((:'loser_rows'::int)=0,'Simultaneous cancel/decline: the losing transition touches zero rows');
+RESET ROLE;
+
+-- ─── AUD-005: outsider assertions reflect real RLS filtering ───────────────
+SELECT set_config('request.jwt.claims','{"sub":"e3333333-3333-4333-8333-333333333333","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+-- RLS filters the row for a non-member: RETURNING yields zero rows and even
+-- a plain SELECT cannot see it (a scalar lookup would be NULL here).
+WITH updated AS (
+  UPDATE public.calls SET status='answered'
+  WHERE chat_id='a1111111-1111-4111-8111-111111111111'
+  RETURNING id
+) SELECT count(*) AS outsider_rows FROM updated \gset
+SELECT pg_temp.assert_true((:'outsider_rows'::int)=0,'Non-member UPDATE affects zero rows (RLS filters)');
+SELECT pg_temp.assert_true(
+  (SELECT count(*)=0 FROM public.calls WHERE id=:'race_call'),
+  'Non-member SELECT cannot see the hidden row at all');
+RESET ROLE;
+
+-- The unchanged state is verified under a permitted identity (member).
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  (SELECT status='declined' FROM public.calls WHERE id=:'race_call'),
+  'Outsider UPDATE leaves the row unchanged (verified as a member)');
+SELECT pg_temp.assert_true(
+  (SELECT count(*)=0 FROM public.calls WHERE chat_id='a1111111-1111-4111-8111-111111111111' AND status='answered' AND decline_reason IS NOT NULL),
+  'No fabricated answered row with a decline_reason exists');
+RESET ROLE;
+
+-- ─── Server-clock verdict: answerable_incoming_calls ───────────────────────
+-- Round 7: the callee client no longer compares started_at with its own wall
+-- clock. These cases pin the contract that replaced it: a live call is
+-- answerable, and expired/canceled/answered/own/non-member rows are not, so a
+-- delayed realtime notification can never ring a call that is already gone.
+SELECT pg_temp.assert_true(
+  has_function_privilege('authenticated','public.answerable_incoming_calls(uuid)','EXECUTE'),
+  'authenticated may execute answerable_incoming_calls');
+SELECT pg_temp.assert_true(
+  NOT has_function_privilege('anon','public.answerable_incoming_calls(uuid)','EXECUTE'),
+  'anon may not execute answerable_incoming_calls');
+
+-- A fresh ringing call from Alice toward Bob in a111.
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
+SET LOCAL ROLE authenticated;
+SELECT public.start_call('a1111111-1111-4111-8111-111111111111','voice') AS verdict_call \gset
+RESET ROLE;
+
+-- Callee sees exactly that call, with the server-computed remaining window.
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT count(*) AS answerable_rows,
+       coalesce(min(expires_in_ms), -1) AS answerable_ms
+  FROM public.answerable_incoming_calls(:'verdict_call') \gset
+SELECT pg_temp.assert_true((:'answerable_rows'::int)=1,
+  'A fresh ringing call is answerable for the callee (1 row)');
+SELECT pg_temp.assert_true((:'answerable_ms'::int) BETWEEN 14000 AND 15000,
+  'expires_in_ms is the remaining window on the server clock (expected 14000..15000, got '
+  || :'answerable_ms' || ')');
+SELECT pg_temp.assert_true(
+  EXISTS (SELECT 1 FROM public.answerable_incoming_calls() WHERE id=:'verdict_call'),
+  'The no-argument variant recovers the answerable call after a reconnect');
+RESET ROLE;
+
+-- The initiator never gets a verdict for her own call (self-call rule).
+SELECT set_config('request.jwt.claims','{"sub":"e1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  NOT EXISTS (SELECT 1 FROM public.answerable_incoming_calls(:'verdict_call')),
+  'The initiator own call is never answerable for them');
+RESET ROLE;
+
+-- A non-member gets no verdict row: SECURITY INVOKER keeps the calls RLS.
+SELECT set_config('request.jwt.claims','{"sub":"e3333333-3333-4333-8333-333333333333","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  NOT EXISTS (SELECT 1 FROM public.answerable_incoming_calls(:'verdict_call')),
+  'A non-member gets no verdict row (RLS still applies)');
+RESET ROLE;
+
+-- Backdate past the 15s window as the owner (clients cannot move started_at).
+UPDATE public.calls SET started_at = now() - interval '16 seconds' WHERE id=:'verdict_call';
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  NOT EXISTS (SELECT 1 FROM public.answerable_incoming_calls(:'verdict_call')),
+  'A ringing call past the 15s window is not answerable (delayed event cannot ring)');
+RESET ROLE;
+
+-- A canceled call is rejected on status alone, even while still fresh.
+UPDATE public.calls
+   SET status='canceled', decline_reason='canceled', ended_at=now(), started_at=now()
+ WHERE id=:'verdict_call';
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  NOT EXISTS (SELECT 1 FROM public.answerable_incoming_calls(:'verdict_call')),
+  'A canceled call is not answerable even while fresh');
+RESET ROLE;
+
+-- An answered call is not answerable either.
+UPDATE public.calls SET status='answered', answered_at=now(), started_at=now() WHERE id=:'verdict_call';
+SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  NOT EXISTS (SELECT 1 FROM public.answerable_incoming_calls(:'verdict_call')),
+  'An answered call is not answerable (no second ring)');
+RESET ROLE;
+
+ROLLBACK;

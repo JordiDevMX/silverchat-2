@@ -1,0 +1,103 @@
+name: CI
+
+# Runs on every PR update (opened, new commits pushed, reopened) and on demand.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Unit, typecheck, build and SQL suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Production build
+        run: pnpm build
+
+      # Repo-wide lint currently reports pre-existing formatting debt outside
+      # this feature (e.g. src/components/ui/brand-lockup.tsx). Lint only the
+      # files this PR changes so the check is actionable and does not block on
+      # unrelated files.
+      - name: Lint changed files
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          if [ -z "$base" ]; then base="origin/main"; fi
+          files=$(git diff --name-only --diff-filter=ACMR "$base"...HEAD -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.json' | grep -v '^src/types/database.ts$' || true)
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files"
+            pnpm exec biome check $files
+          else
+            echo "No lintable files changed."
+          fi
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+
+      - name: Start local Supabase (applies every migration)
+        run: >-
+          supabase start
+          -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit
+
+      - name: Run SQL suites
+        run: pnpm test:db
+
+      # The committed types must describe the complete repo schema (including
+      # migrations that are still pending on Staging). Generation is done from
+      # the local database, then formatted exactly like the committed file.
+      - name: Generate types from the complete local schema
+        run: |
+          supabase gen types typescript --local --schema public > /tmp/database.types.raw.ts
+          pnpm exec biome format --stdin-file-path=database.ts < /tmp/database.types.raw.ts > /tmp/database.types.ts
+
+      - name: Verify committed database types match the schema
+        run: diff -u src/types/database.ts /tmp/database.types.ts
+
+      - name: Upload generated types
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-types
+          path: /tmp/database.types.ts
+          if-no-files-found: warn
+
+      - name: Stop local Supabase
+        if: always()
+        run: command -v supabase >/dev/null 2>&1 && supabase stop --no-backup || true
