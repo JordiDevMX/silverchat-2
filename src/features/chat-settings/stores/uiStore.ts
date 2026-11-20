@@ -1,6 +1,6 @@
 import { create } from "zustand";
 export type ChatModal =
-  | { kind: "contact" | "report" | "block"; userId: string; name?: string }
+  | { kind: "contact" | "block"; userId: string; name?: string }
   | { kind: "menu"; x: number; y: number }
   | { kind: "photo" | "mute" | "add" | "clear" | "leave" };
 export type NoticeAction = {

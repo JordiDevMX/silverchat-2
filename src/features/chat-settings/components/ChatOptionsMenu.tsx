@@ -76,7 +76,7 @@ export function ChatOptionsMenu(props: MenuProps) {
     unpin: say("Unpin", "Desfijar"),
     clear_chat: say("Clear chat", "Vaciar chat"),
     block: say("Block", "Bloquear"),
-    report: say("Report", "Reportar"),
+    report: say("Report channel", "Reportar canal"),
     view_members: say("View members", "Ver miembros"),
     add_members: say("Add members", "Añadir miembros"),
     leave_group: say("Leave group", "Salir del grupo"),
@@ -119,10 +119,10 @@ export function ChatOptionsMenu(props: MenuProps) {
           label: labels[action],
           icon: <Icon size={17} aria-hidden="true" />,
           trailing: action === "mute" ? <ChevronRight size={15} aria-hidden="true" /> : undefined,
-          destructive: ["block", "leave_group", "clear_chat"].includes(action),
+          destructive: ["block", "leave_group", "clear_chat", "report"].includes(action),
           disabled: busy,
           separator:
-            ["block", "view_members", "leave_group"].includes(action) ||
+            ["block", "view_members", "leave_group", "report"].includes(action) ||
             (props.contextType !== "channel" &&
               props.chat.type === "self" &&
               action === "clear_chat"),

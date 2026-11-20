@@ -19,6 +19,7 @@ export function useChannelHeaderActions(c: Channel, onSearch?: () => void) {
   const remove = useUnfollowChannel();
   const mute = useMuteChannel(c.id);
   const [open, setOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const action = useMutation({
@@ -26,6 +27,9 @@ export function useChannelHeaderActions(c: Channel, onSearch?: () => void) {
       switch (choice) {
         case "mute":
           setOpen(true);
+          break;
+        case "report":
+          setReportOpen(true);
           break;
         case "follow":
           await add.mutateAsync(c.id);
@@ -69,5 +73,19 @@ export function useChannelHeaderActions(c: Channel, onSearch?: () => void) {
       }
     },
   });
-  return { say, user, add, remove, mute, open, setOpen, menu, setMenu, closeMenu, action };
+  return {
+    say,
+    user,
+    add,
+    remove,
+    mute,
+    open,
+    setOpen,
+    reportOpen,
+    setReportOpen,
+    menu,
+    setMenu,
+    closeMenu,
+    action,
+  };
 }

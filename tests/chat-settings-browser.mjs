@@ -478,6 +478,10 @@ const options = async (action) => {
 const settle = () => page.waitForTimeout(350);
 try {
   await goto(pendingId);
+  await page.getByRole("button", { name: "Chat options", exact: true }).click();
+  assert.equal(await page.getByRole("menuitem").count(), 3);
+  assert.equal(await page.getByRole("menuitem", { name: /Report/ }).count(), 0);
+  await page.keyboard.press("Escape");
   await page.locator("button.conversation-identity").click();
   assert.equal(
     await page.getByRole("button", { name: "Call", exact: true }).getAttribute("title"),
@@ -499,14 +503,10 @@ try {
   await page.getByRole("button", { name: "Block", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
   await page.locator("button.conversation-identity").click();
-  await page.getByRole("button", { name: "Report", exact: true }).click();
-  await page.getByLabel("Other", { exact: true }).check();
-  assert.equal(await page.getByRole("button", { name: "Submit report" }).isDisabled(), true);
-  await page.getByRole("textbox", { name: "Description", exact: true }).fill("Test description");
-  await page.getByRole("button", { name: "Submit report" }).click();
-  await settle();
-  assert.equal(reports[0].reason, "other");
-  assert.equal(reports[0].reporter_id, me);
+  const contactDialog = page.getByRole("dialog", { name: "Contact profile", exact: true });
+  await contactDialog.getByRole("button", { name: "Block", exact: true }).waitFor();
+  assert.equal(await contactDialog.getByRole("button", { name: "Report", exact: true }).count(), 0);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
   await options("Mute");
   let releasePatch;
   failMemberPatch = true;
@@ -555,7 +555,8 @@ try {
     "PASS scoped mute/pin refresh, failure/busy protection and unread RPC → list navigation",
   );
   await page.getByRole("button", { name: "Chat options", exact: true }).click();
-  assert.equal(await page.getByRole("menuitem").count(), 8);
+  assert.equal(await page.getByRole("menuitem").count(), 7);
+  assert.equal(await page.getByRole("menuitem", { name: /Report/ }).count(), 0);
   await page.keyboard.press("Escape");
   await page.getByRole("menu").waitFor({ state: "hidden" });
   await options("Clear chat");
@@ -755,6 +756,7 @@ try {
   await goto(groupId);
   await page.getByRole("button", { name: "Chat options", exact: true }).click();
   assert.equal(await page.getByRole("menuitem", { name: "Add members", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("menuitem", { name: /Report/ }).count(), 0);
   await page.keyboard.press("Escape");
   memberMode = false;
   await goto(groupId, "/info");
@@ -792,7 +794,7 @@ try {
   await mobile.close();
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: contact modal, reports, direct menu/mute/pin, clear history, group fields/avatar crop+upload, member promote/demote/remove/add, creator protection UI, shared media lazy tabs/paging/lightbox/download, member-only views, leave, mobile layout.",
+    "PASS: contact modal (no private report), direct menu/mute/pin, clear history, group fields/avatar crop+upload, member promote/demote/remove/add, creator protection UI, shared media lazy tabs/paging/lightbox/download, member-only views, leave, mobile layout.",
   );
 } finally {
   await browser.close();

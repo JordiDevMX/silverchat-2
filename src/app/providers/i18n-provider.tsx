@@ -104,6 +104,7 @@ const spanish: Record<string, string> = {
   Unblock: "Desbloquear",
   Unblocked: "Desbloqueado",
   Block: "Bloquear",
+  Report: "Reportar",
   "Search contacts": "Buscar contactos",
   "No contacts found.": "No se encontraron contactos.",
   "Profile photo": "Foto de perfil",

@@ -12,7 +12,6 @@ export type ChatAction =
   | "unpin"
   | "clear_chat"
   | "block"
-  | "report"
   | "view_members"
   | "add_members"
   | "leave_group";
@@ -22,7 +21,7 @@ export function getAvailableChatActions(chat: ChatDetails): ChatAction[] {
   if (chat.readOnly) {
     if (chat.type === "community_chat") return ["view_community_info", "search_in_chat"];
     if (chat.type === "group") return ["view_group_info", "search_in_chat"];
-    return ["view_profile", "search_in_chat", "block", "report"];
+    return ["view_profile", "search_in_chat", "block"];
   }
   const muted = !!chat.own?.muted_until && Date.parse(chat.own.muted_until) > Date.now();
   const common: ChatAction[] = [
@@ -32,7 +31,7 @@ export function getAvailableChatActions(chat: ChatDetails): ChatAction[] {
     pin,
     "clear_chat",
   ];
-  if (chat.type === "direct") return ["view_profile", ...common, "block", "report"];
+  if (chat.type === "direct") return ["view_profile", ...common, "block"];
   if (chat.type === "community_chat")
     return [
       "view_community_info",
@@ -54,11 +53,13 @@ export type ChannelAction =
   | "mark_unread"
   | "follow"
   | "unfollow"
-  | "copy_channel_link";
+  | "copy_channel_link"
+  | "report";
 export type ChannelActionContext = {
   following: boolean;
   canSearch: boolean;
   hasLink: boolean;
+  isOwner?: boolean;
 };
 export function getAvailableChannelActions(context: ChannelActionContext): ChannelAction[] {
   return [
@@ -67,7 +68,39 @@ export function getAvailableChannelActions(context: ChannelActionContext): Chann
     ...(context.following ? ["mute" as const, "mark_unread" as const] : []),
     context.following ? "unfollow" : "follow",
     ...(context.hasLink ? ["copy_channel_link" as const] : []),
+    ...(!context.isOwner ? ["report" as const] : []),
   ];
+}
+export type ReportReason = "spam" | "harassment" | "inappropriate" | "other";
+export type ReportTarget =
+  | {
+      kind: "channel";
+      channelId: string;
+      name: string;
+      slug?: string | null;
+      blockUserId?: string | null;
+    }
+  | {
+      kind: "user";
+      userId: string;
+      name: string;
+      username?: string | null;
+      blockUserId?: string | null;
+    };
+export function buildReportPayload(
+  reporterId: string,
+  target: ReportTarget,
+  reason: ReportReason,
+  description: string,
+) {
+  const trimmed = description.trim();
+  return {
+    reporter_id: reporterId,
+    reported_channel_id: target.kind === "channel" ? target.channelId : null,
+    reported_user_id: target.kind === "user" ? target.userId : null,
+    reason,
+    description: trimmed || null,
+  };
 }
 export const directPairKey = (a: string, b: string) => [a, b].sort().join("::");
 export const muteUntil = (hours: number | null, now = Date.now()) =>

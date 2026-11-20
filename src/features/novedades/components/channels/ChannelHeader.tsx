@@ -2,6 +2,7 @@ import { BadgeCheck, ChevronLeft, MoreVertical } from "lucide-react";
 import { ConversationHeaderSurface } from "@/components/ui/conversation-surface";
 import { ChatOptionsMenu } from "@/features/chat-settings/components/ChatOptionsMenu";
 import { MuteSubmenu } from "@/features/chat-settings/components/MuteSubmenu";
+import { ReportModal } from "@/features/chat-settings/components/ReportModal";
 import { Avatar, NavLink } from "@/features/settings/components/shared";
 import { useChannelHeaderActions } from "../../hooks/channels/useChannelHeaderActions";
 import type { Channel, Follow } from "../../types";
@@ -16,8 +17,21 @@ export function ChannelHeader({
   follow: Follow | null;
   onSearch?: () => void;
 }) {
-  const { say, user, add, remove, mute, open, setOpen, menu, setMenu, closeMenu, action } =
-    useChannelHeaderActions(c, onSearch);
+  const {
+    say,
+    user,
+    add,
+    remove,
+    mute,
+    open,
+    setOpen,
+    reportOpen,
+    setReportOpen,
+    menu,
+    setMenu,
+    closeMenu,
+    action,
+  } = useChannelHeaderActions(c, onSearch);
   return (
     <>
       <ConversationHeaderSurface className="channel-header">
@@ -71,6 +85,7 @@ export function ChannelHeader({
             following: !!follow,
             canSearch: !!follow || c.owner_id === user?.id,
             hasLink: true,
+            isOwner: c.owner_id === user?.id,
           }}
           point={menu}
           onClose={closeMenu}
@@ -94,6 +109,18 @@ export function ChannelHeader({
           busy={mute.isPending}
           onClose={() => setOpen(false)}
           onChoose={(until) => mute.mutate(until, { onSuccess: () => setOpen(false) })}
+        />
+      )}
+      {reportOpen && c.owner_id !== user?.id && (
+        <ReportModal
+          target={{
+            kind: "channel",
+            channelId: c.id,
+            name: c.name,
+            slug: c.slug,
+            blockUserId: c.owner_id,
+          }}
+          onClose={() => setReportOpen(false)}
         />
       )}
     </>

@@ -11,7 +11,6 @@ import { ClearChatModal } from "./ClearChatModal";
 import { ContactProfileModal } from "./ContactProfileModal";
 import { LeaveGroupModal } from "./LeaveGroupModal";
 import { MuteSubmenu } from "./MuteSubmenu";
-import { ReportModal } from "./ReportModal";
 import "@/styles/chat-settings.css";
 export function ChatSettingsLoading({
   query,
@@ -72,8 +71,6 @@ export function ChatSettingsLayer({
           onClose={afterBlock}
         />
       );
-    case "report":
-      return <ReportModal userId={modal.userId} name={modal.name ?? ""} />;
     case "mute":
       return (
         <MuteSubmenu

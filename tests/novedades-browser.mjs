@@ -131,6 +131,8 @@ for (let n = 0; n < 65; n++)
   });
 const sockets = new Map();
 const reactionRows = [],
+  reports = [],
+  blocks = [],
   queries = [],
   errors = [];
 let failReplyOnce = false,
@@ -192,6 +194,14 @@ async function setup(ctx) {
       return respond(r, userSettings);
     }
     if (p.endsWith("/profiles_visible")) return result(filter(profiles));
+    if (p.endsWith("/reports")) {
+      reports.push(body);
+      return respond(r, null, 201);
+    }
+    if (p.endsWith("/user_blocks")) {
+      if (method === "POST") blocks.push(body);
+      return result([]);
+    }
     if (p.endsWith("/app_config")) return result([{ key: "avatar_gradient_palette", value: [] }]);
     if (p.endsWith("/stories"))
       return result(filter(stories).sort((a, b) => a.created_at.localeCompare(b.created_at)));
@@ -749,7 +759,14 @@ try {
   assert.equal(await page.getByRole("button", { name: "More emoji" }).count(), 0);
   await page.getByRole("button", { name: "👍", exact: true }).click();
   await page.getByRole("button", { name: "Channel options" }).click();
-  assert.equal(await page.locator(".chat-options-menu [role=menuitem]").count(), 6);
+  assert.equal(await page.locator(".chat-options-menu [role=menuitem]").count(), 7);
+  await page.getByRole("menuitem", { name: "Report channel", exact: true }).click();
+  const headerReportDialog = page.getByRole("dialog", { name: "Report channel", exact: true });
+  await headerReportDialog.waitFor();
+  assert.ok(!/sofia/i.test((await headerReportDialog.textContent()) ?? ""));
+  await headerReportDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await headerReportDialog.waitFor({ state: "detached" });
+  await page.getByRole("button", { name: "Channel options" }).click();
   await page.getByRole("menuitem", { name: "Search in chat", exact: true }).click();
   await page.getByRole("searchbox", { name: "Search in conversation" }).fill("Broadcast 64");
   await page.locator(".in-chat-search [role=status]").getByText("1/1", { exact: true }).waitFor();
@@ -795,6 +812,37 @@ try {
   await page.locator(".channel-profile").waitFor();
   assert.equal(await page.getByRole("button", { name: "Edit channel", exact: true }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "Delete channel", exact: true }).count(), 0);
+  await page.getByRole("button", { name: "Report channel", exact: true }).click();
+  const infoReportDialog = page.getByRole("dialog", { name: "Report channel", exact: true });
+  await infoReportDialog.waitFor();
+  assert.ok(!/sofia/i.test((await infoReportDialog.textContent()) ?? ""));
+  const radioBoxes = await infoReportDialog
+    .locator('input[type="radio"]')
+    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
+  assert.equal(radioBoxes.length, 4);
+  for (const box of radioBoxes) {
+    assert.ok(box.width <= 24 && box.height <= 24, `Oversized radio: ${box.width}x${box.height}`);
+    assert.ok(Math.abs(box.width - box.height) <= 1);
+    assert.ok(Math.abs(box.x - radioBoxes[0].x) <= 1, "Radios must align vertically");
+  }
+  await infoReportDialog.getByRole("radio", { name: "Other", exact: true }).check();
+  assert.equal(await infoReportDialog.getByRole("button", { name: "Submit report" }).isDisabled(), true);
+  await infoReportDialog.getByRole("textbox", { name: "Details" }).fill("Spam broadcast");
+  await infoReportDialog.getByRole("switch").click();
+  await infoReportDialog.getByRole("button", { name: "Report and block", exact: true }).click();
+  await infoReportDialog.waitFor({ state: "detached" });
+  assert.deepEqual(reports.at(-1), {
+    reporter_id: me,
+    reported_channel_id: followed,
+    reported_user_id: null,
+    reason: "other",
+    description: "Spam broadcast",
+  });
+  assert.deepEqual(blocks.at(-1), { blocker_id: me, blocked_id: other });
+  await goto(`/channels/${owned}/info`);
+  await page.locator(".channel-profile").waitFor();
+  assert.equal(await page.getByRole("button", { name: "Report channel", exact: true }).count(), 0);
+  await goto(`/channels/${followed}/info`);
   await page.getByRole("button", { name: "Channel options" }).click();
   await page.getByRole("menuitem", { name: "Search in chat", exact: true }).click();
   await page.getByRole("searchbox", { name: "Search in conversation" }).waitFor();
