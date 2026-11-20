@@ -1,7 +1,9 @@
 import { Camera, ImagePlus, Trash2 } from "lucide-react";
+import { useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { Button } from "@/components/ui/button";
 import { SettingsDialog } from "@/components/ui/settings-surfaces";
+import { useClipboardImageTarget } from "@/lib/clipboard-paste";
 import type { Profile } from "../hooks";
 import { useAvatarPicker } from "../hooks/useAvatarPicker";
 export function AvatarPickerModal({
@@ -33,6 +35,20 @@ export function AvatarPickerModal({
     select,
     save,
   } = useAvatarPicker({ profile, onClose, onSaved, onSave });
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const handlePastedAvatar = useCallback(
+    (files: File[]) => {
+      if (files[0]) select(files[0]);
+    },
+    [select],
+  );
+  useClipboardImageTarget({
+    ref: bodyRef,
+    kind: "single-image",
+    disabled: action.busy,
+    maxFileBytes: 20 * 1024 * 1024,
+    onImages: handlePastedAvatar,
+  });
   return (
     <SettingsDialog
       title={t("Change photo")}
@@ -41,7 +57,7 @@ export function AvatarPickerModal({
       className="avatar-picker-dialog"
     >
       {(close) => (
-        <>
+        <div ref={bodyRef}>
           <input
             ref={upload}
             hidden
@@ -146,7 +162,7 @@ export function AvatarPickerModal({
               </Button>
             )}
           </div>
-        </>
+        </div>
       )}
     </SettingsDialog>
   );

@@ -35,6 +35,7 @@ export function EditMessageModal({
         {say("Message", "Mensaje")}
         <Textarea
           id={inputId}
+          data-clipboard-reason="edit-message"
           value={text}
           maxLength={message.type === "text" ? undefined : 500}
           onChange={(e) => setText(e.target.value)}

@@ -50,7 +50,12 @@ function ProfileForm({ profile }: { profile: Profile }) {
           <span>{t("Change photo")}</span>
         </Button>
       </div>
-      <form className="settings-form settings-card settings-card-body" onSubmit={submit} noValidate>
+      <form
+        className="settings-form settings-card settings-card-body"
+        data-clipboard-reason="avatar-hint"
+        onSubmit={submit}
+        noValidate
+      >
         <fieldset disabled={isSubmitting}>
           <label htmlFor="display-name">{t("Display name")}</label>
           <input

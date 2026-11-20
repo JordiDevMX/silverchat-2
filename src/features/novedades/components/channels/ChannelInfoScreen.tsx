@@ -1,10 +1,11 @@
-import { BadgeCheck, BellOff, Pencil, Trash2 } from "lucide-react";
+import { BadgeCheck, BellOff, Flag, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChannelFollowButton, ChannelInfoSurface } from "@/components/ui/channel-surfaces";
 import { MotionOverlay } from "@/components/ui/motion-overlay";
 import { SettingsRow } from "@/components/ui/settings-row";
 import { MuteSubmenu } from "@/features/chat-settings/components/MuteSubmenu";
+import { ReportModal } from "@/features/chat-settings/components/ReportModal";
 import { saveGroupAvatar } from "@/features/chat-settings/lib/groupAvatar";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
 import { useMessageText } from "@/features/messages/i18n";
@@ -91,9 +92,12 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
   const mute = useMuteChannel(channelId);
   const { user } = useAuth();
   const { say, language } = useMessageText();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(
+    () => new URLSearchParams(window.location.search).get("edit") === "1",
+  );
   const [photo, setPhoto] = useState(false);
   const [muteOpen, setMuteOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const c = q.data?.channel;
   const follow = q.data?.follow ?? null;
@@ -160,6 +164,14 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
                 onClick={() => setMuteOpen(true)}
               />
             )}
+            {c.owner_id !== user?.id && (
+              <SettingsRow
+                icon={<Flag />}
+                className="text-destructive [&_svg]:text-destructive"
+                label={say("Report channel", "Reportar canal")}
+                onClick={() => setReportOpen(true)}
+              />
+            )}
             {c.owner_id === user?.id && (
               <>
                 <SettingsRow
@@ -182,6 +194,19 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
               busy={mute.isPending}
               onClose={() => setMuteOpen(false)}
               onChoose={(until) => mute.mutate(until, { onSuccess: () => setMuteOpen(false) })}
+            />
+          )}
+          {reportOpen && c.owner_id !== user?.id && (
+            <ReportModal
+              target={{
+                kind: "channel",
+                channelId: c.id,
+                name: c.name,
+                slug: c.slug,
+                following: !!follow,
+                blockUserId: c.owner_id,
+              }}
+              onClose={() => setReportOpen(false)}
             />
           )}
           {c.owner_id === user?.id && (

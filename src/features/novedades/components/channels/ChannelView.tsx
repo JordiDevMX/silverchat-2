@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ConversationShell } from "@/components/ui/conversation-shell";
+import { SystemPill } from "@/components/ui/conversation-surface";
+import { ChatGrowthCard } from "@/features/chat-growth/components/ChatGrowthCard";
+import { ChatGrowthHost } from "@/features/chat-growth/components/ChatGrowthHost";
+import { useChatGrowthController } from "@/features/chat-growth/hooks/useChatGrowthController";
+import {
+  buildChannelGrowthModel,
+  countUserMessages,
+} from "@/features/chat-growth/lib/growthConfig";
 import { InChatSearch } from "@/features/messages/components/InChatSearch";
 import { MessageActionsProvider } from "@/features/messages/components/MessageActionsProvider";
 import { MessageList } from "@/features/messages/components/MessageList";
@@ -11,19 +20,31 @@ import { useAuth } from "@/lib/auth-provider";
 import { useChannelInfo } from "../../hooks/channels/useChannelInfo";
 import { useChannelMessages } from "../../hooks/channels/useChannelMessages";
 import { useChannelReadCursor } from "../../hooks/channels/useChannelReadCursor";
+import { useFollowChannel } from "../../hooks/channels/useFollowChannel";
 import { channelChat } from "../../lib/channelChat";
 import { ChannelComposer } from "./ChannelComposer";
+import { ChannelFollowFooter } from "./ChannelFollowFooter";
 import { ChannelHeader } from "./ChannelHeader";
 import "@/styles/messages.css";
 export function ChannelView({ channelId }: { channelId: string }) {
   const { user } = useAuth();
-  const { say } = useMessageText();
+  const { say, t, language } = useMessageText();
   const info = useChannelInfo(channelId);
+  const follow = useFollowChannel();
   const channel = info.data?.channel;
   const owner = channel?.owner_id === user?.id;
   const following = !!info.data?.follow;
-  const messages = useChannelMessages(channelId, following || owner);
+  const messages = useChannelMessages(channelId, true);
   const send = useSendMessage(channelId, true);
+  const growthModel = channel
+    ? buildChannelGrowthModel(channel, user?.id, language, window.location.origin)
+    : null;
+  const userMessageCount = messages.hasNextPage ? 1 : countUserMessages(messages.messages);
+  const growth = useChatGrowthController({
+    model: growthModel,
+    messagesReady: !messages.isPending && !messages.isError,
+    userMessageCount,
+  });
   const [searchOpen, setSearchOpen] = useState(
     () => new URLSearchParams(window.location.search).get("search") === "true",
   );
@@ -48,53 +69,83 @@ export function ChannelView({ channelId }: { channelId: string }) {
     );
   const chat = channelChat(channel, following || owner);
   return (
-    <main id="main" className="conversation-page channel-view">
-      {searchOpen ? (
-        <InChatSearch
-          search={search}
-          onClose={() => {
-            setSearchOpen(false);
-            search.setText("");
-            setNavigation(null);
-          }}
-        />
-      ) : (
-        <ChannelHeader
-          channel={channel}
-          follow={info.data?.follow ?? null}
-          onSearch={() => setSearchOpen(true)}
-        />
-      )}
-      {readError && (
-        <Button type="button" variant="outline" className="channel-read-retry" onClick={retryRead}>
-          {say("Retry marking channel read", "Reintentar marcar como leído")}
-        </Button>
-      )}
-      {following || owner ? (
-        <MessageActionsProvider
+    <MessageActionsProvider
+      chat={chat}
+      messages={messages.messages}
+      onReply={() => {}}
+      onNavigate={navigate}
+    >
+      <ConversationShell
+        className="channel-view"
+        header={
+          searchOpen ? (
+            <InChatSearch
+              search={search}
+              onClose={() => {
+                setSearchOpen(false);
+                search.setText("");
+                setNavigation(null);
+              }}
+            />
+          ) : (
+            <ChannelHeader
+              channel={channel}
+              follow={info.data?.follow ?? null}
+              onSearch={() => setSearchOpen(true)}
+            />
+          )
+        }
+        banners={
+          readError ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="channel-read-retry"
+              onClick={retryRead}
+            >
+              {say("Retry marking channel read", "Reintentar marcar como leído")}
+            </Button>
+          ) : null
+        }
+        footer={
+          !following && !owner ? (
+            <ChannelFollowFooter
+              busy={follow.isPending}
+              error={follow.isError}
+              onFollow={() => follow.mutate(channel.id)}
+            />
+          ) : owner ? (
+            <ChannelComposer channel={channel} onSend={send.send} />
+          ) : null
+        }
+      >
+        <MessageList
+          key={channelId}
+          channelMode
           chat={chat}
-          messages={messages.messages}
-          onReply={() => {}}
-          onNavigate={navigate}
-        >
-          <MessageList
-            key={channelId}
-            channelMode
-            chat={chat}
-            query={messages}
-            navigation={navigation}
-            onRetry={send.retry}
-          />
-          {owner && <ChannelComposer channel={channel} onSend={send.send} />}
-        </MessageActionsProvider>
-      ) : (
-        <p className="novedades-empty">
-          {say(
-            "Follow this channel to see its posts.",
-            "Sigue este canal para ver sus publicaciones.",
-          )}
-        </p>
-      )}
-    </main>
+          query={messages}
+          navigation={navigation}
+          onRetry={send.retry}
+          growthCard={
+            growth.visible && growthModel ? (
+              <ChatGrowthCard
+                model={growthModel}
+                onShareToStatus={growth.openStoryShare}
+                onSecondaryAction={growth.openSecondaryInvite}
+                onEditDescription={
+                  growth.canEditDescription ? growth.openEditDescription : undefined
+                }
+              />
+            ) : null
+          }
+          topNotices={
+            <SystemPill data-slot="channel-created-pill">
+              {t("channel.created", { name: channel.name })}
+            </SystemPill>
+          }
+        />
+      </ConversationShell>
+      <ChatGrowthHost model={growthModel} controller={growth} />
+    </MessageActionsProvider>
   );
 }

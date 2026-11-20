@@ -2,6 +2,8 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { allRows } from "@/features/chats/hooks/useChats";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
+import { CHAT_QUERY_OPTIONS } from "../lib/chatQueryPolicy";
+import { getOutboxMessages } from "../lib/outbox";
 import { type Cursor, type Message, type MessageRow, messageKey, outboxKey } from "../types";
 export async function enrichMessages(rows: MessageRow[], userId: string): Promise<Message[]> {
   if (!rows.length) return [];
@@ -76,7 +78,7 @@ export function useMessages(chatId: string) {
   const query = useInfiniteQuery({
     queryKey: messageKey(userId, chatId),
     initialPageParam: null as Cursor,
-    refetchInterval: 30000,
+    ...CHAT_QUERY_OPTIONS,
     queryFn: async ({ pageParam }) => {
       const result = await supabase.rpc("get_chat_messages", {
         p_chat_id: chatId,
@@ -94,8 +96,8 @@ export function useMessages(chatId: string) {
   });
   const outbox = useQuery<Message[]>({
     queryKey: outboxKey(userId, chatId),
-    queryFn: () => [],
-    initialData: [],
+    queryFn: () => (userId ? getOutboxMessages(userId, chatId) : []),
+    initialData: () => (userId ? getOutboxMessages(userId, chatId) : []),
     staleTime: Infinity,
     gcTime: Infinity,
   });

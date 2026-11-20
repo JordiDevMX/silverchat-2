@@ -1,11 +1,8 @@
 import assert from "node:assert/strict";
+import { launchBrowser } from "./lib/browser.mjs";
 
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
 const origin = process.env.UI_BASE_URL ?? "http://127.0.0.1:5175";
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? "/usr/bin/chromium",
-  headless: true,
-});
+const browser = await launchBrowser();
 try {
   const page = await browser.newPage();
   page.setDefaultTimeout(10000);

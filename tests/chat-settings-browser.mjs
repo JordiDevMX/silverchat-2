@@ -1,12 +1,8 @@
 // Real browser with mocked BFF, PostgREST, Storage and Phoenix boundaries.
 import assert from "node:assert/strict";
+import { launchBrowser } from "./lib/browser.mjs";
 
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? "/usr/bin/chromium",
-  headless: true,
-  args: ["--no-sandbox"],
-});
+const browser = await launchBrowser({ args: ["--no-sandbox"] });
 const uid = (n) => `${String(n).padStart(8, "0")}-2222-4222-8222-222222222222`;
 const me = uid(1),
   other = uid(2),
@@ -52,6 +48,7 @@ profiles.push(
 let groupName = "Weekend people",
   description = "Weekend plans",
   groupAvatar = null,
+  onlyAdminsCanSend = false,
   memberMode = false,
   reports = [],
   mutedUntil = null,
@@ -83,6 +80,7 @@ const chat = (id = chatId, type = "direct") => ({
   direct_pair_key: [me, other].sort().join("::"),
   status: "active",
   avatar_url: type === "group" ? groupAvatar : null,
+  only_admins_can_send: type === "group" ? onlyAdminsCanSend : false,
   community_id: null,
 });
 const member = (id = chatId, who = me) => ({
@@ -325,6 +323,8 @@ async function setup(context) {
         if (body.p_name !== undefined) groupName = body.p_name;
         if (body.p_description !== undefined) description = body.p_description;
         if (body.p_avatar_url !== undefined) groupAvatar = body.p_avatar_url || null;
+        if (body.p_only_admins_can_send !== undefined)
+          onlyAdminsCanSend = body.p_only_admins_can_send;
         return response(route, null);
       }
       if (p.endsWith("/promote_chat_admin") || p.endsWith("/demote_chat_admin")) {
@@ -482,6 +482,10 @@ const options = async (action) => {
 const settle = () => page.waitForTimeout(350);
 try {
   await goto(pendingId);
+  await page.getByRole("button", { name: "Chat options", exact: true }).click();
+  assert.equal(await page.getByRole("menuitem").count(), 3);
+  assert.equal(await page.getByRole("menuitem", { name: /Report/ }).count(), 0);
+  await page.keyboard.press("Escape");
   await page.locator("button.conversation-identity").click();
   assert.equal(
     await page.getByRole("button", { name: "Call", exact: true }).getAttribute("title"),
@@ -503,14 +507,10 @@ try {
   await page.getByRole("button", { name: "Block", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
   await page.locator("button.conversation-identity").click();
-  await page.getByRole("button", { name: "Report", exact: true }).click();
-  await page.getByLabel("Other", { exact: true }).check();
-  assert.equal(await page.getByRole("button", { name: "Submit report" }).isDisabled(), true);
-  await page.getByRole("textbox", { name: "Description", exact: true }).fill("Test description");
-  await page.getByRole("button", { name: "Submit report" }).click();
-  await settle();
-  assert.equal(reports[0].reason, "other");
-  assert.equal(reports[0].reporter_id, me);
+  const contactDialog = page.getByRole("dialog", { name: "Contact profile", exact: true });
+  await contactDialog.getByRole("button", { name: "Block", exact: true }).waitFor();
+  assert.equal(await contactDialog.getByRole("button", { name: "Report", exact: true }).count(), 0);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
   await options("Mute");
   let releasePatch;
   failMemberPatch = true;
@@ -559,7 +559,8 @@ try {
     "PASS scoped mute/pin refresh, failure/busy protection and unread RPC → list navigation",
   );
   await page.getByRole("button", { name: "Chat options", exact: true }).click();
-  assert.equal(await page.getByRole("menuitem").count(), 8);
+  assert.equal(await page.getByRole("menuitem").count(), 7);
+  assert.equal(await page.getByRole("menuitem", { name: /Report/ }).count(), 0);
   await page.keyboard.press("Escape");
   await page.getByRole("menu").waitFor({ state: "hidden" });
   await options("Clear chat");
@@ -749,6 +750,13 @@ try {
   await popup.waitForURL(/storage/);
   await popup.close();
   await goto(groupId, "/info");
+  const adminToggle = page.getByRole("switch", { name: /Only admins can send messages/i });
+  await adminToggle.waitFor();
+  assert.equal(await adminToggle.getAttribute("aria-checked"), "false");
+  await adminToggle.click();
+  await settle();
+  assert.equal(onlyAdminsCanSend, true);
+  assert.equal(await adminToggle.getAttribute("aria-checked"), "true");
   memberMode = true;
   emit("chat_members", { ...member(groupId), role: "member" }, "UPDATE");
   await page
@@ -756,9 +764,14 @@ try {
     .waitFor({ state: "detached" });
   assert.equal(await page.getByRole("textbox", { name: "Group name", exact: true }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "Change photo", exact: true }).count(), 0);
+  assert.equal(
+    await page.getByRole("switch", { name: /Only admins can send messages/i }).count(),
+    0,
+  );
   await goto(groupId);
   await page.getByRole("button", { name: "Chat options", exact: true }).click();
   assert.equal(await page.getByRole("menuitem", { name: "Add members", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("menuitem", { name: /Report/ }).count(), 0);
   await page.keyboard.press("Escape");
   memberMode = false;
   await goto(groupId, "/info");
@@ -796,7 +809,7 @@ try {
   await mobile.close();
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: contact modal, reports, direct menu/mute/pin, clear history, group fields/avatar crop+upload, member promote/demote/remove/add, creator protection UI, shared media lazy tabs/paging/lightbox/download, member-only views, leave, mobile layout.",
+    "PASS: contact modal (no private report), direct menu/mute/pin, clear history, group fields/avatar crop+upload, member promote/demote/remove/add, creator protection UI, shared media lazy tabs/paging/lightbox/download, member-only views, leave, mobile layout.",
   );
 } finally {
   await browser.close();

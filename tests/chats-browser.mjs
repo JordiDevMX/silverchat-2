@@ -1,12 +1,8 @@
 // Chromium against mocked HTTP/Realtime boundaries. Never touches remote accounts.
 import assert from "node:assert/strict";
+import { launchBrowser } from "./lib/browser.mjs";
 
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? "/usr/bin/chromium",
-  headless: true,
-  args: ["--no-sandbox"],
-});
+const browser = await launchBrowser({ args: ["--no-sandbox"] });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
 const me = "11111111-1111-4111-8111-111111111111";
 const uid = (n) => `${String(n).padStart(8, "0")}-2222-4222-8222-222222222222`;
@@ -54,7 +50,7 @@ const profiles = [
   })),
 ];
 const ago = (n) => new Date(Date.now() - n * 3600000).toISOString();
-const membership = (i, name, type = "direct", preview = "See you soon!") => ({
+const membership = (i, name, type = "direct", preview = "See you soon!", messageType = "text") => ({
   chat_id: uid(100 + i),
   user_id: me,
   pinned_at: null,
@@ -75,7 +71,7 @@ const membership = (i, name, type = "direct", preview = "See you soon!") => ({
     last_message: {
       id: uid(200 + i),
       sender_id: i === 2 ? me : uid(i),
-      type: "text",
+      type: messageType,
       deleted_for_everyone: false,
     },
   },
@@ -84,9 +80,9 @@ const creationCalls = [];
 let failGroupCreation = false;
 let memberships = [
   membership(1, null, "direct", "Coffee tomorrow? I found a lovely spot."),
-  membership(2, null, "direct", "Perfect, I’ll send the details."),
-  membership(3, "Weekend people", "group", "Anyone up for a walk on Saturday?"),
-  membership(4, null, "direct", "Thanks for the photos!"),
+  membership(2, null, "direct", "📄 Q4-report.pdf", "file"),
+  membership(3, "Weekend people", "group", "📷 Photo — Sunset at the beach", "image"),
+  membership(4, null, "direct", "📷 Photo", "image"),
   membership(5, null, "direct", "The final files are ready."),
   membership(6, null, "direct", "Catch you later."),
   membership(9, "General", "community_chat", "Welcome to the community."),
@@ -623,8 +619,112 @@ try {
     },
     { id: uid(101), owner: me },
   );
-  await row(101).getByText("Draft: Remember the tickets").waitFor();
+  await row(101).locator(".draft-pill").waitFor();
+  assert.equal(await row(101).locator(".draft-pill").textContent(), "Draft");
+  assert.equal(await row(101).locator(".preview-text").textContent(), "Remember the tickets");
   assert.equal(await row(101).locator(".chat-badge").textContent(), "99+");
+  assert.equal(await row(101).locator('.chat-name [aria-label="Pin"]').count(), 1);
+  // Document preview: single leading file icon, sender prefix, filename, and read receipt.
+  assert.equal(await row(102).locator(".chat-preview svg.lucide-file-text").count(), 1);
+  assert.equal(await row(102).locator(".preview-text").textContent(), "You: Q4-report.pdf");
+  assert.equal(await row(102).locator(".chat-preview .receipt-read").count(), 1);
+  // Group photo with caption: single leading image icon, sender prefix, caption only.
+  assert.equal(await row(103).locator(".chat-preview svg.lucide-image").count(), 1);
+  assert.equal(
+    await row(103).locator(".preview-text").textContent(),
+    "Nora Bennett: Sunset at the beach",
+  );
+  // Direct photo without caption: single leading image icon and "Photo" placeholder.
+  assert.equal(await row(104).locator(".chat-preview svg.lucide-image").count(), 1);
+  assert.equal(await row(104).locator(".preview-text").textContent(), "Photo");
+  // Breakpoint consistency: Draft badge and leading media icons render identically at every width.
+  let baselinePillStyle = null;
+  for (const width of [390, 699, 700, 768, 1023, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const pillStyle = await row(101)
+      .locator(".draft-pill")
+      .evaluate((el) => {
+        const s = getComputedStyle(el);
+        return {
+          display: s.display,
+          fontSize: s.fontSize,
+          padding: s.padding,
+          borderRadius: s.borderRadius,
+          backgroundColor: s.backgroundColor,
+          color: s.color,
+        };
+      });
+    assert.equal(
+      await row(101).locator(".draft-pill").isVisible(),
+      true,
+      `Draft pill visible at ${width}px`,
+    );
+    assert.notEqual(pillStyle.display, "none", `Draft pill rendered at ${width}px`);
+    if (!baselinePillStyle) baselinePillStyle = pillStyle;
+    else assert.deepEqual(pillStyle, baselinePillStyle, `Draft pill consistent at ${width}px`);
+    assert.equal(await row(102).locator(".chat-preview svg.lucide-file-text").isVisible(), true);
+    assert.equal(await row(103).locator(".chat-preview svg.lucide-image").isVisible(), true);
+  }
+  // Theme-aware Draft badge: derives from active accent theme and maintains WCAG AA contrast (>= 4.5:1).
+  const accents = ["blue", "orange", "red", "green", "purple", "yellow"];
+  for (const mode of ["light", "dark"]) {
+    const seenBackgrounds = new Set();
+    for (const accent of accents) {
+      const result = await row(101)
+        .locator(".draft-pill")
+        .evaluate(
+          (el, { nextMode, nextAccent, allAccents }) => {
+            const root = document.documentElement;
+            root.dataset.theme = nextMode;
+            for (const name of allAccents) root.classList.remove(`theme-${name}`);
+            root.classList.add(`theme-${nextAccent}`);
+            const s = getComputedStyle(el);
+            const toRgb = (value) => {
+              const canvas = document.createElement("canvas");
+              canvas.width = 1;
+              canvas.height = 1;
+              const ctx = canvas.getContext("2d");
+              ctx.fillStyle = value;
+              ctx.fillRect(0, 0, 1, 1);
+              return [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+            };
+            const relLum = ([r, g, b]) =>
+              [r, g, b]
+                .map((v) => {
+                  const n = v / 255;
+                  return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
+                })
+                .reduce((acc, v, i) => acc + v * [0.2126, 0.7152, 0.0722][i], 0);
+            const bgRgb = toRgb(s.backgroundColor);
+            const fgRgb = toRgb(s.color);
+            const l1 = relLum(bgRgb);
+            const l2 = relLum(fgRgb);
+            const contrast = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+            return { bg: bgRgb.join(","), fg: fgRgb.join(","), contrast };
+          },
+          { nextMode: mode, nextAccent: accent, allAccents: accents },
+        );
+      seenBackgrounds.add(result.bg);
+      assert.ok(
+        result.contrast >= 4.5,
+        `Draft pill contrast ${result.contrast.toFixed(2)} < 4.5 in ${mode}/${accent} (bg=${result.bg}, fg=${result.fg})`,
+      );
+    }
+    assert.equal(
+      seenBackgrounds.size,
+      accents.length,
+      `Every accent in ${mode} mode must produce a distinct Draft pill background`,
+    );
+  }
+  await page.evaluate((allAccents) => {
+    const root = document.documentElement;
+    root.dataset.theme = "light";
+    for (const name of allAccents) root.classList.remove(`theme-${name}`);
+    root.classList.add("theme-blue");
+  }, accents);
+  console.log(
+    "PASS deduplicated draft/document/photo previews, breakpoint consistency, and theme-aware Draft badge contrast",
+  );
   await page
     .locator(".chat-list-item")
     .first()
@@ -696,7 +796,8 @@ try {
   console.log("PASS partial bulk delete retries only failed items");
   await page.locator(".new-chat-fab").click();
   await page.getByRole("button", { name: "Message yourself", exact: true }).click();
-  await page.getByRole("heading", { name: "A little space for you" }).waitFor();
+  await page.locator('[data-slot="conversation-start-pill"]').waitFor();
+  await page.locator('[data-slot="conversation-encryption-pill"]').waitFor();
   for (const width of [390, 768, 1024]) {
     await page.setViewportSize({ width, height: 844 });
     const canvas = await page.locator(".conversation-page").boundingBox();

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { CHAT_QUERY_OPTIONS } from "@/features/messages/lib/chatQueryPolicy";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import type { MessageRequest } from "../types";
@@ -9,8 +10,7 @@ export function useMessageRequests() {
   return useQuery({
     queryKey: ["message-requests", user?.id],
     enabled: !!user,
-    staleTime: 15_000,
-    refetchInterval: 60_000,
+    ...CHAT_QUERY_OPTIONS,
     queryFn: async (): Promise<MessageRequest[]> => {
       const rows = await allRows((from, to) =>
         supabase

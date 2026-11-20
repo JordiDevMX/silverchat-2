@@ -2,13 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { allRows, chunks } from "@/features/chats/hooks/useChats";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
+import { CHAT_QUERY_OPTIONS } from "../lib/chatQueryPolicy";
 import { type ChatDetails, detailKey } from "../types";
 export function useChat(chatId: string) {
   const { user } = useAuth();
   return useQuery({
     queryKey: detailKey(user?.id ?? "", chatId),
     enabled: !!user && !!chatId,
-    refetchInterval: 30000,
+    ...CHAT_QUERY_OPTIONS,
     queryFn: async (): Promise<ChatDetails | null> => {
       const [chat, members, requests] = await Promise.all([
         supabase.from("chats").select("*").eq("id", chatId).maybeSingle(),
@@ -94,6 +95,7 @@ export function useChat(chatId: string) {
         communityId: chat.data?.community_id ?? null,
         communityName,
         request,
+        onlyAdminsCanSend: !!chat.data?.only_admins_can_send,
         readOnly: pendingRecipient,
       };
     },

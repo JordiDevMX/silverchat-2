@@ -21,16 +21,18 @@ export function MessageContextMenu({
   message,
   point,
   readOnly,
+  writeRestricted = false,
   onChoose,
   onClose,
 }: {
   message: Message;
   point: { x: number; y: number };
   readOnly: boolean;
+  writeRestricted?: boolean;
   onChoose: (action: MessageAction) => void;
   onClose: () => void;
 }) {
-  const { ref, actions, labels, say } = useMessageMenu(message, readOnly, onClose);
+  const { ref, actions, labels, say } = useMessageMenu(message, readOnly, onClose, writeRestricted);
   return createPortal(
     <div
       ref={ref}

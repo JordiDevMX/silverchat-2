@@ -97,9 +97,20 @@ test("receipt aggregation respects hidden/partial recipients and read privacy", 
 });
 test("drafts override older previews without changing unread; deleted ignores receipts", () => {
   const draft = { text: "Draft text", mediaUrls: [], replyToId: null, updatedAt: "2026-01-02" };
-  assert.equal(computeChatDisplay(chat, draft).state, "draft");
+  const draftDisplay = computeChatDisplay(chat, draft);
+  assert.equal(draftDisplay.state, "draft");
+  assert.equal(draftDisplay.prefix, "");
+  assert.equal(draftDisplay.text, "Draft text");
+  assert.equal(draftDisplay.translateText, false);
+  const blankDraft = computeChatDisplay(chat, { ...draft, text: "   " });
+  assert.equal(blankDraft.state, "draft");
+  assert.equal(blankDraft.text, "Attachment");
+  assert.equal(blankDraft.translateText, true);
   assert.equal(computeChatDisplay(chat, { ...draft, failed: true }).state, "failed");
-  assert.equal(computeChatDisplay(chat, { ...draft, pending: true }).state, "pending");
+  const pendingBlank = computeChatDisplay(chat, { ...draft, text: " ", pending: true });
+  assert.equal(pendingBlank.state, "pending");
+  assert.equal(pendingBlank.text, "Attachment");
+  assert.equal(pendingBlank.translateText, true);
   assert.equal(
     computeChatDisplay({ ...chat, deletedForEveryone: true, isMyLastMessage: true }).status,
     null,
@@ -108,6 +119,114 @@ test("drafts override older previews without changing unread; deleted ignores re
   assert.equal(computeChatDisplay({ ...chat, type: "self", isMyLastMessage: true }).prefix, "");
   assert.equal(computeChatDisplay({ ...chat, type: "group" }).prefix, "Alice");
   assert.equal(computeChatDisplay(chat, { ...draft, updatedAt: "2025-01-01" }).state, "message");
+});
+test("media previews strip duplicated DB icon/label prefixes while preserving captions, filenames, fallbacks and text messages", () => {
+  const ownFile = computeChatDisplay({
+    ...chat,
+    isMyLastMessage: true,
+    lastMessageType: "file",
+    lastMessagePreview: "📄 Q4-report.pdf",
+    lastMessageStatus: "read",
+  });
+  assert.deepEqual(ownFile, {
+    state: "message",
+    text: "Q4-report.pdf",
+    translateText: false,
+    prefix: "You",
+    status: "read",
+  });
+
+  const fallbackFile = computeChatDisplay({
+    ...chat,
+    lastMessageType: "file",
+    lastMessagePreview: "📄 File",
+  });
+  assert.equal(fallbackFile.text, "File");
+  assert.equal(fallbackFile.translateText, true);
+
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "file", lastMessagePreview: "📄   " }).text,
+    "File",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "file", lastMessagePreview: "📄 📄 notes.pdf" })
+      .text,
+    "📄 notes.pdf",
+  );
+
+  const captionedPhoto = computeChatDisplay({
+    ...chat,
+    type: "group",
+    senderName: "Sofia",
+    lastMessageType: "image",
+    lastMessagePreview: "📷 Photo — Sunset at the beach",
+  });
+  assert.deepEqual(captionedPhoto, {
+    state: "message",
+    text: "Sunset at the beach",
+    translateText: false,
+    prefix: "Sofia",
+    status: null,
+  });
+
+  const photoWordCaption = computeChatDisplay({
+    ...chat,
+    lastMessageType: "image",
+    lastMessagePreview: "📷 Photo — Photography tips",
+  });
+  assert.equal(photoWordCaption.text, "Photography tips");
+  assert.equal(photoWordCaption.translateText, false);
+
+  for (const raw of ["📷 Photo", "📷 Photo —   ", "", null]) {
+    const emptyPhoto = computeChatDisplay({
+      ...chat,
+      lastMessageType: "image",
+      lastMessagePreview: raw,
+    });
+    assert.equal(emptyPhoto.text, "Photo");
+    assert.equal(emptyPhoto.translateText, true);
+  }
+
+  assert.equal(
+    computeChatDisplay({
+      ...chat,
+      lastMessageType: "video",
+      lastMessagePreview: "🎥 Video — Demo clip",
+    }).text,
+    "Demo clip",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "video", lastMessagePreview: "🎥 Video" }).text,
+    "Video",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "audio", lastMessagePreview: "🎤 Audio" }).text,
+    "Audio",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "sticker", lastMessagePreview: "🎨 Sticker" })
+      .text,
+    "Sticker",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "location", lastMessagePreview: "📍 Location" })
+      .text,
+    "Location",
+  );
+  assert.equal(
+    computeChatDisplay({ ...chat, lastMessageType: "contact", lastMessagePreview: "👤 Contact" })
+      .text,
+    "Contact",
+  );
+
+  // Plain text messages must never have emoji prefixes stripped.
+  const plainWithEmoji = computeChatDisplay({
+    ...chat,
+    lastMessageType: "text",
+    lastMessagePreview: "📷 Photo — not an attachment",
+  });
+  assert.equal(plainWithEmoji.text, "📷 Photo — not an attachment");
+  assert.equal(plainWithEmoji.translateText, false);
 });
 test("yesterday works across month/year boundaries and uses locale", () => {
   const now = new Date(2026, 0, 1, 12);
@@ -141,6 +260,8 @@ test("draft storage tolerates malformed JSON, removes expired entries and isolat
     ownerId: "alice",
   };
   storage.setItem("silverchat_draft_a", JSON.stringify(valid));
+  storage.setItem("silverchat_draft_d", JSON.stringify({ ...valid, pending: true }));
+  storage.setItem("silverchat_draft_e", JSON.stringify({ ...valid, failed: true }));
   storage.setItem("silverchat_draft_b", "broken");
   storage.setItem("silverchat_draft_c", JSON.stringify({ ...valid, updatedAt: "2025-01-01" }));
   storage.setItem("unrelated", "keep");
@@ -152,10 +273,121 @@ test("draft storage tolerates malformed JSON, removes expired entries and isolat
   assert.equal(storage.getItem("unrelated"), "keep");
 });
 
+test("computeChatDisplay prioritizes active outbox pending/failed over older messages and drafts", () => {
+  const pendingOutbox = [
+    {
+      status: "pending" as const,
+      createdAt: "2026-01-02T00:00:00.000Z",
+      input: { type: "text" as const, content: "Offline message" },
+    },
+  ];
+  const pendingDisplay = computeChatDisplay(chat, undefined, "en", pendingOutbox);
+  assert.equal(pendingDisplay.state, "pending");
+  assert.equal(pendingDisplay.text, "Offline message");
+  assert.equal(pendingDisplay.translateText, false);
+
+  const photoPending = computeChatDisplay(chat, undefined, "en", [
+    {
+      status: "pending" as const,
+      createdAt: "2026-01-02T00:00:00.000Z",
+      input: { type: "image" as const, content: null },
+    },
+  ]);
+  assert.equal(photoPending.state, "pending");
+  assert.equal(photoPending.text, "Photo");
+  assert.equal(photoPending.translateText, true);
+
+  const failedOutbox = [
+    {
+      status: "failed" as const,
+      createdAt: "2026-01-02T00:00:00.000Z",
+      input: { type: "text" as const, content: "Server rejected" },
+    },
+  ];
+  assert.equal(computeChatDisplay(chat, undefined, "en", failedOutbox).state, "failed");
+
+  const olderDraft = {
+    text: "Stale draft",
+    mediaUrls: [],
+    replyToId: null,
+    updatedAt: "2026-01-01T12:00:00.000Z",
+  };
+  assert.equal(computeChatDisplay(chat, olderDraft, "en", pendingOutbox).state, "pending");
+
+  const newerDraft = {
+    text: "New typed draft",
+    mediaUrls: [],
+    replyToId: null,
+    updatedAt: "2026-01-03T00:00:00.000Z",
+  };
+  const draftDisplay = computeChatDisplay(chat, newerDraft, "en", pendingOutbox);
+  assert.equal(draftDisplay.state, "draft");
+  assert.equal(draftDisplay.text, "New typed draft");
+});
+
 test("URL validation handles TanStack JSON-decoded booleans and numeric searches", () => {
   assert.equal(validateChatSearch({ select: true, q: 123 }).select, "true");
   assert.equal(validateChatSearch({ select: "true", q: 123 }).q, "123");
   assert.equal(validateChatSearch({ filter: "requests", selectedIds: "invalid" }).filter, "all");
   assert.equal(validateChatSearch({ selectedIds: "invalid" }).selectedIds, "");
   assert.equal(validateChatSearch({ q: "a".repeat(400) }).q.length, 200);
+});
+
+test("computeChatDisplay formats system leave and removal previews without sender prefix", () => {
+  const leaveDisplay = computeChatDisplay(
+    {
+      ...chat,
+      type: "group",
+      senderName: "Someone",
+      lastMessageType: "system",
+      lastMessagePreview: "'Sofia' left the chat",
+    },
+    undefined,
+    "es",
+  );
+  assert.deepEqual(leaveDisplay, {
+    state: "message",
+    text: "'Sofia' salió del chat",
+    translateText: false,
+    prefix: "",
+    status: null,
+  });
+
+  const removedDisplay = computeChatDisplay(
+    {
+      ...chat,
+      type: "community_chat",
+      senderName: "Someone",
+      lastMessageType: "system",
+      lastMessagePreview: "'O'Connor' was removed from the chat",
+    },
+    undefined,
+    "en",
+  );
+  assert.deepEqual(removedDisplay, {
+    state: "message",
+    text: "'O'Connor' was removed from the chat",
+    translateText: false,
+    prefix: "",
+    status: null,
+  });
+
+  const joinedDisplay = computeChatDisplay(
+    {
+      ...chat,
+      type: "group",
+      senderName: "Someone",
+      lastMessageType: "system",
+      lastMessagePreview: "'Sofia' joined the chat",
+    },
+    undefined,
+    "es",
+  );
+  assert.deepEqual(joinedDisplay, {
+    state: "message",
+    text: "'Sofia' se unió al chat",
+    translateText: false,
+    prefix: "",
+    status: null,
+  });
 });

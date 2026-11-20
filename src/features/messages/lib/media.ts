@@ -2,6 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-provider";
 import {
+  computeSignedUrlRefreshMs,
+  getSignedUrlPolicy,
+  shouldRetrySignedUrl,
+} from "@/lib/signed-url-policy";
+import {
   getStorageErrorStatus,
   isStorageOutage,
   markStorageOutage,
@@ -10,17 +15,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import type { Upload } from "../types";
 
-const STALE_TIME_MS = 10 * 60 * 1000;
-const SHORT_REFRESH_BASE_MS = 4 * 60 * 1000;
-const SHORT_JITTER_MAX_MS = 2 * 60 * 1000;
-const LONG_REFRESH_BASE_MS = 50 * 60 * 1000;
-const LONG_JITTER_MAX_MS = 5 * 60 * 1000;
-
 export function getBucketTtlSeconds(bucket: string): number {
-  if (bucket === "story-media" || bucket === "channel-media") {
-    return 3600;
-  }
-  return 300;
+  return getSignedUrlPolicy(bucket).ttlSeconds;
 }
 
 export async function getSignedUrl(upload: Upload, download = false) {
@@ -49,28 +45,23 @@ export async function getSignedUrl(upload: Upload, download = false) {
 export function useMediaUrl(upload: Upload | undefined, options?: { enabled?: boolean }) {
   const { user } = useAuth();
   const [jitter] = useState(() => Math.random());
-  const isLongLivedBucket = upload?.bucket === "story-media" || upload?.bucket === "channel-media";
-  const refreshMs = isLongLivedBucket
-    ? LONG_REFRESH_BASE_MS + jitter * LONG_JITTER_MAX_MS
-    : SHORT_REFRESH_BASE_MS + jitter * SHORT_JITTER_MAX_MS;
+  const bucket = upload?.bucket ?? "chat-media";
+  const policy = getSignedUrlPolicy(bucket);
+  const refreshMs = computeSignedUrlRefreshMs(bucket, jitter);
   const enabled = (options?.enabled ?? true) && !!upload;
   return useQuery({
     queryKey: ["message-media", user?.id, upload?.id, upload?.path],
     enabled,
-    staleTime: STALE_TIME_MS,
-    gcTime: STALE_TIME_MS,
+    staleTime: policy.staleTimeMs,
+    gcTime: policy.gcTimeMs,
     refetchInterval: refreshMs,
     refetchOnWindowFocus: false,
     queryFn: () => {
       if (!upload) throw new Error("Media unavailable");
       return getSignedUrl(upload);
     },
-    retry: (count, err: unknown) => {
-      if (isStorageOutage()) return false;
-      const status = getStorageErrorStatus(err);
-      if (status === 504) return count < 1;
-      return count < 2;
-    },
+    retry: (count, err: unknown) =>
+      shouldRetrySignedUrl(count, getStorageErrorStatus(err), isStorageOutage()),
   });
 }
 

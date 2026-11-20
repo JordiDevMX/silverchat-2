@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { getAvailableActions } from "../src/features/messages/lib/actionMatrix.ts";
 import { audioExtension, audioMimeType } from "../src/features/messages/lib/audioMimeType.ts";
+import { filterForwardTargets } from "../src/features/messages/lib/forwardTargets.ts";
 import {
   computePeaks,
   formatVoiceTime,
@@ -173,4 +174,40 @@ test("channel followers only react/copy; owners retain editing without chat repl
     assert.ok(owner.includes(action as (typeof owner)[number]));
   for (const action of ["reply", "pin", "unpin"])
     assert.ok(!owner.includes(action as (typeof owner)[number]));
+});
+
+test("write-restricted chats omit reply while preserving react, copy, forward and delete_for_me", () => {
+  const restricted = getAvailableActions(row({ sender_id: "other" }), "me", false, now, true);
+  assert.ok(!restricted.includes("reply"));
+  for (const allowed of ["react", "copy", "forward", "pin", "delete_for_me"] as const) {
+    assert.ok(restricted.includes(allowed));
+  }
+});
+
+test("filterForwardTargets excludes archived, blocked, and non-writable chats", () => {
+  const targets = filterForwardTargets(
+    [
+      { id: "open", displayName: "Friends", archivedAt: null, isBlocked: false, canSend: true },
+      {
+        id: "restricted",
+        displayName: "Announcements",
+        archivedAt: null,
+        isBlocked: false,
+        canSend: false,
+      },
+      {
+        id: "archived",
+        displayName: "Old Group",
+        archivedAt: "2026-01-01",
+        isBlocked: false,
+        canSend: true,
+      },
+      { id: "blocked", displayName: "Blocked", archivedAt: null, isBlocked: true, canSend: true },
+    ] as never,
+    "",
+  );
+  assert.deepEqual(
+    targets.map((c) => c.id),
+    ["open"],
+  );
 });

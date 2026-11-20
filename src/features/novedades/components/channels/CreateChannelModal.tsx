@@ -36,7 +36,7 @@ export function CreateChannelModal({ onClose }: { onClose: () => void }) {
     >
       {(close) => (
         <>
-          <form className="channel-form" onSubmit={submit}>
+          <form className="channel-form" data-clipboard-reason="avatar-hint" onSubmit={submit}>
             <label className="field">
               {say("Name", "Nombre")}
               <input

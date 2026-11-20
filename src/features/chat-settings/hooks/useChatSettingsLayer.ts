@@ -56,7 +56,7 @@ export function useChatSettingsLayer(
   };
   const choose = async (action: ChatAction) => {
     ui.close();
-    if (action === "view_profile" || action === "block" || action === "report") {
+    if (action === "view_profile" || action === "block") {
       if (chat.otherUserId)
         ui.open(chat.id, {
           kind: action === "view_profile" ? "contact" : action,

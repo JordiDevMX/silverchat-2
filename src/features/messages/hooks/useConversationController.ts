@@ -1,8 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useStore } from "zustand";
+import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
 import { readDrafts } from "@/features/chats/drafts";
+import { chatKey } from "@/features/chats/hooks/useChats";
 import { useRequestMutation } from "@/features/chats/hooks/useMessageRequests";
+import type { Chat } from "@/features/chats/types";
+import { reactionNotificationStore } from "@/features/chats/utils/reactionNotifications";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { useMessageText } from "../i18n";
@@ -17,7 +22,7 @@ export function useConversationController(chatId: string) {
   const router = useRouter();
   const { user } = useAuth();
   const cache = useQueryClient();
-  const { say } = useMessageText();
+  const { say, language } = useMessageText();
   const requests = useRequestMutation();
   const query = useMessages(chatId);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -31,6 +36,36 @@ export function useConversationController(chatId: string) {
     if (searchOpen && search.current) navigate(search.current);
     else if (searchOpen) setNavigation(null);
   }, [searchOpen, search.current, navigate]);
+  const pendingNav = useStore(reactionNotificationStore, (s) => s.pendingNavigation);
+  useEffect(() => {
+    if (pendingNav?.chatId === chatId) {
+      navigate(pendingNav.messageId);
+      reactionNotificationStore.getState().clearNavigation(pendingNav.serial);
+    }
+  }, [chatId, navigate, pendingNav]);
+  const storeEntries = useStore(reactionNotificationStore, (s) => s.entries);
+  const hasStoreReactions = Object.values(storeEntries).some((e) => e.chatId === chatId);
+  useEffect(() => {
+    if (document.visibilityState !== "visible" || !user?.id) return;
+    if (useChatUIStore.getState().noticeAction?.chatId === chatId) {
+      reactionNotificationStore.getState().setActiveToast(null, null);
+      useChatUIStore.getState().notify("");
+    }
+    const cachedChat = cache.getQueryData<Chat[]>(chatKey(user.id))?.find((c) => c.id === chatId);
+    const hasUnreadReactionInChat =
+      hasStoreReactions ||
+      ((cachedChat?.unreadReactionCount ?? 0) > 0 && cachedChat?.unreadCount === 0);
+    if (!hasUnreadReactionInChat) return;
+    reactionNotificationStore.getState().clearChat(chatId);
+    if ((cachedChat?.unreadCount ?? 0) === 0) {
+      void supabase.rpc("mark_chat_as_read", { p_chat_id: chatId }).then((res) => {
+        if (!res.error) {
+          void cache.invalidateQueries({ queryKey: chatKey(user.id) });
+          void cache.invalidateQueries({ queryKey: ["community-chats", user.id] });
+        }
+      });
+    }
+  }, [cache, chatId, hasStoreReactions, user?.id]);
   const [replyId, setReplyId] = useState<string | null>(() => {
     try {
       return readDrafts(localStorage, user?.id ?? "").get(chatId)?.replyToId ?? null;
@@ -102,6 +137,7 @@ export function useConversationController(chatId: string) {
     chat,
     send,
     say,
+    language,
     requests,
     query,
     searchOpen,

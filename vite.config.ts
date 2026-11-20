@@ -6,6 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { seoPlugin } from "./scripts/vite-plugin-seo.ts";
 
 // "@" → "src/" path alias. Mirrors the "paths" mapping in tsconfig.app.json.
 // Manual alias per Prompt #2 §6 (vite-tsconfig-paths OR manual resolve.alias).
@@ -44,7 +45,7 @@ export default defineConfig({
       JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version,
     ),
   },
-  plugins: [...tanstackDevtools, react(), tailwindcss()],
+  plugins: [...tanstackDevtools, react(), tailwindcss(), seoPlugin()],
   resolve: { alias },
   server: { host: "127.0.0.1", port: 5173, strictPort: true },
 });

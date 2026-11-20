@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { CHAT_QUERY_OPTIONS } from "@/features/messages/lib/chatQueryPolicy";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { directPairKey } from "../lib/chatActions";
@@ -6,7 +7,7 @@ export function useContactProfile(userId: string) {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["contact-profile", user?.id, userId],
-    refetchInterval: 30000,
+    ...CHAT_QUERY_OPTIONS,
     queryFn: async () => {
       const [profile, chat] = await Promise.all([
         supabase.from("profiles_visible").select("*").eq("id", userId).maybeSingle(),

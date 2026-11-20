@@ -2,6 +2,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { writeDraft } from "@/features/chats/drafts";
 import { useMessageText } from "@/features/messages/i18n";
+import { clearChatOutbox } from "@/features/messages/lib/outbox";
+import { outboxKey } from "@/features/messages/types";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { refreshChatSettings } from "../lib/cache";
@@ -22,6 +24,10 @@ export function useLeaveGroup(chatId: string) {
       if (result.error) throw result.error;
       if (!result.data?.length) throw new Error("Membership was not removed");
       writeDraft(chatId, null);
+      if (user?.id) {
+        clearChatOutbox(user.id, chatId);
+        cache.removeQueries({ queryKey: outboxKey(user.id, chatId) });
+      }
     },
     onSuccess: async () => {
       useChatUIStore.getState().close();

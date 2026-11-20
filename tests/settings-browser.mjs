@@ -2,13 +2,9 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { launchBrowser } from "./lib/browser.mjs";
 
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? "/usr/bin/chromium",
-  headless: true,
-  args: ["--no-sandbox"],
-});
+const browser = await launchBrowser({ args: ["--no-sandbox"] });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
 const page = await context.newPage();
 page.setDefaultTimeout(10000);
@@ -84,6 +80,8 @@ let enrollmentAal = "aal2";
 const backupWrites = [];
 let replacementHashes = [];
 let requestedUser = null;
+const reports = [];
+const blockCalls = [];
 const fulfill = (route, body, status = 200) =>
   route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 await page.route("**/api/auth/**", async (route) => {
@@ -170,8 +168,13 @@ await page.route("https://supabase.test/**", async (route) => {
       route,
       blocked ? [{ id: otherId, username: "bob", display_name: "Bob Stone" }] : [],
     );
+  if (path.endsWith("/reports")) {
+    reports.push(request.postDataJSON());
+    return fulfill(route, null, 201);
+  }
   if (path.endsWith("/user_blocks")) {
     if (method === "GET") return fulfill(route, blocked ? [{ blocked_id: otherId }] : []);
+    if (method === "POST") blockCalls.push(request.postDataJSON());
     if (method === "DELETE") {
       if (unblockGate) await unblockGate;
       if (failUnblock) return fulfill(route, { message: "Could not unblock — test rollback" }, 503);
@@ -267,8 +270,23 @@ const visit = async (path, title) => {
   await page.getByRole("heading", { name: title, exact: true }).first().waitFor();
 };
 try {
-  await visit("/settings", "Settings");
-  await page.getByRole("heading", { name: "Alice Rivera" }).waitFor();
+  await visit("/settings", "Account");
+  await page.waitForURL("**/settings/account");
+  assert.equal(
+    await page.locator('.settings-sidebar a[aria-current="page"]').textContent(),
+    "Account",
+  );
+  await page.locator(".settings-main .profile-card").getByRole("heading", { name: "Alice Rivera" }).waitFor();
+  await page.locator(".settings-main .profile-card").getByText("@alice", { exact: true }).waitFor();
+  assert.equal(
+    await page.locator(".settings-main .profile-card").getByRole("link", { name: "Edit profile", exact: true }).getAttribute("href"),
+    "/settings/profile",
+  );
+  assert.equal(
+    await page.locator('.settings-main a[href="/settings/appearance"]').count(),
+    0,
+    "Settings menu links must not be duplicated in main content area",
+  );
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page
     .locator(".settings-sidebar")
@@ -279,9 +297,10 @@ try {
     await page.locator('.settings-sidebar a[aria-current="page"]').textContent(),
     "Appearance",
   );
+  assert.equal(await page.locator(".settings-main .profile-card").count(), 0);
   await page.goBack();
-  await page.getByRole("heading", { name: "Settings", exact: true }).waitFor();
-  console.log("PASS settings index, identity, URL navigation/history and desktop layout");
+  await page.getByRole("heading", { name: "Account", exact: true }).waitFor();
+  console.log("PASS settings default Account route, profile card placement, no duplication, URL navigation/history and desktop layout");
   await visit("/settings/profile", "Edit profile");
   await page.getByLabel("Display name", { exact: true }).fill("Alice Updated");
   await page.getByLabel("Bio", { exact: true }).fill("Updated bio");
@@ -385,6 +404,29 @@ try {
   await page.getByRole("heading", { name: "Alice Updated", exact: true }).waitFor();
   console.log("PASS permission-empty profile and shared query error/retry recovery");
   await visit("/profile/bob", "Bob Stone");
+  await page.getByRole("button", { name: "Report", exact: true }).click();
+  const profileReportDialog = page.getByRole("dialog", { name: "Report user", exact: true });
+  await profileReportDialog.waitFor();
+  const profileRadios = await profileReportDialog
+    .locator('input[type="radio"]')
+    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
+  assert.equal(profileRadios.length, 4);
+  for (const box of profileRadios) {
+    assert.ok(box.width <= 24 && box.height <= 24);
+    assert.ok(Math.abs(box.x - profileRadios[0].x) <= 1);
+  }
+  await profileReportDialog.getByRole("radio", { name: "Harassment", exact: true }).check();
+  await profileReportDialog.getByRole("switch").click();
+  await profileReportDialog.getByRole("button", { name: "Report and block", exact: true }).click();
+  await profileReportDialog.waitFor({ state: "detached" });
+  assert.deepEqual(reports.at(-1), {
+    reporter_id: id,
+    reported_channel_id: null,
+    reported_user_id: otherId,
+    reason: "harassment",
+    description: null,
+  });
+  assert.deepEqual(blockCalls.at(-1), { blocker_id: id, blocked_id: otherId });
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await page.waitForURL("**/chats/33333333-3333-4333-8333-333333333333");
   assert.equal(requestedUser, otherId);
@@ -636,9 +678,21 @@ try {
   for (const [width, height] of [
     [375, 844],
     [768, 1024],
+    [801, 900],
+    [1024, 900],
     [1280, 900],
   ]) {
     await page.setViewportSize({ width, height });
+    await visit("/settings", "Account");
+    await page.waitForURL("**/settings/account");
+    assert.equal(await page.locator(".settings-sidebar").isVisible(), true);
+    assert.equal(await page.locator(".settings-sidebar nav a").count(), 8);
+    assert.equal(
+      await page.locator('.settings-main a[href="/settings/appearance"]').count(),
+      0,
+      `No duplicate nav links in main at width ${width}`,
+    );
+    assert.equal(await page.locator(".settings-main .profile-card").count(), 1);
     for (const [path, title] of [
       ["/settings/profile", "Edit profile"],
       ["/settings/profile/social", "Social links"],
@@ -693,11 +747,14 @@ try {
     "PASS all migrated routes at 375/768/1280 widths, actual avatar validation/focus and six-digit MFA form containment",
   );
   await page.setViewportSize({ width: 390, height: 844 });
-  await visit("/settings", "Settings");
+  await visit("/settings", "Account");
+  await page.waitForURL("**/settings/account");
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await visit("/settings/storage", "Storage");
+  await page.locator(".settings-sidebar").getByRole("link", { name: "Storage", exact: true }).click();
+  await page.getByRole("heading", { name: "Storage", exact: true }).waitFor();
   await page.getByText(/MB used/).waitFor();
-  await visit("/settings/about", "About");
+  await page.locator(".settings-sidebar").getByRole("link", { name: "About", exact: true }).click();
+  await page.getByRole("heading", { name: "About", exact: true }).waitFor();
   const version = JSON.parse(
     readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   ).version;

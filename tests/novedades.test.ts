@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  applyFollowOptimistic,
+  applyUnfollowOptimistic,
+} from "../src/features/novedades/lib/channelFollowCache.ts";
+import {
   orderStoryGroups,
   slugify,
   validSlug,
 } from "../src/features/novedades/lib/storyOrdering.ts";
-import type { StoryGroup } from "../src/features/novedades/types.ts";
+import type { Channel, StoryGroup } from "../src/features/novedades/types.ts";
 
 const group = (user_id: string, last_created_at: string, has_unwatched: boolean): StoryGroup => ({
   user_id,
@@ -42,4 +46,45 @@ test("channel slugs normalize accents and enforce the locked length/character ru
     assert.equal(validSlug(value), false, value);
   for (const value of ["abc", "abc-123", "a".repeat(50)])
     assert.equal(validSlug(value), true, value);
+});
+test("channel follow cache helpers update follower count and follow state optimistically", () => {
+  const channel: Channel = {
+    id: "ch-1",
+    owner_id: "owner-1",
+    name: "Tech Updates",
+    slug: "tech-updates",
+    description: null,
+    avatar_url: null,
+    follower_count: 10,
+    is_verified: false,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    last_message_id: null,
+    last_message_at: null,
+    last_message_preview: null,
+  };
+  const followed = applyFollowOptimistic(
+    { channel, follow: null },
+    "user-1",
+    "2026-11-18T00:00:00Z",
+  );
+  assert.equal(followed?.channel.follower_count, 11);
+  assert.equal(followed?.follow?.user_id, "user-1");
+  assert.equal(followed?.follow?.channel_id, "ch-1");
+  // Idempotent when already followed
+  assert.equal(
+    applyFollowOptimistic(followed, "user-1", "2026-11-18T00:01:00Z")?.channel.follower_count,
+    11,
+  );
+  const unfollowed = applyUnfollowOptimistic(followed);
+  assert.equal(unfollowed?.channel.follower_count, 10);
+  assert.equal(unfollowed?.follow, null);
+  // Clamps follower_count at zero
+  assert.ok(followed?.follow);
+  const zeroFloor = applyUnfollowOptimistic({
+    channel: { ...channel, follower_count: 0 },
+    follow: followed.follow,
+  });
+  assert.equal(zeroFloor?.channel.follower_count, 0);
+  assert.equal(zeroFloor?.follow, null);
 });

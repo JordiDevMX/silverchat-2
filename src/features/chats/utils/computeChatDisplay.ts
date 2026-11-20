@@ -1,4 +1,44 @@
-import type { Chat, Draft, FilterKey } from "../types.ts";
+import type { Language } from "../../../lib/language.ts";
+import type { OutboxEntry } from "../../messages/lib/outbox.ts";
+import { formatSystemMessageText } from "../../messages/lib/systemMessageText.ts";
+import type { Chat, Draft, FilterKey, MessageType } from "../types.ts";
+import { aggregateReactionSummary } from "./reactionNotifications.ts";
+
+const mediaPreviewRules: Partial<Record<MessageType, { prefix: RegExp; fallback: string }>> = {
+  image: { prefix: /^📷\s*(?:Photo(?:\s*—\s*|$))?/u, fallback: "Photo" },
+  video: { prefix: /^🎥\s*(?:Video(?:\s*—\s*|$))?/u, fallback: "Video" },
+  audio: { prefix: /^🎤\s*(?:Audio(?:\s*—\s*|$))?/u, fallback: "Audio" },
+  file: { prefix: /^📄\s*/u, fallback: "File" },
+  sticker: { prefix: /^🎨\s*(?:Sticker(?:\s*—\s*|$))?/u, fallback: "Sticker" },
+  location: {
+    prefix: /^📍\s*(?:Location(?:\s*—\s*|$))?/u,
+    fallback: "Location",
+  },
+  contact: { prefix: /^👤\s*(?:Contact(?:\s*—\s*|$))?/u, fallback: "Contact" },
+};
+
+function resolveMessagePreview(
+  type: MessageType | null,
+  rawPreview: string | null,
+  language: Language,
+): { text: string; translateText: boolean } {
+  if (type === "system" && rawPreview) {
+    return {
+      text: formatSystemMessageText(rawPreview, language),
+      translateText: false,
+    };
+  }
+  const rule = type ? mediaPreviewRules[type] : undefined;
+  if (rule) {
+    const cleaned = (rawPreview ?? "").trim().replace(rule.prefix, "").trim();
+    if (!cleaned || cleaned === rule.fallback) {
+      return { text: rule.fallback, translateText: true };
+    }
+    return { text: cleaned, translateText: false };
+  }
+  if (!rawPreview) return { text: "No messages yet", translateText: true };
+  return { text: rawPreview, translateText: false };
+}
 export function isMuted(chat: Pick<Chat, "mutedUntil">, now = Date.now()) {
   return !!chat.mutedUntil && Date.parse(chat.mutedUntil) > now;
 }
@@ -11,7 +51,7 @@ export function applyFilter(chats: Chat[], filter: FilterKey) {
       case "favorites":
         return !!c.favoritedAt;
       case "unread":
-        return c.manuallyUnread || c.unreadCount > 0;
+        return c.manuallyUnread || c.unreadCount > 0 || (c.unreadReactionCount ?? 0) > 0;
       case "groups":
         return c.type === "group" || c.type === "community_chat";
       case "muted":
@@ -47,7 +87,11 @@ export function orderChats(chats: Chat[]) {
   });
 }
 export function receiptStatus(
-  receipts: { user_id: string; delivered_at: string | null; read_at: string | null }[],
+  receipts: {
+    user_id: string;
+    delivered_at: string | null;
+    read_at: string | null;
+  }[],
   recipients: string[],
 ): "sent" | "delivered" | "read" {
   // Missing/hidden receipts never imply delivery or read. Respect fair-trade RLS.
@@ -57,41 +101,126 @@ export function receiptStatus(
   if (rows.every((r) => r?.delivered_at)) return "delivered";
   return "sent";
 }
-export function computeChatDisplay(chat: Chat, draft?: Draft) {
+function resolveOutboxPreview(input: OutboxEntry["input"]): {
+  text: string;
+  translateText: boolean;
+} {
+  const text = input.content?.trim();
+  if (text) return { text, translateText: false };
+  if (input.type === "file" && input.upload?.original_filename) {
+    return { text: input.upload.original_filename, translateText: false };
+  }
+  const fallback = mediaPreviewRules[input.type]?.fallback;
+  if (fallback) return { text: fallback, translateText: true };
+  return { text: "Attachment", translateText: true };
+}
+export function computeChatDisplay(
+  chat: Chat,
+  draft?: Draft,
+  language: "en" | "es" = "en",
+  outbox: Pick<OutboxEntry, "status" | "createdAt" | "input">[] = [],
+) {
+  const latestActivity = Math.max(
+    chat.lastMessageAt ? Date.parse(chat.lastMessageAt) : 0,
+    chat.reactionSummary?.createdAt ? Date.parse(chat.reactionSummary.createdAt) : 0,
+  );
+  const latestPending = outbox.filter((entry) => entry.status === "pending").at(-1);
+  const latestFailed = outbox.filter((entry) => entry.status === "failed").at(-1);
+  const activeOutbox = latestPending ?? latestFailed;
   const newer =
     draft &&
-    Date.parse(draft.updatedAt) > (chat.lastMessageAt ? Date.parse(chat.lastMessageAt) : 0);
+    Date.parse(draft.updatedAt) > latestActivity &&
+    (!activeOutbox || Date.parse(draft.updatedAt) > Date.parse(activeOutbox.createdAt));
   if (newer && draft.failed)
-    return { state: "failed", text: "Message failed to send", prefix: "", status: null } as const;
-  if (newer && draft.pending)
-    return { state: "pending", text: draft.text, prefix: "", status: null } as const;
-  if (newer)
     return {
-      state: "draft",
-      text: draft.text || "Attachment",
-      prefix: "Draft",
+      state: "failed",
+      text: "Message failed to send",
+      translateText: true,
+      prefix: "",
       status: null,
     } as const;
+  if (newer && draft.pending) {
+    const text = draft.text.trim();
+    return {
+      state: "pending",
+      text: text || "Attachment",
+      translateText: !text,
+      prefix: "",
+      status: null,
+    } as const;
+  }
+  if (newer) {
+    const text = draft.text.trim();
+    return {
+      state: "draft",
+      text: text || "Attachment",
+      translateText: !text,
+      prefix: "",
+      status: null,
+    } as const;
+  }
+  if (activeOutbox) {
+    if (activeOutbox.status === "failed") {
+      return {
+        state: "failed",
+        text: "Message failed to send",
+        translateText: true,
+        prefix: "",
+        status: null,
+      } as const;
+    }
+    const preview = resolveOutboxPreview(activeOutbox.input);
+    return {
+      state: "pending",
+      text: preview.text,
+      translateText: preview.translateText,
+      prefix: "",
+      status: null,
+    } as const;
+  }
+  if (
+    chat.reactionSummary?.entries.length &&
+    (!chat.lastMessageAt ||
+      Date.parse(chat.reactionSummary.createdAt) >= Date.parse(chat.lastMessageAt))
+  ) {
+    const summary = aggregateReactionSummary(chat.reactionSummary.entries, language);
+    if (summary)
+      return {
+        state: "reaction",
+        text: summary.text,
+        translateText: false,
+        prefix: "",
+        status: null,
+      } as const;
+  }
   if (chat.deletedForEveryone)
     return {
       state: "deleted",
       text: "This message was deleted",
+      translateText: true,
       prefix: "",
       status: null,
     } as const;
   const prefix =
-    chat.type === "self"
+    chat.lastMessageType === "system" || chat.type === "self"
       ? ""
       : chat.isMyLastMessage
         ? "You"
         : chat.type === "group" || chat.type === "community_chat"
           ? chat.senderName
           : "";
+  const preview = resolveMessagePreview(chat.lastMessageType, chat.lastMessagePreview, language);
   return {
     state: "message",
-    text: chat.lastMessagePreview || "No messages yet",
+    text: preview.text,
+    translateText: preview.translateText,
     prefix,
-    status: chat.isMyLastMessage ? chat.lastMessageStatus : null,
+    status:
+      chat.lastMessageType === "system"
+        ? null
+        : chat.isMyLastMessage
+          ? chat.lastMessageStatus
+          : null,
   } as const;
 }
 export function badgeText(count: number) {
@@ -99,14 +228,15 @@ export function badgeText(count: number) {
 }
 /** Navigation badge totals. Community chats belong to the Communities tab; the rest to Chats. */
 export function navigationUnread(
-  chats: Pick<Chat, "type" | "unreadCount" | "archivedAt" | "mutedUntil">[],
+  chats: Pick<Chat, "type" | "unreadCount" | "unreadReactionCount" | "archivedAt" | "mutedUntil">[],
 ) {
   let chatUnread = 0;
   let communityUnread = 0;
   for (const chat of chats) {
     if (chat.archivedAt || isMuted(chat)) continue;
-    if (chat.type === "community_chat") communityUnread += chat.unreadCount;
-    else chatUnread += chat.unreadCount;
+    const total = chat.unreadCount + (chat.unreadReactionCount ?? 0);
+    if (chat.type === "community_chat") communityUnread += total;
+    else chatUnread += total;
   }
   return { chatUnread, communityUnread };
 }

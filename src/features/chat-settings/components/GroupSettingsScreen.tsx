@@ -1,10 +1,12 @@
-import { Users } from "lucide-react";
-import { useState } from "react";
+import { Lock, Users } from "lucide-react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatSettingsScreenSurface } from "@/components/ui/chat-settings-surfaces";
-import { CardSurface } from "@/components/ui/settings-row";
+import { CardSurface, SettingsRowContent } from "@/components/ui/settings-row";
+import { Switch } from "@/components/ui/switch";
 import { CommunitySettingsActions } from "@/features/communities/components/CommunitySettingsActions";
 import { useMessageText } from "@/features/messages/i18n";
+import { canManageGroupWriteRule } from "@/features/messages/lib/writePermissions";
 import type { ChatDetails } from "@/features/messages/types";
 import { AvatarPickerModal } from "@/features/settings/components/AvatarPickerModal";
 import { Avatar, NavLink } from "@/features/settings/components/shared";
@@ -20,11 +22,13 @@ function GroupFields({
   busy,
   onSave,
   context = "group",
+  descriptionRef,
 }: {
   chat: ChatDetails;
   busy: boolean;
   onSave: (patch: { name?: string; description?: string }) => Promise<void>;
   context?: "group" | "community";
+  descriptionRef?: RefObject<HTMLTextAreaElement | null>;
 }) {
   const { say, name, setName, description, setDescription, error, save } = useGroupFields(
     chat,
@@ -47,6 +51,7 @@ function GroupFields({
       <label className="field">
         {say("Description", "Descripción")}
         <textarea
+          ref={descriptionRef}
           value={description}
           maxLength={500}
           rows={4}
@@ -71,6 +76,14 @@ export function GroupSettingsScreen(
   const { say, language } = useMessageText();
   const ui = useChatUIStore();
   const [photo, setPhoto] = useState(false);
+  const [permError, setPermError] = useState("");
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!chat) return;
+    if (new URLSearchParams(window.location.search).get("focus") === "description") {
+      descriptionRef.current?.focus();
+    }
+  }, [chat]);
   if (!chat) return <ChatSettingsLoading query={hook.chat} />;
   if (!["group", "community_chat"].includes(chat.type)) return <ChatSettingsLoading />;
   const admin = chat.own?.role === "admin";
@@ -92,7 +105,11 @@ export function GroupSettingsScreen(
       <div className="group-photo">
         {chat.avatar ? (
           <Avatar
-            profile={{ id: chat.id, display_name: chat.name, avatar_url: chat.avatar }}
+            profile={{
+              id: chat.id,
+              display_name: chat.name,
+              avatar_url: chat.avatar,
+            }}
             size="large"
           />
         ) : (
@@ -106,7 +123,7 @@ export function GroupSettingsScreen(
           </Button>
         )}
       </div>
-      <CardSurface className="chat-info-card">
+      <CardSurface className="chat-info-card" data-clipboard-reason="avatar-hint">
         {admin ? (
           <GroupFields
             key={`${chat.name}:${chat.description}`}
@@ -114,6 +131,7 @@ export function GroupSettingsScreen(
             busy={hook.busy}
             onSave={hook.save}
             context={context}
+            descriptionRef={descriptionRef}
           />
         ) : (
           <>
@@ -145,6 +163,50 @@ export function GroupSettingsScreen(
               {say("Shared media →", "Archivos compartidos →")}
             </NavLink>
           </nav>
+          {canManageGroupWriteRule(context, chat.type, chat.own?.role) && (
+            <CardSurface className="chat-permissions-card">
+              <div className="flex min-h-12 w-full items-center gap-3 px-3.5 py-2.5 text-left text-foreground">
+                <SettingsRowContent
+                  icon={<Lock />}
+                  label={
+                    <label htmlFor="only-admins-can-send">
+                      {say(
+                        "Only admins can send messages",
+                        "Solo los administradores pueden enviar mensajes",
+                      )}
+                    </label>
+                  }
+                  subtitle={say(
+                    "Members can still read messages and react.",
+                    "Los miembros aún pueden leer mensajes y reaccionar.",
+                  )}
+                  right={
+                    <Switch
+                      id="only-admins-can-send"
+                      checked={Boolean(chat.onlyAdminsCanSend)}
+                      disabled={hook.busy}
+                      onCheckedChange={(checked) => {
+                        setPermError("");
+                        void hook.save({ only_admins_can_send: checked }).catch(() => {
+                          setPermError(
+                            say(
+                              "Unable to update chat permissions. Please try again.",
+                              "No se pudieron actualizar los permisos del chat. Inténtalo de nuevo.",
+                            ),
+                          );
+                        });
+                      }}
+                    />
+                  }
+                />
+              </div>
+              {permError && (
+                <p role="alert" className="px-3.5 py-2 text-sm text-destructive">
+                  {permError}
+                </p>
+              )}
+            </CardSurface>
+          )}
           <Button
             type="button"
             variant="destructive"

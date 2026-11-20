@@ -77,6 +77,7 @@ const spanish: Record<string, string> = {
     "Las notificaciones push llegarán en una versión futura.",
   "Preview notification": "Probar notificación",
   "New message": "Nuevo mensaje",
+  "New reaction": "Nueva reacción",
   "This is how your message previews look.": "Así se ven las vistas previas de tus mensajes.",
   Email: "Correo electrónico",
   "Change email": "Cambiar correo",
@@ -103,6 +104,7 @@ const spanish: Record<string, string> = {
   Unblock: "Desbloquear",
   Unblocked: "Desbloqueado",
   Block: "Bloquear",
+  Report: "Reportar",
   "Search contacts": "Buscar contactos",
   "No contacts found.": "No se encontraron contactos.",
   "Profile photo": "Foto de perfil",
@@ -166,6 +168,11 @@ const spanish: Record<string, string> = {
   "A little closer, wherever you are.": "Un poco más cerca, estés donde estés.",
   "Made for the conversations that matter.": "Hecho para las conversaciones que importan.",
   "Return home": "Volver al inicio",
+  "Review devices": "Revisar dispositivos",
+  "Open security settings": "Abrir seguridad",
+  Dismiss: "Cerrar",
+  "Backup code used. Please re-enable 2FA in settings.":
+    "Usaste un código de respaldo. Reactiva 2FA en ajustes.",
 };
 const I18nContext = createContext<{
   language: Language;

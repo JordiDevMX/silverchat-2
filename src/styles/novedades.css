@@ -5,7 +5,7 @@
     min-width: 0;
     max-width: 940px;
     margin: 0 auto;
-    padding: 32px 28px 125px;
+    padding: 32px 28px 40px;
     min-height: 100dvh;
   }
   .novedades-page .novedades-header {
@@ -24,7 +24,6 @@
     color: inherit;
     text-decoration: none;
   }
-  :where(.novedades-header) input,
   :where(.novedades-page .field) input,
   :where(.novedades-page .field) textarea,
   .channel-create-modal :where(input:not([type="file"])),
@@ -107,12 +106,6 @@
   .story-card.empty:after {
     display: none;
   }
-  .story-card .avatar {
-    border: 2px solid var(--muted-foreground);
-  }
-  .story-card.unwatched .avatar {
-    border-color: var(--primary);
-  }
   .story-card-preview {
     position: absolute;
     inset: 0;
@@ -155,21 +148,12 @@
     cursor: pointer;
   }
   .novedades-bottom {
-    position: sticky;
-    bottom: 15px;
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
     gap: 12px;
-    padding: 18px;
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    margin-top: 30px;
-    box-shadow: 0 8px 30px #0001;
-    z-index: 5;
-  }
-  .novedades-bottom > * {
-    flex: 1;
-    justify-content: center;
+    margin-top: 24px;
+    padding: 0;
   }
   .channel-list-item,
   .discover-channel {
@@ -309,8 +293,15 @@
     gap: 12px;
     flex: none;
   }
-  .story-viewer-header > span:not(.story-pause-indicator) {
+  .story-viewer-header > span:not([data-slot="avatar"]):not(.story-pause-indicator) {
     flex: 1;
+    min-width: 0;
+  }
+  .story-viewer-header > span:not([data-slot="avatar"]):not(.story-pause-indicator) strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .story-viewer-header small {
     display: block;
@@ -325,6 +316,82 @@
     border-radius: 12px;
     cursor: pointer;
     padding: 8px 12px;
+  }
+  .story-viewer-shell {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+  }
+  .story-chrome {
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+  .story-viewer-shell[data-chrome-hidden="true"] .story-chrome {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .story-cube-viewport {
+    flex: 1;
+    min-height: 120px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #080a0f;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    cursor: grab;
+  }
+  .story-cube-viewport[data-dragging="true"] {
+    cursor: grabbing;
+  }
+  .story-cube-stage-3d {
+    position: absolute;
+    inset: 0;
+    perspective: 1100px;
+    perspective-origin: 50% 50%;
+    transform-style: preserve-3d;
+  }
+  .story-cube-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform-origin: 50% 50%;
+    will-change: transform, opacity;
+  }
+  .story-cube-face-surface {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #101218;
+  }
+  .story-cube-face-surface img,
+  .story-cube-face-surface video {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    -webkit-user-drag: none;
+  }
+  .story-cube-shade {
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    will-change: opacity;
   }
   .story-stage {
     flex: 1;
@@ -369,21 +436,35 @@
     justify-content: space-between;
     flex: none;
   }
+  .story-viewer footer {
+    flex: none;
+    padding: 0;
+  }
   .story-reply {
     display: flex;
-    gap: 10px;
+    flex-direction: row;
     flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
   }
   .story-reply input {
-    flex: 1;
+    flex: 1 1 0%;
     min-width: 0;
-    border-radius: 24px;
-    padding: 12px 16px;
+    width: auto;
+    min-height: 44px;
+    border-radius: 9999px;
+    padding: 10px 16px;
     border: 1px solid #ffffff40;
-    background: #ffffff10;
+    background: #ffffff14;
     color: white;
+    font: inherit;
+    font-size: max(1rem, 1em);
+    line-height: 1.35;
   }
-  .story-reply button,
+  .story-reply input::placeholder {
+    color: #ffffff99;
+  }
   .story-play {
     border: 0;
     border-radius: 24px;
@@ -391,12 +472,14 @@
     color: white;
     padding: 10px 18px;
     cursor: pointer;
-  }
-  .story-play {
     z-index: 2;
   }
   .story-reply p {
+    flex: 1 0 100%;
     width: 100%;
+    margin: 0;
+    font-size: 13px;
+    color: #ff9eaa;
   }
   .story-viewers-sheet {
     max-height: 75dvh;
@@ -418,12 +501,39 @@
     overflow: auto;
   }
   .story-create-preview {
+    position: relative;
     height: 300px;
     background: var(--card);
+    border: 1px dashed var(--border);
     border-radius: 16px;
     display: grid;
     place-items: center;
     margin: 16px 0;
+    overflow: hidden;
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+  .story-create-preview[data-drag-active="true"] {
+    border-color: var(--neon);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--neon) 28%, transparent);
+  }
+  .story-clear-media {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: grid;
+    place-items: center;
+    min-width: 30px;
+    min-height: 30px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: color-mix(in oklab, var(--background) 85%, transparent);
+    color: var(--foreground);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+  }
+  .story-clear-media:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   .story-create-preview img,
   .story-create-preview video {
@@ -512,16 +622,10 @@
   }
   @media (max-width: 640px) {
     .novedades-page {
-      padding: 22px 16px 105px;
+      padding: 22px 16px 28px;
     }
     .novedades-bottom {
-      bottom: 80px;
-      padding: 12px;
-      gap: 8px;
-    }
-    .novedades-bottom .button {
-      font-size: 13px;
-      padding: 12px 8px;
+      gap: 10px;
     }
     .auth-modal.channel-create-modal,
     .auth-modal.story-creator {
@@ -599,20 +703,6 @@
     outline: 2px solid var(--ring);
     outline-offset: 3px;
   }
-  .story-avatar-ring {
-    border: 2px solid #ffffff55;
-    border-radius: 50%;
-    padding: 2px;
-  }
-  .unwatched .story-avatar-ring {
-    border-color: var(--neon);
-    box-shadow: var(--shadow-glow);
-  }
-  .story-card .story-avatar-ring .avatar {
-    width: 32px;
-    height: 32px;
-    border: 0;
-  }
   .story-camera {
     display: grid;
     place-items: center;
@@ -663,6 +753,7 @@
   .story-viewer-header button {
     display: grid;
     place-items: center;
+    flex: none;
     padding: 8px;
     border-radius: 50%;
   }
@@ -687,13 +778,6 @@
   }
   .story-owner-views {
     width: 100%;
-  }
-  .story-reply .story-send {
-    width: 44px;
-    height: 44px;
-    padding: 0;
-    border-radius: 50%;
-    color: var(--primary-foreground);
   }
   .story-delete-action {
     background: color-mix(in oklab, var(--destructive) 16%, #101218);
@@ -760,6 +844,13 @@
     .story-overlay .story-overlay-body,
     .story-overlay.story-exiting .story-overlay-body {
       animation: none;
+    }
+    .story-cube-stage-3d {
+      perspective: none;
+      transform-style: flat;
+    }
+    .story-chrome {
+      transition: opacity 120ms ease-out;
     }
     .story-card-wrap .story-card,
     .story-overlay button,
@@ -830,30 +921,32 @@
   }
 }
 
+/* Story avatar ring overrides live in @layer utilities to outrank AvatarPrimitive utility defaults. */
+@layer utilities {
+  .story-card [data-slot="avatar"] {
+    aspect-ratio: 1;
+    border: 2px solid color-mix(in oklab, white 55%, transparent);
+    box-shadow: 0 1px 4px oklch(0 0 0 / 0.35);
+    transition:
+      border-color var(--duration-base) var(--ease-out),
+      box-shadow var(--duration-base) var(--ease-out);
+  }
+  .story-card.unwatched [data-slot="avatar"] {
+    border-color: var(--neon);
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--neon-glow) 55%, transparent),
+      0 0 10px 1px color-mix(in oklab, var(--neon) 75%, transparent),
+      var(--shadow-glow);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .story-card [data-slot="avatar"] {
+      transition: none;
+    }
+  }
+}
+
 /* Module 3B: broadcast surfaces share the silver shell and primary-fill tokens. */
 @layer components {
-  .novedades-search {
-    position: relative;
-    display: block;
-  }
-  .novedades-search > svg {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--muted-foreground);
-  }
-  .novedades-search input {
-    padding-left: 42px;
-    background: color-mix(in oklab, var(--card) 70%, transparent);
-  }
-  .novedades-bottom {
-    background: color-mix(in oklab, var(--card) 88%, transparent);
-    backdrop-filter: blur(16px);
-    box-shadow: var(--shadow-silver);
-    padding: 12px;
-    gap: 8px;
-  }
   .channels-section > h2 {
     font-size: 14px;
     font-weight: 600;
@@ -998,12 +1091,6 @@
     }
   }
   @media (max-width: 480px) {
-    .novedades-bottom {
-      flex-wrap: wrap;
-    }
-    .novedades-bottom > * {
-      flex-basis: 140px;
-    }
     .discover-channel {
       gap: 8px;
       padding: 12px 10px;

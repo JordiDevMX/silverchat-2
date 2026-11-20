@@ -118,15 +118,6 @@ export function ContactProfileModal({ userId, chat }: { userId: string; chat: Ch
                   >
                     {say("Block", "Bloquear")}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      ui.open(chat.id, { kind: "report", userId, name: p.display_name ?? "" })
-                    }
-                  >
-                    {say("Report", "Reportar")}
-                  </Button>
                 </div>
               )}
               <Button type="button" variant="outline" onClick={viewFullProfile}>

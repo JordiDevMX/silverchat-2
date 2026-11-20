@@ -1,10 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
+import { clearChatOutbox } from "@/features/messages/lib/outbox";
+import { outboxKey } from "@/features/messages/types";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { writeDraft } from "../drafts";
 import type { Chat, ChatAction } from "../types";
 import { isMuted, orderChats } from "../utils/computeChatDisplay";
+import { reactionNotificationStore } from "../utils/reactionNotifications";
 import { chatKey } from "./useChats";
 export function useChatMutations() {
   const { user } = useAuth();
@@ -43,7 +47,12 @@ export function useChatMutations() {
                       until === undefined ? (isMuted(c) ? null : "9999-12-31T00:00:00Z") : until,
                   }
                 : action === "read"
-                  ? { manuallyUnread: false, unreadCount: 0 }
+                  ? {
+                      manuallyUnread: false,
+                      unreadCount: 0,
+                      unreadReactionCount: 0,
+                      reactionSummary: null,
+                    }
                   : action === "unread"
                     ? { manuallyUnread: true }
                     : {},
@@ -75,12 +84,20 @@ export function useChatMutations() {
           if (Array.isArray(r.data) && !r.data.length)
             throw new Error("Membership was not removed");
           writeDraft(c.id, null);
+          clearChatOutbox(user.id, c.id);
+          cache.removeQueries({ queryKey: outboxKey(user.id, c.id) });
         } else if (action === "read" || action === "unread") {
           const r = await supabase.rpc(
             action === "read" ? "mark_chat_as_read" : "mark_chat_as_unread",
             { p_chat_id: c.id },
           );
           if (r.error) throw r.error;
+          if (action === "read") {
+            const wasToast = reactionNotificationStore.getState().clearChat(c.id);
+            if (wasToast && useChatUIStore.getState().noticeAction?.chatId === c.id) {
+              useChatUIStore.getState().notify("");
+            }
+          }
         } else {
           const values =
             action === "pin"

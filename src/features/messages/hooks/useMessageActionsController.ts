@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { useAuth } from "@/lib/auth-provider";
 import { useMessageText } from "../i18n";
 import { getAvailableActions, type MessageAction } from "../lib/actionMatrix";
+import { isWriteRestricted } from "../lib/writePermissions";
 import type { ChatDetails, Message } from "../types";
 import { useMessageActions } from "./useMessageActions";
 import { useReactions } from "./useReactions";
@@ -13,6 +14,7 @@ export type UI = {
   unpin: (message: Message) => void;
   busy: boolean;
   readOnly: boolean;
+  writeRestricted: boolean;
 };
 
 export function useMessageActionsController({
@@ -92,12 +94,17 @@ export function useMessageActionsController({
     }
   };
 
+  const writeRestricted = isWriteRestricted(chat);
   const ui: UI = {
     busy,
     readOnly: chat.readOnly,
+    writeRestricted,
     navigate: onNavigate,
     openMenu: (m, point) => {
-      if (!busy && getAvailableActions(m, user?.id ?? "", chat.readOnly).length)
+      if (
+        !busy &&
+        getAvailableActions(m, user?.id ?? "", chat.readOnly, Date.now(), writeRestricted).length
+      )
         setSelected({ message: m, point, mode: "menu" });
     },
     openReactions: (m) => {

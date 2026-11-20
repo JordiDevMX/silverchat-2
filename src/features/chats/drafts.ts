@@ -1,3 +1,4 @@
+import { cleanupExpiredDraftMedia, deleteDraftMediaForChat } from "./draftMedia.ts";
 import type { Draft } from "./types.ts";
 
 const prefix = "silverchat_draft_";
@@ -19,6 +20,8 @@ export function readDrafts(storage: Storage, ownerId?: string, now = Date.now())
           (d.replyToId !== null && typeof d.replyToId !== "string") ||
           !Number.isFinite(Date.parse(d.updatedAt)) ||
           now - Date.parse(d.updatedAt) > 30 * 86400000 ||
+          d.pending ||
+          d.failed ||
           (d.ownerId && d.ownerId !== ownerId)
         )
           continue;
@@ -42,13 +45,16 @@ export function cleanupDrafts(storage: Storage, now = Date.now()) {
         if (
           !d ||
           !Number.isFinite(Date.parse(d.updatedAt)) ||
-          now - Date.parse(d.updatedAt) > 30 * 86400000
+          now - Date.parse(d.updatedAt) > 30 * 86400000 ||
+          d.pending ||
+          d.failed
         )
           storage.removeItem(key);
       } catch {
         storage.removeItem(key);
       }
     }
+    void cleanupExpiredDraftMedia(now);
   } catch {
     /* Storage is optional. */
   }
@@ -56,7 +62,10 @@ export function cleanupDrafts(storage: Storage, now = Date.now()) {
 export function writeDraft(chatId: string, draft: Draft | null) {
   try {
     if (draft) localStorage.setItem(prefix + chatId, JSON.stringify(draft));
-    else localStorage.removeItem(prefix + chatId);
+    else {
+      localStorage.removeItem(prefix + chatId);
+      void deleteDraftMediaForChat(chatId);
+    }
     window.dispatchEvent(new Event(draftEvent));
     return true;
   } catch {

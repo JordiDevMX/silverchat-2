@@ -26,7 +26,6 @@ export function CommunityChatSidebar({
     <aside className="community-sidebar">
       <SidebarActions />
       <SearchField
-        outlined
         className="chat-search"
         label={community.name}
         clearLabel={say("Clear search", "Borrar búsqueda")}

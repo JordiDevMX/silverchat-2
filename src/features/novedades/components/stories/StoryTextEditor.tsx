@@ -7,14 +7,16 @@ export function StoryTextEditor({
   onClose,
   onSaved,
   onBusyChange,
+  initialText = "",
 }: {
   onClose: () => void;
   onSaved: () => void;
   onBusyChange: (busy: boolean) => void;
+  initialText?: string;
 }) {
   const { say } = useMessageText();
   const [color, setColor] = useState(STORY_COLORS[0]);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => initialText.slice(0, 200));
   const create = useCreateStory();
   const [attempted, setAttempted] = useState(false);
   useEffect(() => {
@@ -24,6 +26,7 @@ export function StoryTextEditor({
   return (
     <div className="story-text-editor" style={{ background: color }}>
       <textarea
+        data-clipboard-reason="story-text"
         autoComplete="off"
         disabled={attempted}
         aria-label={say("Story text", "Texto de historia")}

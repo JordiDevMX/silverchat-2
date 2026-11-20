@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { type MouseEvent, type ReactNode, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
+import type { OutboxEntry } from "@/features/messages/lib/outbox";
 import type { Chat, ChatAction, Draft } from "../types";
 import { badgeText, computeChatDisplay, isMuted } from "../utils/computeChatDisplay";
 import { formatChatTimestamp } from "../utils/formatChatTimestamp";
@@ -37,6 +38,7 @@ export function ChatListItemSurface({
   language,
   chat,
   draft,
+  outbox,
   active,
   selecting,
   selected,
@@ -51,6 +53,7 @@ export function ChatListItemSurface({
   language: "en" | "es";
   chat: Chat;
   draft?: Draft;
+  outbox?: Pick<OutboxEntry, "status" | "createdAt" | "input">[];
   active?: boolean;
   selecting: boolean;
   selected: boolean;
@@ -64,8 +67,9 @@ export function ChatListItemSurface({
   const origin = useRef({ x: 0, y: 0 });
   const consumed = useRef(false);
   useEffect(() => () => clearTimeout(hold.current), []);
-  const display = computeChatDisplay(chat, draft),
-    muted = isMuted(chat);
+  const display = computeChatDisplay(chat, draft, language, outbox),
+    muted = isMuted(chat),
+    unreadTotal = chat.unreadCount + (chat.unreadReactionCount ?? 0);
   const Media =
     chat.lastMessageType && chat.lastMessageType in mediaIcons
       ? mediaIcons[chat.lastMessageType as keyof typeof mediaIcons]
@@ -84,7 +88,7 @@ export function ChatListItemSurface({
     <li
       className={`chat-list-item ${selected ? "is-selected" : ""} ${chat.isBlocked ? "is-blocked" : ""}`}
       data-chat-id={chat.id}
-      data-unread={chat.manuallyUnread || (!muted && chat.unreadCount > 0) ? "true" : undefined}
+      data-unread={chat.manuallyUnread || (!muted && unreadTotal > 0) ? "true" : undefined}
     >
       <SwipeActionsSurface t={t} disabled={selecting || busy} onAction={onAction}>
         <div className="chat-row">
@@ -146,17 +150,17 @@ export function ChatListItemSurface({
               </span>
               <span className={`chat-preview preview-${display.state}`}>
                 {display.state === "failed" ? (
-                  <AlertCircle size={16} />
+                  <AlertCircle size={16} aria-hidden="true" />
                 ) : display.state === "pending" ? (
-                  <LoaderCircle className="chat-spin" size={16} />
+                  <LoaderCircle className="chat-spin" size={16} aria-hidden="true" />
+                ) : display.state === "draft" ? (
+                  <span className="draft-pill">{t("Draft")}</span>
                 ) : display.state === "message" && Media ? (
-                  <Media size={16} />
+                  <Media size={16} aria-hidden="true" />
                 ) : null}
-                {display.state === "draft" && <span className="draft-pill">{t("Draft")}</span>}
                 <span className="preview-text">
-                  {display.prefix && display.state !== "draft" ? `${t(display.prefix)}: ` : ""}
-                  {display.state === "draft" ? `${t("Draft")}: ` : ""}
-                  {t(display.text)}
+                  {display.prefix ? `${t(display.prefix)}: ` : ""}
+                  {display.translateText ? t(display.text) : display.text}
                 </span>
                 {display.status === "sent" ? (
                   <Check size={17} aria-label={t("sent")} />
@@ -178,14 +182,14 @@ export function ChatListItemSurface({
               </span>
               {chat.manuallyUnread ? (
                 <span role="img" className="unread-dot" aria-label={t("Unread")} />
-              ) : !muted && chat.unreadCount > 0 ? (
+              ) : !muted && unreadTotal > 0 ? (
                 <Badge
                   variant="neon"
                   role="img"
                   className="chat-badge"
-                  aria-label={`${chat.unreadCount} ${t("Unread")}`}
+                  aria-label={`${unreadTotal} ${t("Unread")}`}
                 >
-                  {badgeText(chat.unreadCount)}
+                  {badgeText(unreadTotal)}
                 </Badge>
               ) : null}
             </span>

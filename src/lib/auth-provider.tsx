@@ -11,6 +11,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { AuthState, Profile } from "@/features/auth/types";
+import { clearUserOutbox } from "@/features/messages/lib/outbox";
 import {
   AuthError,
   authApi,
@@ -134,10 +135,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => clearInterval(timer);
   }, [id, mfaRequired]);
   const signOut = async (all = false) => {
+    const signingOutUserId = user?.id;
     await settleBeforeSignOut();
     try {
       await logoutSession(all);
     } finally {
+      if (signingOutUserId) clearUserOutbox(signingOutUserId);
       setUser(null);
       setProfile(null);
       queryClient.clear();

@@ -1,8 +1,9 @@
 import { useRouter, useSearch } from "@tanstack/react-router";
-import { Compass, Megaphone, Search } from "lucide-react";
+import { Compass, Megaphone } from "lucide-react";
 import { useState } from "react";
 import { BrandLockup } from "@/components/ui/brand-lockup";
 import { Button } from "@/components/ui/button";
+import { SearchField } from "@/components/ui/search-field";
 import { useMessageText } from "@/features/messages/i18n";
 import { ChannelsSection } from "@/features/novedades/components/channels/ChannelsSection";
 import { CreateChannelModal } from "@/features/novedades/components/channels/CreateChannelModal";
@@ -24,24 +25,26 @@ export function NovedadesPage() {
       <header className="novedades-header">
         <BrandLockup />
         <h1>{say("Updates", "Novedades")}</h1>
-        <label className="novedades-search">
-          <Search aria-hidden="true" size={18} />
-          <input
-            type="search"
-            aria-label={say("Search stories and channels", "Buscar historias y canales")}
-            placeholder={say("Search stories and channels…", "Buscar historias y canales…")}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-        </label>
+        <SearchField
+          label={say("Search stories and channels", "Buscar historias y canales")}
+          placeholder={say("Search stories and channels…", "Buscar historias y canales…")}
+          clearLabel={say("Clear search", "Limpiar búsqueda")}
+          value={text}
+          onChange={setText}
+          onClear={() => setText("")}
+        />
       </header>
       <StoriesRow search={text} onOpen={setViewer} onCreate={() => setCreator(true)} />
       <ChannelsSection search={text} />
       <DiscoverChannelsSection search={text} />
       <footer className="novedades-bottom">
-        <Button asChild variant="outline">
+        <Button
+          asChild
+          variant="outline"
+          className="bg-card/70 text-foreground hover:bg-neon/10 hover:text-foreground"
+        >
           <NavLink href="/novedades/explore">
-            <Compass size={17} />
+            <Compass size={17} aria-hidden="true" />
             {say("Explore more", "Explorar más")}
           </NavLink>
         </Button>
@@ -50,7 +53,7 @@ export function NovedadesPage() {
           variant="neon-outline"
           onClick={() => void router.navigate({ to: "/novedades", search: { create: true } })}
         >
-          <Megaphone size={17} />
+          <Megaphone size={17} aria-hidden="true" />
           {say("Create channel", "Crear canal")}
         </Button>
       </footer>

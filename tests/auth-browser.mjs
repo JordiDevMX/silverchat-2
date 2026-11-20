@@ -1,12 +1,8 @@
 // Run against Vite with mocked auth/data boundaries. No remote users or emails.
 import assert from "node:assert/strict";
+import { launchBrowser } from "./lib/browser.mjs";
 
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH ?? "playwright-core");
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? "/usr/bin/chromium",
-  headless: true,
-  args: ["--no-sandbox"],
-});
+const browser = await launchBrowser({ args: ["--no-sandbox"] });
 const origin = process.env.UI_BASE_URL ?? "http://127.0.0.1:5175";
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
 const page = await context.newPage();

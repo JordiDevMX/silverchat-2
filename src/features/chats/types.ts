@@ -10,9 +10,25 @@ export const filterKeys = [
 ] as const;
 export type FilterKey = (typeof filterKeys)[number];
 export type MessageType = Database["public"]["Enums"]["message_type"];
+export interface ReactionChatSummary {
+  messageId: string;
+  createdAt: string;
+  entries: {
+    messageId: string;
+    chatId: string;
+    communityId?: string | null;
+    reactorId: string;
+    reactorName: string;
+    emoji: string;
+    createdAt: string;
+    messageType: MessageType;
+    messageContent: string | null;
+  }[];
+}
 export interface Chat {
   id: string;
   type: Database["public"]["Enums"]["chat_type"];
+  communityId?: string | null;
   displayName: string;
   avatarUrl: string | null;
   avatarInitials?: string | null;
@@ -28,6 +44,9 @@ export interface Chat {
   deletedForEveryone: boolean;
   isMyLastMessage: boolean;
   unreadCount: number;
+  unreadReactionCount?: number;
+  unreadReactions?: ReactionChatSummary["entries"];
+  reactionSummary?: ReactionChatSummary | null;
   manuallyUnread: boolean;
   pinnedAt: string | null;
   favoritedAt: string | null;
@@ -35,6 +54,8 @@ export interface Chat {
   mutedUntil: string | null;
   isBlocked: boolean;
   isLastAdmin: boolean;
+  onlyAdminsCanSend?: boolean;
+  canSend?: boolean;
 }
 export interface MessageRequest {
   id: string;

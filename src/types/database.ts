@@ -395,6 +395,7 @@ export type Database = {
           last_message_id: string | null;
           last_message_preview: string | null;
           name: string | null;
+          only_admins_can_send: boolean;
           rejected_at: string | null;
           status: Database["public"]["Enums"]["chat_status"];
           type: Database["public"]["Enums"]["chat_type"];
@@ -413,6 +414,7 @@ export type Database = {
           last_message_id?: string | null;
           last_message_preview?: string | null;
           name?: string | null;
+          only_admins_can_send?: boolean;
           rejected_at?: string | null;
           status?: Database["public"]["Enums"]["chat_status"];
           type: Database["public"]["Enums"]["chat_type"];
@@ -430,6 +432,7 @@ export type Database = {
           last_message_id?: string | null;
           last_message_preview?: string | null;
           name?: string | null;
+          only_admins_can_send?: boolean;
           rejected_at?: string | null;
           status?: Database["public"]["Enums"]["chat_status"];
           type?: Database["public"]["Enums"]["chat_type"];
@@ -1060,6 +1063,7 @@ export type Database = {
           description: string | null;
           id: string;
           reason: string;
+          reported_channel_id: string | null;
           reported_chat_id: string | null;
           reported_message_id: string | null;
           reported_user_id: string | null;
@@ -1074,6 +1078,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           reason: string;
+          reported_channel_id?: string | null;
           reported_chat_id?: string | null;
           reported_message_id?: string | null;
           reported_user_id?: string | null;
@@ -1087,6 +1092,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           reason?: string;
+          reported_channel_id?: string | null;
           reported_chat_id?: string | null;
           reported_message_id?: string | null;
           reported_user_id?: string | null;
@@ -1096,6 +1102,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["report_status"];
         };
         Relationships: [
+          {
+            foreignKeyName: "reports_reported_channel_id_fkey";
+            columns: ["reported_channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "reports_reported_chat_id_fkey";
             columns: ["reported_chat_id"];
@@ -1555,7 +1568,12 @@ export type Database = {
       };
       create_community: { Args: { p_description?: string; p_name: string }; Returns: string };
       create_community_chat: {
-        Args: { p_community_id: string; p_description?: string; p_name: string };
+        Args: {
+          p_community_id: string;
+          p_description?: string;
+          p_name: string;
+          p_only_admins_can_send?: boolean;
+        };
         Returns: string;
       };
       create_direct_chat_request: {
@@ -1710,7 +1728,13 @@ export type Database = {
         Returns: undefined;
       };
       update_group_info: {
-        Args: { p_avatar_url?: string; p_chat_id: string; p_description?: string; p_name?: string };
+        Args: {
+          p_avatar_url?: string;
+          p_chat_id: string;
+          p_description?: string;
+          p_name?: string;
+          p_only_admins_can_send?: boolean;
+        };
         Returns: undefined;
       };
     };

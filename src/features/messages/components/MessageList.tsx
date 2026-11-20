@@ -1,12 +1,18 @@
-import { LoaderCircle, MessageCircle, NotebookPen, Users } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { LoaderCircle, Lock } from "lucide-react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useStore } from "zustand";
+import { SystemPill } from "@/components/ui/conversation-surface";
 import { Modal } from "@/features/auth/components";
+import {
+  isReactionUnread,
+  reactionNotificationStore,
+} from "@/features/chats/utils/reactionNotifications";
 import { useAuth } from "@/lib/auth-provider";
 import { useMarkAsRead } from "../hooks/useMarkAsRead";
 import type { useMessages } from "../hooks/useMessages";
 import { useSearchHighlight } from "../hooks/useSearchHighlight";
 import { useMessageText } from "../i18n";
-import { groupMessages } from "../lib/groupMessages";
+import { groupMessages, shouldShowDateSeparator } from "../lib/groupMessages";
 import type { ChatDetails, Message } from "../types";
 import { DateSeparator } from "./DateSeparator";
 import { MediaLightbox } from "./MediaLightbox";
@@ -27,9 +33,13 @@ export function MessageList({
   query,
   navigation,
   channelMode = false,
+  topNotices,
+  growthCard,
 }: {
   chat: ChatDetails;
   channelMode?: boolean;
+  topNotices?: ReactNode;
+  growthCard?: ReactNode;
   query: Pick<
     ReturnType<typeof useMessages>,
     | "messages"
@@ -50,7 +60,7 @@ export function MessageList({
   onRetry: (m: Message) => Promise<void>;
 }) {
   const { user } = useAuth();
-  const { say } = useMessageText();
+  const { say, t } = useMessageText();
   const { highlightedId, highlight, clear } = useSearchHighlight();
   const navigated = useRef<number | null>(null);
   const { messages } = query;
@@ -129,14 +139,15 @@ export function MessageList({
       if (target && !node) setTargetMissing(!!scrollTo);
       initialized.current = true;
       last.current = newId;
-      if (node)
+      if (node) {
         el.scrollTop =
           node.offsetTop -
           el.offsetTop -
           (!scrollTo && restore
             ? (restore.offset ?? 0)
             : el.clientHeight / 2 - node.offsetHeight / 2);
-      else if (restore && !restore.bottom) el.scrollTop = restore.top;
+        if (scrollTo) highlight(scrollTo);
+      } else if (restore && !restore.bottom) el.scrollTop = restore.top;
       else el.scrollTop = el.scrollHeight;
       checkPosition();
       return;
@@ -193,19 +204,34 @@ export function MessageList({
     highlight,
     clear,
   ]);
+  const storeReactionEntries = useStore(reactionNotificationStore, (s) => s.entries);
+  const clearedAt = useStore(reactionNotificationStore, (s) => s.clearedAtByChat[chat.id]);
+  const effectiveLastReadAt =
+    clearedAt !== undefined
+      ? new Date(
+          Math.max(clearedAt, chat.own?.last_read_at ? Date.parse(chat.own.last_read_at) : 0),
+        ).toISOString()
+      : chat.own?.last_read_at;
+  const hasUnreadMessages = messages.some((m) => m.unreadForMe);
+  const hasUnreadReactions =
+    Object.values(storeReactionEntries).some((e) => e.chatId === chat.id) ||
+    messages.some(
+      (m) =>
+        m.sender_id === (user?.id ?? "") &&
+        m.reactions.some(
+          (r) =>
+            r.user_id !== (user?.id ?? "") &&
+            isReactionUnread(r.created_at, effectiveLastReadAt, chat.own?.joined_at),
+        ),
+    );
   const readError = useMarkAsRead(
     chat.id,
-    atBottom,
+    atBottom || (!!scrollTo && !hasUnreadMessages && hasUnreadReactions),
     newId,
-    messages.some((m) => m.unreadForMe) || !!chat.own?.manually_unread,
+    hasUnreadMessages || !!chat.own?.manually_unread || hasUnreadReactions,
     !channelMode && !chat.readOnly && initialized.current,
   );
-  const EmptyIcon =
-    chat.type === "self"
-      ? NotebookPen
-      : chat.type === "group" || chat.type === "community_chat"
-        ? Users
-        : MessageCircle;
+  const atConversationStart = !query.isPending && !query.isError && !query.hasNextPage;
   return (
     <div className="message-list-shell">
       <section
@@ -241,54 +267,32 @@ export function MessageList({
             </button>
           </div>
         )}
-        {!query.isPending && !query.hasNextPage && messages.length > 0 && (
-          <p className="conversation-start">
-            {say("Beginning of conversation", "Inicio de la conversación")}
-          </p>
+        {atConversationStart && (
+          <div className="conversation-start-stack" data-slot="conversation-start-stack">
+            <SystemPill data-slot="conversation-start-pill">{t("conversation.start")}</SystemPill>
+            <SystemPill
+              data-slot="conversation-encryption-pill"
+              icon={<Lock size={12} aria-hidden="true" />}
+            >
+              {t("chat.encryptionNotice")}
+            </SystemPill>
+            {growthCard}
+            {topNotices}
+          </div>
         )}
         {targetMissing && (
           <p role="status" className="conversation-start">
             {say("That message is no longer available.", "Ese mensaje ya no está disponible.")}
           </p>
         )}
-        {!query.isPending && !query.isError && !messages.length && (
-          <div className="conversation-empty">
-            <div>
-              <EmptyIcon size={30} />
-            </div>
-            <h2>
-              {channelMode
-                ? say("No channel posts yet", "Aún no hay publicaciones")
-                : chat.type === "self"
-                  ? say("A little space for you", "Un espacio para ti")
-                  : chat.type === "group" || chat.type === "community_chat"
-                    ? say("Bring the conversation to life", "Dale vida a la conversación")
-                    : say(
-                        "Every connection starts with hello",
-                        "Cada conexión empieza con un hola",
-                      )}
-            </h2>
-            <p>
-              {channelMode
-                ? say(
-                    "Posts from the channel owner appear here.",
-                    "Aquí aparecen las publicaciones del canal.",
-                  )
-                : chat.type === "self"
-                  ? say(
-                      "Keep notes, ideas, and things you want to remember.",
-                      "Guarda notas, ideas y lo que quieras recordar.",
-                    )
-                  : say(
-                      "Send the first message and make yourself at home.",
-                      "Envía el primer mensaje y siéntete en casa.",
-                    )}
-            </p>
-          </div>
-        )}
-        {groupMessages(messages).map(({ message, groupedBefore, newDay }) => (
+        {groupMessages(messages).map(({ message, groupedBefore, newDay }, index) => (
           <div key={message.clientId ?? message.id}>
-            {newDay && <DateSeparator date={message.created_at} />}{" "}
+            {shouldShowDateSeparator({
+              newDay,
+              isFirstMessage: index === 0,
+              atConversationStart,
+              createdAt: message.created_at,
+            }) && <DateSeparator date={message.created_at} />}{" "}
             {!markerHidden && message.id === initialMarker && <UnreadMarker />}
             <SearchHighlight active={highlightedId === message.id}>
               <MessageBubble

@@ -1,12 +1,16 @@
+import { Flag } from "lucide-react";
+import { useState } from "react";
 import { InfrastructureNotice } from "@/components/ui/auth-surfaces";
 import { Button } from "@/components/ui/button";
 import { PublicProfileSurface } from "@/components/ui/public-profile-surface";
+import { ReportModal } from "@/features/chat-settings/components/ReportModal";
 import { Avatar, NavLink, QueryState } from "@/features/settings/components/shared";
 import { usePublicProfile } from "@/features/settings/hooks/usePublicProfile";
 import { socialHref } from "@/lib/social-links";
 import "@/styles/settings.css";
 export function PublicProfilePage() {
   const { user, action, t, profile, p, gradient, links, sendMessage } = usePublicProfile();
+  const [reportOpen, setReportOpen] = useState(false);
   return (
     <main id="main" className="public-profile-shell">
       <NavLink href="/settings" className="settings-back">
@@ -59,16 +63,41 @@ export function PublicProfilePage() {
               <NavLink href="/settings/profile">{t("Edit profile")}</NavLink>
             </Button>
           ) : (
-            <Button
-              type="button"
-              disabled={action.busy || !p.id}
-              onClick={() => void sendMessage()}
-            >
-              {t("Send message")}
-            </Button>
+            <div className="public-profile-actions">
+              <Button
+                type="button"
+                disabled={action.busy || !p.id}
+                onClick={() => void sendMessage()}
+              >
+                {t("Send message")}
+              </Button>
+              {p.id && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={action.busy}
+                  onClick={() => setReportOpen(true)}
+                >
+                  <Flag size={16} aria-hidden="true" />
+                  {t("Report")}
+                </Button>
+              )}
+            </div>
           )}
           {action.feedback}
         </PublicProfileSurface>
+      )}
+      {reportOpen && p?.id && p.id !== user?.id && (
+        <ReportModal
+          target={{
+            kind: "user",
+            userId: p.id,
+            name: p.display_name || p.username || "",
+            username: p.username,
+            blockUserId: p.id,
+          }}
+          onClose={() => setReportOpen(false)}
+        />
       )}
     </main>
   );

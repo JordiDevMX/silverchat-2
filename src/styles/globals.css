@@ -1,6 +1,7 @@
 @import "tailwindcss" source("../");
 @import "tw-animate-css";
 @import "./app-shell.css";
+@import "./chat-growth.css";
 @import "./file-icon-tile.css";
 @import "./auth.css";
 /* Call overlays are mounted by the authenticated layout, not by /calls, so
@@ -513,6 +514,7 @@
   }
 }
 @layer components {
+  .top-banner,
   .connection-banner {
     position: fixed;
     inset: 0 0 auto 0;
@@ -520,9 +522,25 @@
     padding: 0.5rem 1rem;
     text-align: center;
     font-size: 0.85rem;
-    color: var(--destructive);
+    color: var(--foreground);
     background: var(--card);
-    border-bottom: 1px solid var(--destructive);
+    border-bottom: 1px solid var(--border);
+  }
+  .top-banner-danger,
+  .connection-banner {
+    color: var(--destructive);
+    border-bottom-color: color-mix(in oklab, var(--destructive) 45%, var(--border));
+  }
+  .top-banner-warning {
+    color: oklch(0.5 0.14 68);
+    border-bottom-color: color-mix(in oklab, oklch(0.75 0.16 75) 55%, var(--border));
+  }
+  [data-theme="dark"] .top-banner-warning {
+    color: oklch(0.84 0.14 80);
+  }
+  .top-banner-info {
+    color: var(--foreground);
+    border-bottom-color: color-mix(in oklab, var(--primary) 45%, var(--border));
   }
   .auth-shell,
   .landing {
@@ -979,4 +997,31 @@
     /* biome-ignore lint/complexity/noImportantStyles: honor reduced motion for browser snapshot pseudo-elements */
     animation: none !important;
   }
+}
+
+.clipboard-paste-notice {
+  z-index: 120;
+}
+
+.clipboard-paste-notice[data-severity="error"] {
+  border-color: color-mix(in oklab, var(--destructive) 48%, var(--border));
+}
+
+.clipboard-paste-notice-body {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.clipboard-paste-notice.in-dialog {
+  position: sticky;
+  bottom: 8px;
+  left: auto;
+  transform: none;
+  margin: 12px auto 0;
+  width: min(100%, max-content);
+  max-width: 100%;
+  animation: none;
 }

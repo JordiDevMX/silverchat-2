@@ -35,6 +35,7 @@ export interface ChatDetails {
   communityId?: string | null;
   communityName?: string;
   request?: Tables["chat_requests"]["Row"];
+  onlyAdminsCanSend?: boolean;
   readOnly: boolean;
 }
 export type SendInput = Pick<MessageRow, "type" | "content"> &
