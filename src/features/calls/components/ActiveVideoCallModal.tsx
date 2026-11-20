@@ -114,10 +114,19 @@ export function ActiveVideoCallModal() {
       .catch(() => notifyCall(say("Call failed. Try again.")));
   };
   const toggleCamera = () => {
+    if (!room) return;
     const next = !isCameraEnabled;
-    void room?.localParticipant
+    void room.localParticipant
       .setCameraEnabled(next)
-      .then(() => useCallStore.setState({ isCameraEnabled: next }))
+      .then((publication) => {
+        if (useCallStore.getState().room !== room) return;
+        // Toggling unpublishes/publishes a new track: the PiP must follow the
+        // publication or it keeps the stopped one (a frozen last frame).
+        useCallStore.setState({
+          isCameraEnabled: next,
+          localVideoTrack: next ? (publication?.videoTrack ?? null) : null,
+        });
+      })
       .catch(() => notifyCall(say("Call failed. Try again.")));
   };
   const toggleSpeaker = () => {
@@ -139,8 +148,12 @@ export function ActiveVideoCallModal() {
   };
 
   return (
-    <CallModalShell title={`${say("Video call")} — ${name}`} onClose={() => {}}>
-      <div className="absolute inset-0 -z-[1]">
+    <CallModalShell
+      title={`${say("Video call")} — ${name}`}
+      onClose={() => {}}
+      className="call-modal-video"
+    >
+      <div className="absolute inset-0">
         {remoteVideoTrack ? (
           <button
             type="button"

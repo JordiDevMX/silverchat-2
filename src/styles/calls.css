@@ -3,11 +3,12 @@
 
 .call-modal-body {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  min-height: 100dvh;
+  min-height: 0;
   padding: 24px;
   text-align: center;
   color: var(--foreground);
@@ -25,6 +26,11 @@
   );
 }
 
+dialog.call-modal[open] {
+  display: flex;
+  flex-direction: column;
+}
+
 dialog.call-modal {
   max-width: none;
   max-height: none;
@@ -34,6 +40,30 @@ dialog.call-modal {
   padding: 0;
   background: color-mix(in oklab, var(--background) 88%, transparent);
   backdrop-filter: blur(18px);
+}
+
+/* Video calls own the whole dialog: the shared body becomes the video stage,
+ * so the absolutely positioned video/controls are not covered by an in-flow
+ * transparent box that would swallow every click. The title stays for screen
+ * readers through the dialog's aria-label. */
+dialog.call-modal-video .call-modal-body {
+  position: absolute;
+  inset: 0;
+  display: block;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+dialog.call-modal-video > h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* Expanding pulse ring behind the avatar while ringing (CSS-only by design). */
