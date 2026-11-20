@@ -33,13 +33,19 @@ export function MessageBubble({
   const ui = useMessageActionUI();
   const { user } = useAuth();
   const suppressClickUntil = useRef(0);
-  const press = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const press = useRef<{
+    x: number;
+    y: number;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
   const cancelPress = useCallback(() => {
     if (press.current) clearTimeout(press.current.timer);
     press.current = null;
   }, []);
   useEffect(() => () => cancelPress(), [cancelPress]);
-  const available = getAvailableActions(message, user?.id ?? "", chat.readOnly).length > 0;
+  const available =
+    getAvailableActions(message, user?.id ?? "", chat.readOnly, Date.now(), ui.writeRestricted)
+      .length > 0;
   const status = messageStatus(message, chat.members);
   if (message.type === "system" && !message.deleted_for_everyone)
     return (

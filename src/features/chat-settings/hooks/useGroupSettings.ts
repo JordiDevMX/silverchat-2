@@ -7,6 +7,13 @@ import { useChat } from "@/features/messages/hooks/useChat";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { refreshChatSettings } from "../lib/cache";
+export type GroupSettingsPatch = {
+  name?: string;
+  description?: string;
+  avatar_url?: string;
+  only_admins_can_send?: boolean;
+};
+
 export function useGroupSettings(chatId: string, context: "group" | "community" = "group") {
   const group = useChat(context === "group" ? chatId : "");
   const community = useCommunity(context === "community" ? chatId : "");
@@ -15,12 +22,15 @@ export function useGroupSettings(chatId: string, context: "group" | "community" 
   const cache = useQueryClient();
   const { user } = useAuth();
   const mutation = useMutation({
-    mutationFn: async (patch: { name?: string; description?: string; avatar_url?: string }) => {
+    mutationFn: async (patch: GroupSettingsPatch) => {
       const result = await supabase.rpc("update_group_info", {
         p_chat_id: chatId,
         p_name: patch.name,
         p_description: patch.description,
         p_avatar_url: patch.avatar_url,
+        ...(patch.only_admins_can_send !== undefined
+          ? { p_only_admins_can_send: patch.only_admins_can_send }
+          : {}),
       });
       if (result.error) throw result.error;
     },
@@ -38,7 +48,7 @@ export function useGroupSettings(chatId: string, context: "group" | "community" 
   return {
     chat,
     community: community.data,
-    save: async (patch: { name?: string; description?: string; avatar_url?: string }) => {
+    save: async (patch: GroupSettingsPatch) => {
       if (context === "community") await update.mutateAsync(patch);
       else await mutation.mutateAsync(patch);
     },

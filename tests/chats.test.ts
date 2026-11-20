@@ -332,3 +332,43 @@ test("URL validation handles TanStack JSON-decoded booleans and numeric searches
   assert.equal(validateChatSearch({ selectedIds: "invalid" }).selectedIds, "");
   assert.equal(validateChatSearch({ q: "a".repeat(400) }).q.length, 200);
 });
+
+test("computeChatDisplay formats system leave and removal previews without sender prefix", () => {
+  const leaveDisplay = computeChatDisplay(
+    {
+      ...chat,
+      type: "group",
+      senderName: "Someone",
+      lastMessageType: "system",
+      lastMessagePreview: "'Sofia' left the chat",
+    },
+    undefined,
+    "es",
+  );
+  assert.deepEqual(leaveDisplay, {
+    state: "message",
+    text: "'Sofia' salió del chat",
+    translateText: false,
+    prefix: "",
+    status: null,
+  });
+
+  const removedDisplay = computeChatDisplay(
+    {
+      ...chat,
+      type: "community_chat",
+      senderName: "Someone",
+      lastMessageType: "system",
+      lastMessagePreview: "'O'Connor' was removed from the chat",
+    },
+    undefined,
+    "en",
+  );
+  assert.deepEqual(removedDisplay, {
+    state: "message",
+    text: "'O'Connor' was removed from the chat",
+    translateText: false,
+    prefix: "",
+    status: null,
+  });
+});

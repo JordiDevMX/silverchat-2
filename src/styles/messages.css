@@ -570,6 +570,21 @@
     border-top: 1px solid color-mix(in oklab, var(--border) 65%, transparent);
     backdrop-filter: blur(20px);
   }
+  .restricted-composer-notice {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px clamp(16px, 3vw, 28px) max(14px, env(safe-area-inset-bottom));
+    background: var(--gradient-silver);
+    border-top: 1px solid color-mix(in oklab, var(--border) 65%, transparent);
+    backdrop-filter: blur(20px);
+    color: var(--muted-foreground);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+  }
   .composer-row {
     display: flex;
     align-items: flex-end;
@@ -1641,8 +1656,8 @@
 }
 
 :is(.in-chat-search-toast:popover-open, .in-chat-search-toast[data-fallback-open="true"]):where(
-    :not([data-closing])
-  ) {
+  :not([data-closing])
+) {
   opacity: 1;
 
   @starting-style {

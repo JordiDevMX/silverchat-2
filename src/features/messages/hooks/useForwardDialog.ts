@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useChats } from "@/features/chats/hooks/useChats";
 import { useMessageText } from "../i18n";
+import { filterForwardTargets } from "../lib/forwardTargets";
 export function useForwardDialog(
   onForward: (chats: string[], ids: string[]) => Promise<void>,
   onClose: () => void,
@@ -11,12 +12,7 @@ export function useForwardDialog(
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const identifiers = useRef(new Map<string, string>());
-  const options = (chats.data ?? []).filter(
-    (c) =>
-      !c.archivedAt &&
-      !c.isBlocked &&
-      c.displayName.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
-  );
+  const options = filterForwardTargets(chats.data ?? [], search);
   const toggle = (id: string) => {
     if (selected.includes(id)) setSelected(selected.filter((selectedId) => selectedId !== id));
     else if (selected.length < 5) {
@@ -44,5 +40,15 @@ export function useForwardDialog(
       );
     }
   };
-  return { chats, say, search, setSearch, selected, error, options, toggle, forward };
+  return {
+    chats,
+    say,
+    search,
+    setSearch,
+    selected,
+    error,
+    options,
+    toggle,
+    forward,
+  };
 }
