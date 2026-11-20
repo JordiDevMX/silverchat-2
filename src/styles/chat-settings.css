@@ -107,12 +107,6 @@
     gap: 8px;
     margin-bottom: 16px;
   }
-  .report-reason {
-    display: flex;
-    gap: 12px;
-    padding: 12px 0;
-    align-items: center;
-  }
   .chat-settings-modal fieldset {
     border: 0;
     padding: 0;
@@ -511,6 +505,253 @@
   .auth-modal.settings-dialog.chat-settings-dialog {
     width: min(520px, calc(100vw - 24px));
   }
+  .auth-modal.settings-dialog.chat-settings-dialog.report-dialog {
+    position: relative;
+    width: min(490px, calc(100vw - 24px));
+    padding: 22px 24px;
+  }
+  .auth-modal.settings-dialog.chat-settings-dialog.report-dialog .motion-overlay-body {
+    animation-name: settings-fade-in;
+  }
+  .auth-modal.settings-dialog.chat-settings-dialog.report-dialog.story-exiting .motion-overlay-body {
+    animation-name: settings-fade-out;
+  }
+  .auth-modal.settings-dialog.chat-settings-dialog.report-dialog:modal {
+    overscroll-behavior: contain;
+  }
+  .auth-modal.settings-dialog.chat-settings-dialog.report-dialog::backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+  .report-dialog > h2 {
+    padding-right: 42px;
+    margin: 0;
+  }
+  .report-modal-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .report-dialog .report-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    color: var(--muted-foreground);
+  }
+  .report-target-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: color-mix(in oklab, var(--muted) 75%, var(--card));
+  }
+  .report-target-badge {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--gradient-silver);
+    color: var(--neon);
+  }
+  .report-target-copy {
+    min-width: 0;
+    flex: 1;
+  }
+  .report-dialog .report-target-copy strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+  .report-dialog .report-target-copy small {
+    display: block;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+  .report-target-pill {
+    flex: none;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted-foreground);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .report-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .report-dialog fieldset.report-fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .report-fieldset legend {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--foreground);
+    margin-bottom: 10px;
+  }
+  .report-reason-list {
+    display: grid;
+    gap: 8px;
+  }
+  .report-reason-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--card);
+    cursor: pointer;
+    transition:
+      background var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+  .report-reason-option:hover {
+    background: color-mix(in oklab, var(--foreground) 3%, var(--card));
+  }
+  .report-reason-option:has(input:checked) {
+    border-color: color-mix(in oklab, var(--neon) 55%, var(--border));
+    background: color-mix(in oklab, var(--neon) 8%, var(--card));
+  }
+  .report-reason-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border-radius: 10px;
+    background: var(--muted);
+    color: var(--muted-foreground);
+    transition:
+      color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out);
+  }
+  .report-reason-option:has(input:checked) .report-reason-icon {
+    background: color-mix(in oklab, var(--neon) 14%, var(--card));
+    color: var(--neon);
+  }
+  .report-reason-copy {
+    min-width: 0;
+    flex: 1;
+    display: grid;
+    gap: 2px;
+  }
+  .report-dialog .report-reason-copy strong {
+    font-size: 14px;
+    font-weight: 550;
+    line-height: 1.3;
+    color: var(--foreground);
+  }
+  .report-dialog .report-reason-copy small {
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--muted-foreground);
+  }
+  .report-details-field {
+    display: grid;
+    gap: 6px;
+  }
+  .report-details-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .report-details-header label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--foreground);
+  }
+  .report-details-header span {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+  .report-char-count {
+    justify-self: end;
+    font-size: 11px;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  .report-safety-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .report-safety-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: color-mix(in oklab, var(--muted) 50%, var(--card));
+    transition:
+      border-color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out);
+  }
+  .report-safety-option[data-tone="unfollow"][data-checked="true"] {
+    border-color: color-mix(in oklab, var(--neon) 50%, var(--border));
+    background: color-mix(in oklab, var(--neon) 8%, var(--card));
+  }
+  .report-safety-option[data-tone="block"][data-checked="true"] {
+    border-color: color-mix(in oklab, var(--destructive) 40%, var(--border));
+    background: color-mix(in oklab, var(--destructive) 6%, var(--card));
+  }
+  .report-block-copy {
+    min-width: 0;
+    flex: 1;
+    display: grid;
+    gap: 2px;
+    cursor: pointer;
+  }
+  .report-dialog .report-block-copy strong {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+  .report-dialog .report-block-copy small {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+  .report-dialog .report-error {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in oklab, var(--destructive) 35%, var(--border));
+    background: color-mix(in oklab, var(--destructive) 8%, var(--card));
+    color: var(--destructive);
+    font-size: 13px;
+  }
+  .report-dialog .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 2px;
+  }
+  .report-dialog .modal-actions [data-slot="button"] {
+    width: auto;
+  }
   .chat-settings-dialog .field {
     display: grid;
     gap: 8px;
@@ -524,23 +765,20 @@
     padding: 0;
     margin: 18px 0;
   }
-  .chat-settings-dialog .report-reason {
-    font-size: 14px;
-    padding: 12px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    margin-top: 8px;
-    transition:
-      background var(--duration-fast) var(--ease-out),
-      border-color var(--duration-fast) var(--ease-out);
-  }
-  .chat-settings-dialog .report-reason:has(input:checked) {
-    border-color: color-mix(in oklab, var(--neon) 45%, var(--border));
-    background: color-mix(in oklab, var(--neon) 8%, var(--card));
-  }
   .chat-settings-dialog :is(input[type="radio"], input[type="checkbox"]) {
     width: auto;
     accent-color: var(--neon);
+  }
+  .chat-settings-dialog .report-reason-option input[type="radio"] {
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--neon);
+    cursor: pointer;
   }
   .chat-settings-dialog .mute-options {
     margin: 18px 0;
@@ -745,17 +983,39 @@
       padding: 0;
       min-height: 0;
     }
+    .auth-modal.settings-dialog.chat-settings-dialog.report-dialog {
+      padding: 18px 16px;
+      max-height: calc(100dvh - 20px);
+    }
+    .report-modal-body,
+    .report-form {
+      gap: 12px;
+    }
+    .report-reason-option {
+      padding: 9px 12px;
+    }
+    .report-target-card {
+      flex-wrap: wrap;
+    }
+    .report-dialog .modal-actions {
+      flex-direction: column-reverse;
+    }
+    .report-dialog .modal-actions [data-slot="button"] {
+      width: 100%;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     .chat-options-menu-v2,
     .chat-options-menu-v2[data-closing],
     .group-member-v2 .member-actions,
     .shared-content-panel,
-    .chat-settings-notice-v2 {
+    .chat-settings-notice-v2,
+    .auth-modal.settings-dialog.chat-settings-dialog.report-dialog .motion-overlay-body,
+    .auth-modal.settings-dialog.chat-settings-dialog.report-dialog.story-exiting .motion-overlay-body {
       animation: none;
     }
     .chat-settings-panel :is(input, textarea),
-    .chat-settings-dialog :is(textarea, .report-reason, .member-choice),
+    .chat-settings-dialog :is(textarea, .report-reason-option, .report-reason-icon, .report-safety-option, .member-choice),
     .chat-settings-panel .group-links a,
     .chat-options-menu-v2 button,
     .chat-settings-panel .shared-tabs button,

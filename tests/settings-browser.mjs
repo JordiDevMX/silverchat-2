@@ -80,6 +80,8 @@ let enrollmentAal = "aal2";
 const backupWrites = [];
 let replacementHashes = [];
 let requestedUser = null;
+const reports = [];
+const blockCalls = [];
 const fulfill = (route, body, status = 200) =>
   route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 await page.route("**/api/auth/**", async (route) => {
@@ -166,8 +168,13 @@ await page.route("https://supabase.test/**", async (route) => {
       route,
       blocked ? [{ id: otherId, username: "bob", display_name: "Bob Stone" }] : [],
     );
+  if (path.endsWith("/reports")) {
+    reports.push(request.postDataJSON());
+    return fulfill(route, null, 201);
+  }
   if (path.endsWith("/user_blocks")) {
     if (method === "GET") return fulfill(route, blocked ? [{ blocked_id: otherId }] : []);
+    if (method === "POST") blockCalls.push(request.postDataJSON());
     if (method === "DELETE") {
       if (unblockGate) await unblockGate;
       if (failUnblock) return fulfill(route, { message: "Could not unblock — test rollback" }, 503);
@@ -397,6 +404,29 @@ try {
   await page.getByRole("heading", { name: "Alice Updated", exact: true }).waitFor();
   console.log("PASS permission-empty profile and shared query error/retry recovery");
   await visit("/profile/bob", "Bob Stone");
+  await page.getByRole("button", { name: "Report", exact: true }).click();
+  const profileReportDialog = page.getByRole("dialog", { name: "Report user", exact: true });
+  await profileReportDialog.waitFor();
+  const profileRadios = await profileReportDialog
+    .locator('input[type="radio"]')
+    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
+  assert.equal(profileRadios.length, 4);
+  for (const box of profileRadios) {
+    assert.ok(box.width <= 24 && box.height <= 24);
+    assert.ok(Math.abs(box.x - profileRadios[0].x) <= 1);
+  }
+  await profileReportDialog.getByRole("radio", { name: "Harassment", exact: true }).check();
+  await profileReportDialog.getByRole("switch").click();
+  await profileReportDialog.getByRole("button", { name: "Report and block", exact: true }).click();
+  await profileReportDialog.waitFor({ state: "detached" });
+  assert.deepEqual(reports.at(-1), {
+    reporter_id: id,
+    reported_channel_id: null,
+    reported_user_id: otherId,
+    reason: "harassment",
+    description: null,
+  });
+  assert.deepEqual(blockCalls.at(-1), { blocker_id: id, blocked_id: otherId });
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await page.waitForURL("**/chats/33333333-3333-4333-8333-333333333333");
   assert.equal(requestedUser, otherId);

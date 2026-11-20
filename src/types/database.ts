@@ -1063,6 +1063,7 @@ export type Database = {
           description: string | null;
           id: string;
           reason: string;
+          reported_channel_id: string | null;
           reported_chat_id: string | null;
           reported_message_id: string | null;
           reported_user_id: string | null;
@@ -1077,6 +1078,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           reason: string;
+          reported_channel_id?: string | null;
           reported_chat_id?: string | null;
           reported_message_id?: string | null;
           reported_user_id?: string | null;
@@ -1090,6 +1092,7 @@ export type Database = {
           description?: string | null;
           id?: string;
           reason?: string;
+          reported_channel_id?: string | null;
           reported_chat_id?: string | null;
           reported_message_id?: string | null;
           reported_user_id?: string | null;
@@ -1099,6 +1102,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["report_status"];
         };
         Relationships: [
+          {
+            foreignKeyName: "reports_reported_channel_id_fkey";
+            columns: ["reported_channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "reports_reported_chat_id_fkey";
             columns: ["reported_chat_id"];

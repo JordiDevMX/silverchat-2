@@ -40,6 +40,10 @@ INSERT INTO storage.objects(bucket_id,name,owner) VALUES('avatars','chat-'||:'gr
 SELECT public.update_group_info(:'grp',NULL,NULL,'chat-'||:'grp'||'/group-123.webp');
 SELECT pg_temp.assert_true((SELECT avatar_url='chat-'||:'grp'||'/group-123.webp' FROM public.chats WHERE id=:'grp'),'Group avatar persisted');
 INSERT INTO public.reports(reporter_id,reported_user_id,reason,description) VALUES(auth.uid(),'c3333333-3333-4333-8333-333333333333','other','Test reason');
+SELECT pg_temp.rejects(format('INSERT INTO public.reports(reporter_id,reported_chat_id,reason) VALUES(auth.uid(),%L,''spam'')',:'grp'),'permission denied');
+SELECT pg_temp.rejects('INSERT INTO public.reports(reporter_id,reported_user_id,reason) VALUES(auth.uid(),auth.uid(),''spam'')','row-level security');
+SELECT public.create_channel('Public news','public-news-report-test','Desc') AS pub_ch \gset
+SELECT pg_temp.rejects(format('INSERT INTO public.reports(reporter_id,reported_channel_id,reason) VALUES(auth.uid(),%L,''spam'')',:'pub_ch'),'row-level security');
 RESET ROLE;
 SELECT set_config('request.jwt.claims','{"sub":"c3333333-3333-4333-8333-333333333333","role":"authenticated","aal":"aal1"}',true);
 SET LOCAL ROLE authenticated;
@@ -49,6 +53,8 @@ SELECT pg_temp.rejects(format('INSERT INTO storage.objects(bucket_id,name,owner)
 SELECT pg_temp.rejects(format('SELECT public.update_group_info(%L,''attacker'')',:'grp'),'Group admin required');
 SELECT pg_temp.rejects(format('SELECT public.promote_chat_admin(%L,auth.uid())',:'grp'),'Group admin required');
 SELECT pg_temp.rejects(format('SELECT public.remove_chat_member(%L,''c1111111-1111-4111-8111-111111111111'')',:'grp'),'Group admin required');
+INSERT INTO public.reports(reporter_id,reported_channel_id,reason,description) VALUES(auth.uid(),:'pub_ch','spam','Public channel spam');
+SELECT pg_temp.assert_true((SELECT count(*)=1 FROM public.reports WHERE reported_channel_id=:'pub_ch' AND reporter_id=auth.uid()),'Non-owner can report public channel');
 SELECT pg_temp.assert_true((SELECT count(*)=0 FROM public.reports WHERE reported_user_id=auth.uid()),'Reported user cannot read report');
 RESET ROLE;
 SELECT set_config('request.jwt.claims','{"sub":"c2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
