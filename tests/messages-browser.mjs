@@ -800,10 +800,18 @@ try {
       content: "'O'Connor' left the chat",
       created_at: new Date(Date.now() + 21000).toISOString(),
     }),
+    message(852, {
+      chat_id: groupId,
+      sender_id: null,
+      type: "system",
+      content: "'Sofia Reyes' joined the chat",
+      created_at: new Date(Date.now() + 22000).toISOString(),
+    }),
   );
   await goto(groupId);
   await page.getByText("'Sofia Reyes' left the chat", { exact: true }).waitFor();
   await page.getByText("'O'Connor' left the chat", { exact: true }).waitFor();
+  await page.getByText("'Sofia Reyes' joined the chat", { exact: true }).waitFor();
   await page.getByRole("textbox", { name: "Message", exact: true }).waitFor();
 
   groupOnlyAdmins = true;
@@ -826,6 +834,7 @@ try {
   await goto(groupId);
   await page.getByText("'Sofia Reyes' salió del chat", { exact: true }).waitFor();
   await page.getByText("'O'Connor' salió del chat", { exact: true }).waitFor();
+  await page.getByText("'Sofia Reyes' se unió al chat", { exact: true }).waitFor();
   assert.equal(
     await page.locator('[data-slot="restricted-composer-notice"]').textContent(),
     "Solo los administradores pueden enviar mensajes aquí",

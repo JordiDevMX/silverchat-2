@@ -371,4 +371,23 @@ test("computeChatDisplay formats system leave and removal previews without sende
     prefix: "",
     status: null,
   });
+
+  const joinedDisplay = computeChatDisplay(
+    {
+      ...chat,
+      type: "group",
+      senderName: "Someone",
+      lastMessageType: "system",
+      lastMessagePreview: "'Sofia' joined the chat",
+    },
+    undefined,
+    "es",
+  );
+  assert.deepEqual(joinedDisplay, {
+    state: "message",
+    text: "'Sofia' se unió al chat",
+    translateText: false,
+    prefix: "",
+    status: null,
+  });
 });

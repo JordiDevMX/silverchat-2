@@ -1,7 +1,31 @@
 import type { Language } from "../../../lib/language.ts";
 
-const LEAVE_PATTERN = /^'(.+)' left the chat$/;
-const REMOVED_PATTERN = /^'(.+)' was removed from the chat$/;
+const SYSTEM_PATTERNS: ReadonlyArray<{
+  pattern: RegExp;
+  format: Record<Language, (name: string) => string>;
+}> = [
+  {
+    pattern: /^'(.+)' left the chat$/,
+    format: {
+      en: (name) => `'${name}' left the chat`,
+      es: (name) => `'${name}' salió del chat`,
+    },
+  },
+  {
+    pattern: /^'(.+)' was removed from the chat$/,
+    format: {
+      en: (name) => `'${name}' was removed from the chat`,
+      es: (name) => `'${name}' fue eliminado del chat`,
+    },
+  },
+  {
+    pattern: /^'(.+)' joined the chat$/,
+    format: {
+      en: (name) => `'${name}' joined the chat`,
+      es: (name) => `'${name}' se unió al chat`,
+    },
+  },
+];
 
 function localizeMemberName(name: string, language: Language): string {
   return name === "Member" && language === "es" ? "Miembro" : name;
@@ -13,17 +37,11 @@ export function formatSystemMessageText(
   language: Language,
 ): string {
   if (!content) return "";
-  const leftMatch = LEAVE_PATTERN.exec(content);
-  if (leftMatch?.[1]) {
-    const name = localizeMemberName(leftMatch[1], language);
-    return language === "es" ? `'${name}' salió del chat` : `'${name}' left the chat`;
-  }
-  const removedMatch = REMOVED_PATTERN.exec(content);
-  if (removedMatch?.[1]) {
-    const name = localizeMemberName(removedMatch[1], language);
-    return language === "es"
-      ? `'${name}' fue eliminado del chat`
-      : `'${name}' was removed from the chat`;
+  for (const rule of SYSTEM_PATTERNS) {
+    const match = rule.pattern.exec(content);
+    if (match?.[1]) {
+      return rule.format[language](localizeMemberName(match[1], language));
+    }
   }
   return content;
 }

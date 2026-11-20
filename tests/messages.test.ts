@@ -260,6 +260,16 @@ test("systemMessageText localizes leave and removal notices including apostrophe
     formatSystemMessageText("'Member' was removed from the chat", "es"),
     "'Miembro' fue eliminado del chat",
   );
+  assert.equal(formatSystemMessageText("'Alice' joined the chat", "en"), "'Alice' joined the chat");
+  assert.equal(formatSystemMessageText("'Alice' joined the chat", "es"), "'Alice' se unió al chat");
+  assert.equal(
+    formatSystemMessageText("'O'Connor' joined the chat", "es"),
+    "'O'Connor' se unió al chat",
+  );
+  assert.equal(
+    formatSystemMessageText("'Member' joined the chat", "es"),
+    "'Miembro' se unió al chat",
+  );
   assert.equal(formatSystemMessageText("Custom notice", "es"), "Custom notice");
   assert.equal(formatSystemMessageText(null, "es"), "");
 });
