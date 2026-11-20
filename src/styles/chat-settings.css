@@ -689,7 +689,12 @@
     color: var(--muted-foreground);
     font-variant-numeric: tabular-nums;
   }
-  .report-block-option {
+  .report-safety-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .report-safety-option {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -702,7 +707,11 @@
       border-color var(--duration-fast) var(--ease-out),
       background var(--duration-fast) var(--ease-out);
   }
-  .report-block-option[data-checked="true"] {
+  .report-safety-option[data-tone="unfollow"][data-checked="true"] {
+    border-color: color-mix(in oklab, var(--neon) 50%, var(--border));
+    background: color-mix(in oklab, var(--neon) 8%, var(--card));
+  }
+  .report-safety-option[data-tone="block"][data-checked="true"] {
     border-color: color-mix(in oklab, var(--destructive) 40%, var(--border));
     background: color-mix(in oklab, var(--destructive) 6%, var(--card));
   }
@@ -1006,7 +1015,7 @@
       animation: none;
     }
     .chat-settings-panel :is(input, textarea),
-    .chat-settings-dialog :is(textarea, .report-reason-option, .report-reason-icon, .report-block-option, .member-choice),
+    .chat-settings-dialog :is(textarea, .report-reason-option, .report-reason-icon, .report-safety-option, .member-choice),
     .chat-settings-panel .group-links a,
     .chat-options-menu-v2 button,
     .chat-settings-panel .shared-tabs button,

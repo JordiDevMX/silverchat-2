@@ -828,7 +828,7 @@ try {
   await infoReportDialog.getByRole("radio", { name: "Other", exact: true }).check();
   assert.equal(await infoReportDialog.getByRole("button", { name: "Submit report" }).isDisabled(), true);
   await infoReportDialog.getByRole("textbox", { name: "Details" }).fill("Spam broadcast");
-  await infoReportDialog.getByRole("switch").click();
+  await infoReportDialog.getByRole("switch", { name: "Block this channel’s creator", exact: true }).click();
   await infoReportDialog.getByRole("button", { name: "Report and block", exact: true }).click();
   await infoReportDialog.waitFor({ state: "detached" });
   assert.deepEqual(reports.at(-1), {

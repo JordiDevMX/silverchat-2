@@ -118,6 +118,7 @@ export function ChannelHeader({
             channelId: c.id,
             name: c.name,
             slug: c.slug,
+            following: !!follow,
             blockUserId: c.owner_id,
           }}
           onClose={() => setReportOpen(false)}

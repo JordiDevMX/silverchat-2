@@ -78,6 +78,7 @@ export type ReportTarget =
       channelId: string;
       name: string;
       slug?: string | null;
+      following?: boolean;
       blockUserId?: string | null;
     }
   | {

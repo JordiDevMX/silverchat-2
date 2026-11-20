@@ -85,8 +85,10 @@ const channels = [
 
 const reports = [];
 const blocks = [];
+const unfollows = [];
 const errors = [];
 let failNextBlock = false;
+let followingTechDispatch = true;
 let currentTheme = "light";
 
 const respond = (route, body, status = 200) =>
@@ -158,7 +160,7 @@ async function setupRoutes(context) {
     }
     if (p.endsWith("/channel_followers")) {
       const cid = s.get("channel_id")?.slice(3);
-      if (cid === followedChannelId) {
+      if (cid === followedChannelId && followingTechDispatch) {
         return out([
           {
             channel_id: followedChannelId,
@@ -218,6 +220,11 @@ async function setupRoutes(context) {
       p.endsWith("/message_deletions")
     )
       return out([]);
+    if (p.includes("/rpc/unfollow_channel")) {
+      unfollows.push(body.p_channel_id);
+      if (body.p_channel_id === followedChannelId) followingTechDispatch = false;
+      return respond(route, null);
+    }
     if (p.includes("/rpc/get_chat_messages")) return respond(route, []);
     return out([]);
   });
@@ -301,6 +308,7 @@ try {
   await page.getByRole("button", { name: "Report channel", exact: true }).click();
   const infoModal = page.getByRole("dialog", { name: "Report channel", exact: true });
   await infoModal.waitFor();
+  assert.ok(!/\bAlso\b/i.test((await infoModal.textContent()) ?? ""), "Should not say Also");
   await assertRadioGeometry(infoModal);
   await infoModal.getByRole("radio", { name: "Other", exact: true }).check();
   assert.equal(
@@ -308,7 +316,14 @@ try {
     true,
   );
   await infoModal.getByRole("textbox", { name: "Details" }).fill("Repeated scam links");
-  await infoModal.getByRole("switch").click();
+  await infoModal.getByRole("switch", { name: "Unfollow this channel", exact: true }).click();
+  assert.equal(
+    await infoModal.getByRole("button", { name: "Report and unfollow", exact: true }).isVisible(),
+    true,
+  );
+  await infoModal
+    .getByRole("switch", { name: "Block this channel’s creator", exact: true })
+    .click();
   await infoModal.getByRole("button", { name: "Report and block", exact: true }).click();
   await infoModal.waitFor({ state: "detached" });
   assert.deepEqual(reports.at(-1), {
@@ -318,14 +333,15 @@ try {
     reason: "other",
     description: "Repeated scam links",
   });
+  assert.deepEqual(unfollows.at(-1), followedChannelId);
   assert.deepEqual(blocks.at(-1), { blocker_id: me, blocked_id: sofiaId });
   await page
     .locator(".chat-settings-notice")
-    .filter({ hasText: "Report submitted and user blocked." })
+    .filter({ hasText: "Report submitted, channel unfollowed, and user blocked." })
     .waitFor();
-  console.log("PASS 2: channel report + anonymous creator block + aligned radios");
+  console.log("PASS 2: channel report + unfollow + anonymous creator block + aligned radios");
 
-  // 3. Ownerless channel omits block-creator switch without breaking submission.
+  // 3. Ownerless / unfollowed channel omits switches without breaking submission.
   await page.goto(`${baseUrl}/channels/${orphanChannelId}/info`);
   await page.locator(".channel-profile").waitFor();
   await page.getByRole("button", { name: "Report channel", exact: true }).click();
@@ -335,7 +351,7 @@ try {
   await orphanModal.getByRole("button", { name: "Submit report", exact: true }).click();
   await orphanModal.waitFor({ state: "detached" });
   assert.equal(reports.at(-1).reported_channel_id, orphanChannelId);
-  console.log("PASS 3: ownerless channel hides block switch and submits cleanly");
+  console.log("PASS 3: ownerless/unfollowed channel hides switches and submits cleanly");
 
   // 4. Channel owner never sees Report channel.
   await page.goto(`${baseUrl}/channels/${ownedChannelId}/info`);
@@ -352,7 +368,7 @@ try {
   await assertRadioGeometry(profileModal);
   failNextBlock = true;
   await profileModal.getByRole("radio", { name: "Harassment", exact: true }).check();
-  await profileModal.getByRole("switch").click();
+  await profileModal.getByRole("switch", { name: "Block Bob Stone", exact: true }).click();
   await profileModal.getByRole("button", { name: "Report and block", exact: true }).click();
   await profileModal.waitFor({ state: "detached" });
   assert.equal(reports.at(-1).reported_user_id, bobId);
@@ -364,6 +380,7 @@ try {
   console.log("PASS 5: public profile report + partial block failure notice");
 
   // 6. Dark mode + mobile viewport overflow & alignment check across PublicProfilePage, ChannelInfoScreen, and ReportModal.
+  followingTechDispatch = true;
   currentTheme = "dark";
   for (const [width, height] of [
     [375, 844],

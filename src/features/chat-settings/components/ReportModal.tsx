@@ -20,6 +20,8 @@ export function ReportModal({ target, onClose }: { target: ReportTarget; onClose
     setDescription,
     alsoBlock,
     setAlsoBlock,
+    alsoUnfollow,
+    setAlsoUnfollow,
     submit,
   } = useReportDialog(target, onClose);
   const baseId = useId();
@@ -28,9 +30,13 @@ export function ReportModal({ target, onClose }: { target: ReportTarget; onClose
   const blockId = `${baseId}-block`;
   const blockTitleId = `${blockId}-title`;
   const blockHintId = `${blockId}-hint`;
+  const unfollowId = `${baseId}-unfollow`;
+  const unfollowTitleId = `${unfollowId}-title`;
+  const unfollowHintId = `${unfollowId}-hint`;
 
-  const canBlock = Boolean(target.blockUserId && target.blockUserId !== user?.id);
   const isChannel = target.kind === "channel";
+  const canUnfollow = isChannel && Boolean(target.following);
+  const canBlock = Boolean(target.blockUserId && target.blockUserId !== user?.id);
   const targetHandle = isChannel
     ? target.slug
       ? `@${target.slug}`
@@ -38,6 +44,13 @@ export function ReportModal({ target, onClose }: { target: ReportTarget; onClose
     : target.username
       ? `@${target.username}`
       : null;
+
+  const submitLabel =
+    alsoBlock && canBlock
+      ? say("Report and block", "Reportar y bloquear")
+      : alsoUnfollow && canUnfollow
+        ? say("Report and unfollow", "Reportar y dejar de seguir")
+        : say("Submit report", "Enviar reporte");
 
   const reasons: Array<{
     value: ReportReason;
@@ -187,32 +200,64 @@ export function ReportModal({ target, onClose }: { target: ReportTarget; onClose
               </small>
             </div>
 
-            {canBlock && (
-              <div className="report-block-option" data-checked={alsoBlock || undefined}>
-                <label htmlFor={blockId} className="report-block-copy">
-                  <strong id={blockTitleId}>
-                    {isChannel
-                      ? say(
-                          "Also block this channel’s creator",
-                          "Bloquear también al creador de este canal",
-                        )
-                      : say(`Also block ${target.name}`, `Bloquear también a ${target.name}`)}
-                  </strong>
-                  <small id={blockHintId}>
-                    {say(
-                      "They won’t be able to message you, and you won’t see their messages.",
-                      "No podrá enviarte mensajes y no verás sus mensajes.",
-                    )}
-                  </small>
-                </label>
-                <Switch
-                  id={blockId}
-                  checked={alsoBlock}
-                  disabled={mutation.isPending}
-                  aria-labelledby={blockTitleId}
-                  aria-describedby={blockHintId}
-                  onCheckedChange={setAlsoBlock}
-                />
+            {(canUnfollow || canBlock) && (
+              <div className="report-safety-actions">
+                {canUnfollow && (
+                  <div
+                    className="report-safety-option"
+                    data-tone="unfollow"
+                    data-checked={alsoUnfollow || undefined}
+                  >
+                    <label htmlFor={unfollowId} className="report-block-copy">
+                      <strong id={unfollowTitleId}>
+                        {say("Unfollow this channel", "Dejar de seguir este canal")}
+                      </strong>
+                      <small id={unfollowHintId}>
+                        {say(
+                          "Stop receiving updates from this channel in your list.",
+                          "Deja de recibir novedades de este canal en tu lista.",
+                        )}
+                      </small>
+                    </label>
+                    <Switch
+                      id={unfollowId}
+                      checked={alsoUnfollow}
+                      disabled={mutation.isPending}
+                      aria-labelledby={unfollowTitleId}
+                      aria-describedby={unfollowHintId}
+                      onCheckedChange={setAlsoUnfollow}
+                    />
+                  </div>
+                )}
+                {canBlock && (
+                  <div
+                    className="report-safety-option report-block-option"
+                    data-tone="block"
+                    data-checked={alsoBlock || undefined}
+                  >
+                    <label htmlFor={blockId} className="report-block-copy">
+                      <strong id={blockTitleId}>
+                        {isChannel
+                          ? say("Block this channel’s creator", "Bloquear al creador de este canal")
+                          : say(`Block ${target.name}`, `Bloquear a ${target.name}`)}
+                      </strong>
+                      <small id={blockHintId}>
+                        {say(
+                          "They won’t be able to message you, and you won’t see their messages.",
+                          "No podrá enviarte mensajes y no verás sus mensajes.",
+                        )}
+                      </small>
+                    </label>
+                    <Switch
+                      id={blockId}
+                      checked={alsoBlock}
+                      disabled={mutation.isPending}
+                      aria-labelledby={blockTitleId}
+                      aria-describedby={blockHintId}
+                      onCheckedChange={setAlsoBlock}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -239,9 +284,7 @@ export function ReportModal({ target, onClose }: { target: ReportTarget; onClose
                 variant={alsoBlock && canBlock ? "destructive" : "default"}
                 disabled={mutation.isPending || !validReport(reason, description)}
               >
-                {alsoBlock && canBlock
-                  ? say("Report and block", "Reportar y bloquear")
-                  : say("Submit report", "Enviar reporte")}
+                {submitLabel}
               </Button>
             </div>
           </form>
