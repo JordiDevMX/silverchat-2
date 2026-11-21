@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { InfrastructureNotice } from "@/components/ui/auth-surfaces";
 import { Button } from "@/components/ui/button";
-import { ChatSettingsNotice } from "@/features/chat-settings/components/ChatSettingsNotice";
+import { ToastViewport } from "@/components/ui/toast";
 import "@/styles/chat-settings.css";
 import { AuthFrame, InlineError, SessionExpiredModal } from "@/features/auth/components";
 import { useDestinationActions } from "@/features/auth/hooks/useDestinationActions";
@@ -47,7 +47,7 @@ function Root() {
       <SecurityBanners />
       <Outlet />
       <SessionExpiredModal />
-      <ChatSettingsNotice />
+      <ToastViewport />
     </>
   );
 }

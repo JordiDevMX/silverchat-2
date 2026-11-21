@@ -15,7 +15,7 @@ export function useClearChatDialog(chatId: string) {
   const submit = () =>
     mutation.mutate(undefined, {
       onSuccess: () => {
-        ui.notify(say("Chat cleared", "Chat vaciado"));
+        ui.notify(say("Chat cleared", "Chat vaciado"), null, { tone: "success" });
         ui.close();
       },
     });
@@ -84,7 +84,10 @@ export function useReportDialog(target: ReportTarget, onClose: () => void) {
       { target, reason, description, alsoBlock, alsoUnfollow },
       {
         onSuccess: (result) => {
-          ui.notify(formatReportNotice(say, result));
+          const hasFailure = result.blockFailed || result.unfollowFailed;
+          ui.notify(formatReportNotice(say, result), null, {
+            tone: hasFailure ? "warning" : "success",
+          });
           onClose();
         },
       },
