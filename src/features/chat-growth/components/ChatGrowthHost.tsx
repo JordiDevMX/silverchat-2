@@ -35,6 +35,7 @@ export function ChatGrowthHost({
           />
         ) : (
           <ChannelInviteAdminModal
+            channelId={model.id}
             chatType={model.type}
             chatName={model.name}
             inviteUrl={model.inviteUrl}

@@ -9,10 +9,11 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/features/auth/components";
 import { useMessageText } from "@/features/messages/i18n";
+import { parseCustomSilenceMinutes } from "@/features/novedades/lib/channelInvitations";
 import {
   canExpelTarget,
   canManageCommunityAdmins,
@@ -33,12 +34,13 @@ import { refreshCommunities } from "../lib/cache";
 import { communityApi } from "../lib/communityApi";
 import type { Community } from "../types";
 
-const SILENCE_DURATIONS = [
-  { label: "15 minutes", ms: 15 * 60_000 },
-  { label: "1 hour", ms: 60 * 60_000 },
-  { label: "24 hours", ms: 24 * 60 * 60_000 },
-  { label: "7 days", ms: 7 * 24 * 60 * 60_000 },
-];
+const SILENCE_PRESETS = [
+  { id: "10m", label: "10 minutes", ms: 10 * 60_000 },
+  { id: "1h", label: "1 hour", ms: 60 * 60_000 },
+  { id: "24h", label: "24 hours", ms: 24 * 60 * 60_000 },
+  { id: "7d", label: "7 days", ms: 7 * 24 * 60 * 60_000 },
+  { id: "custom", label: "Custom duration", ms: 0 },
+] as const;
 
 export function CommunityMembersModerationModal({
   community,
@@ -52,10 +54,17 @@ export function CommunityMembersModerationModal({
   const cache = useQueryClient();
   const membersQuery = useCommunityMembers(community.id);
   const api = communityApi(supabase);
+  const durationId = useId();
+  const customDurationId = useId();
   const [error, setError] = useState("");
   const [silenceTarget, setSilenceTarget] = useState<{ id: string; name: string } | null>(null);
-  const [durationMs, setDurationMs] = useState(SILENCE_DURATIONS[1]?.ms ?? 60 * 60_000);
+  const [durationPreset, setDurationPreset] = useState<string>(SILENCE_PRESETS[0].id);
+  const [customMinutes, setCustomMinutes] = useState("30");
   const [reason, setReason] = useState("");
+  const resolvedSilenceMs =
+    durationPreset === "custom"
+      ? parseCustomSilenceMinutes(customMinutes)
+      : (SILENCE_PRESETS.find((d) => d.id === durationPreset)?.ms ?? null);
   const [expelTarget, setExpelTarget] = useState<{ id: string; name: string } | null>(null);
   const [expelReason, setExpelReason] = useState("");
   const [deleteMessages, setDeleteMessages] = useState(false);
@@ -271,20 +280,38 @@ export function CommunityMembersModerationModal({
         {silenceTarget && (
           <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3">
             <h3 className="text-sm font-semibold">Silence {silenceTarget.name}</h3>
-            <label className="text-xs font-medium">
+            <label htmlFor={durationId} className="text-xs font-medium">
               Duration
-              <select
-                className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-                value={durationMs}
-                onChange={(e) => setDurationMs(Number(e.target.value))}
-              >
-                {SILENCE_DURATIONS.map((d) => (
-                  <option key={d.label} value={d.ms}>
-                    {d.label}
-                  </option>
-                ))}
-              </select>
             </label>
+            <select
+              id={durationId}
+              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              value={durationPreset}
+              onChange={(e) => setDurationPreset(e.target.value)}
+            >
+              {SILENCE_PRESETS.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+            {durationPreset === "custom" && (
+              <>
+                <label htmlFor={customDurationId} className="text-xs font-medium">
+                  Custom duration (minutes)
+                </label>
+                <input
+                  id={customDurationId}
+                  type="number"
+                  min={1}
+                  max={43200}
+                  step={1}
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                  value={customMinutes}
+                  onChange={(e) => setCustomMinutes(e.target.value)}
+                />
+              </>
+            )}
             <label className="text-xs font-medium">
               Reason (optional)
               <input
@@ -298,17 +325,18 @@ export function CommunityMembersModerationModal({
               <Button
                 type="button"
                 size="sm"
-                disabled={runAction.isPending}
-                onClick={() =>
+                disabled={runAction.isPending || resolvedSilenceMs === null}
+                onClick={() => {
+                  if (resolvedSilenceMs === null) return;
                   runAction.mutate(() =>
                     api.silenceMember(
                       community.id,
                       silenceTarget.id,
-                      new Date(Date.now() + durationMs).toISOString(),
+                      new Date(Date.now() + resolvedSilenceMs).toISOString(),
                       reason.trim() || undefined,
                     ),
-                  )
-                }
+                  );
+                }}
               >
                 Confirm silence
               </Button>

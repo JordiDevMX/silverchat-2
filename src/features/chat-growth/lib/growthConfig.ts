@@ -24,8 +24,8 @@ export const GROWTH_CHAT_CONFIG: Record<SupportedGrowthChatType, GrowthTypeConfi
       es: { one: "seguidor", other: "seguidores" },
     },
     secondaryActionLabel: {
-      en: "Invite admins",
-      es: "Invitar a administradores",
+      en: "Invite contacts",
+      es: "Invitar contactos",
     },
     secondaryActionIcon: "plus",
     storyVerb: { en: "Follow", es: "¡Sigue" },

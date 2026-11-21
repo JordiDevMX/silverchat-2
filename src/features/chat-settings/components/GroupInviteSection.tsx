@@ -9,6 +9,7 @@ import {
   isGroupStaff,
   resolveGroupRole,
 } from "@/features/roles/lib/permissions";
+import { encodeQrMatrix, qrToSvgPath } from "@/features/roles/lib/qr";
 import type { GroupPermissions } from "@/features/roles/types";
 import { Avatar } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
@@ -78,6 +79,7 @@ export function GroupInviteCard({ chat }: { chat: ChatDetails }) {
   const token = inviteQuery.data ?? null;
   const inviteUrl =
     token && typeof window !== "undefined" ? `${window.location.origin}/chats/join/${token}` : "";
+  const qr = inviteUrl ? encodeQrMatrix(inviteUrl) : null;
 
   const copyLink = async () => {
     if (!inviteUrl) return;
@@ -100,6 +102,21 @@ export function GroupInviteCard({ chat }: { chat: ChatDetails }) {
         <p className="text-sm text-muted-foreground">Loading invite link…</p>
       ) : token ? (
         <>
+          {qr && (
+            <div className="flex justify-center rounded-lg border border-border/60 bg-white p-3">
+              <svg
+                role="img"
+                aria-label="Group invite QR code"
+                width={156}
+                height={156}
+                viewBox={`0 0 ${qr.size + 4} ${qr.size + 4}`}
+                shapeRendering="crispEdges"
+              >
+                <rect width={qr.size + 4} height={qr.size + 4} fill="#ffffff" />
+                <path d={qrToSvgPath(qr, 2)} fill="#111111" />
+              </svg>
+            </div>
+          )}
           <code className="block break-all rounded-md bg-muted px-2.5 py-2 text-xs">
             {inviteUrl}
           </code>

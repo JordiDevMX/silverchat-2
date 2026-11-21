@@ -455,6 +455,49 @@ BEGIN
     'Community ownership transfers to any member and outgoing owner becomes admin'
   );
   RESET ROLE;
+
+  -- Finding 1 & Finding 2 audit checks:
+  -- Cross-user identity probe via public predicate RPCs returns false / 0 for other subjects
+  PERFORM pg_temp.act_as(u_outsider);
+  SET LOCAL ROLE authenticated;
+  PERFORM pg_temp.assert_true(NOT public.is_channel_staff(v_ch_id, u_owner), 'Outsider cannot probe channel owner via is_channel_staff');
+  PERFORM pg_temp.assert_true(NOT public.is_channel_staff(v_ch_id, u_admin), 'Outsider cannot probe channel admin via is_channel_staff');
+  PERFORM pg_temp.assert_true(NOT public.is_channel_owner(v_ch_id, u_owner), 'Outsider cannot probe channel owner via is_channel_owner');
+  PERFORM pg_temp.assert_true(NOT public.is_channel_follower(v_ch_id, u_member), 'Outsider cannot probe channel follower via is_channel_follower');
+  PERFORM pg_temp.assert_true(NOT public.is_group_owner_or_admin(v_grp_id, u_owner), 'Outsider cannot probe group admin via is_group_owner_or_admin');
+  PERFORM pg_temp.assert_true(public.community_role_rank(v_comm_id, u_member) = 0, 'Outsider cannot probe community role rank');
+  PERFORM pg_temp.rejects('SELECT private.is_channel_staff(' || quote_literal(v_ch_id) || ', ' || quote_literal(u_owner) || ')');
+  RESET ROLE;
+
+  PERFORM pg_temp.act_as(u_admin);
+  SET LOCAL ROLE authenticated;
+  PERFORM pg_temp.assert_true(public.is_channel_staff(v_ch_id, u_admin), 'Caller can evaluate own channel staff membership');
+  PERFORM pg_temp.assert_true(NOT public.is_channel_owner(v_ch_id, u_owner), 'Admin cannot probe distinct channel owner ID');
+  -- Direct DELETE from channel_followers as staff deletes 0 rows and keeps follower_count intact
+  SELECT follower_count INTO v_cnt FROM public.channels_public WHERE id = v_ch_id;
+  DELETE FROM public.channel_followers WHERE channel_id = v_ch_id AND user_id = auth.uid();
+  PERFORM pg_temp.assert_true(
+    (SELECT follower_count = v_cnt FROM public.channels_public WHERE id = v_ch_id)
+    AND EXISTS (SELECT 1 FROM public.channel_followers WHERE channel_id = v_ch_id AND user_id = u_admin),
+    'Channel admin cannot delete own channel_followers row directly or skew follower_count'
+  );
+  RESET ROLE;
+
+  PERFORM pg_temp.act_as(u_owner);
+  SET LOCAL ROLE authenticated;
+  DELETE FROM public.channel_followers WHERE channel_id = v_ch_id AND user_id = auth.uid();
+  PERFORM pg_temp.assert_true(
+    (SELECT follower_count = v_cnt FROM public.channels_public WHERE id = v_ch_id)
+    AND EXISTS (SELECT 1 FROM public.channel_followers WHERE channel_id = v_ch_id AND user_id = u_owner),
+    'Channel owner cannot delete own channel_followers row directly or skew follower_count'
+  );
+  RESET ROLE;
+
+  -- Trigger layer also rejects direct DELETE even when bypassing RLS
+  PERFORM pg_temp.rejects(
+    'DELETE FROM public.channel_followers WHERE channel_id = ' || quote_literal(v_ch_id) || ' AND user_id = ' || quote_literal(u_admin),
+    'Channel staff cannot unfollow while in office'
+  );
 END $$;
 
 ROLLBACK;

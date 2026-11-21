@@ -7,6 +7,7 @@ import { matchesUserFilter, useDirectContacts } from "@/features/chats/hooks/use
 import { useMessageText } from "@/features/messages/i18n";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
+import { parseChannelInvitationResults } from "../../lib/channelInvitations";
 import { validSlug } from "../../lib/storyOrdering";
 import { useCreateChannel } from "./useCreateChannel";
 
@@ -125,9 +126,21 @@ export function useCreateChannelDialog(onClose: () => void) {
           setFailedInviteContacts(new Set(unsent));
           throw invResult.error;
         }
-        setSentInviteContacts((prev) => new Set([...prev, ...unsent]));
+        const outcome = parseChannelInvitationResults(invResult.data, unsent);
+        if (outcome.succeeded.length > 0) {
+          setSentInviteContacts((prev) => new Set([...prev, ...outcome.succeeded]));
+          void cache.invalidateQueries({ queryKey: ["channel-invitations-sent", user?.id, id] });
+        }
+        if (outcome.failed.length > 0) {
+          setFailedInviteContacts(new Set(outcome.failed.map((f) => f.recipientId)));
+          throw new Error(
+            say(
+              "Some invitations could not be delivered. Retry the remaining contacts or open your channel.",
+              "Algunas invitaciones no se pudieron enviar. Reintenta los contactos pendientes o abre el canal.",
+            ),
+          );
+        }
         setFailedInviteContacts(new Set());
-        void cache.invalidateQueries({ queryKey: ["channel-invitations-sent", user?.id, id] });
       }
 
       await finishAndOpen(id);

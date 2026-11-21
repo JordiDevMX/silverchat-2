@@ -52,7 +52,11 @@ export function GroupPermissionsControl({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Permission preset">
+      <fieldset
+        className="m-0 flex flex-wrap items-center gap-2 border-0 p-0"
+        aria-label="Permission preset"
+      >
+        <legend className="sr-only">Permission preset</legend>
         <Button
           type="button"
           size="sm"
@@ -78,7 +82,7 @@ export function GroupPermissionsControl({
             Custom
           </span>
         )}
-      </div>
+      </fieldset>
 
       <div className="flex flex-col gap-2">
         {PERMISSION_ITEMS.map((item) => {

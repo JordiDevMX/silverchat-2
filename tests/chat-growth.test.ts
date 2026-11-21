@@ -149,7 +149,7 @@ test("buildChannelGrowthModel formats owner copy, plurals, empty description, an
   assert.equal(esOwner.emptyDescriptionLabel, "agregar una descripción");
   assert.equal(esOwner.primaryAction.label, "Compartir en mi estado");
   assert.equal(esOwner.primaryAction.icon, "share_status");
-  assert.equal(esOwner.secondaryAction.label, "Invitar a administradores");
+  assert.equal(esOwner.secondaryAction.label, "Invitar contactos");
   assert.equal(esOwner.secondaryAction.icon, "plus");
   assert.equal(esOwner.inviteUrl, "https://app.test/channels/ch-1");
 
@@ -163,7 +163,7 @@ test("buildChannelGrowthModel formats owner copy, plurals, empty description, an
   assert.equal(enPlural.subtitle, "Channel - 100 followers");
   assert.equal(enPlural.description, "News feed");
   assert.equal(enPlural.primaryAction.label, "Share to my status");
-  assert.equal(enPlural.secondaryAction.label, "Invite admins");
+  assert.equal(enPlural.secondaryAction.label, "Invite contacts");
 
   const follower = buildChannelGrowthModel(makeChannel(), false, "es", "https://app.test");
   assert.equal(follower.isOwnerOrAdmin, false);

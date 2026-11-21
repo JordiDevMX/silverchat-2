@@ -27,7 +27,7 @@ BEGIN
 END;
 $$;
 
-SELECT pg_temp.assert_true((SELECT count(*) = 22 FROM pg_tables WHERE schemaname = 'public'), '22 application tables including auth backup codes');
+SELECT pg_temp.assert_true((SELECT count(*) = 30 FROM pg_tables WHERE schemaname = 'public'), '30 application tables including shared roles, channel privacy, and community moderation');
 SELECT pg_temp.assert_true((SELECT count(*) = 13 FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typtype='e'), '13 explicitly specified enums');
 SELECT pg_temp.assert_true((SELECT bool_and(rowsecurity) FROM pg_tables WHERE schemaname='public'), 'RLS on every table');
 SELECT pg_temp.assert_true((SELECT count(*) = 9 FROM public.app_config), 'nine app_config seeds');

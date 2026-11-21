@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  parseChannelInvitationResults,
+  parseCustomSilenceMinutes,
+} from "../src/features/novedades/lib/channelInvitations.ts";
+import {
   canAddGroupMembers,
   canDeleteChannelPost,
   canDemoteGroupMember,
@@ -11,6 +15,8 @@ import {
   canEditGroupInfo,
   canExpelTarget,
   canManageChannelStaff,
+  canManageCommunityAdmins,
+  canManageCommunityModerators,
   canModerateDeleteMessage,
   canPublishChannelPost,
   canReactInChannel,
@@ -26,6 +32,7 @@ import {
   DEFAULT_GROUP_PERMISSIONS,
   resolveGroupPreset,
 } from "../src/features/roles/lib/permissions.ts";
+import { encodeQrMatrix } from "../src/features/roles/lib/qr.ts";
 
 test("Group permissions matrix enforces OC-01 and configurable 5 toggles", () => {
   assert.deepEqual(DEFAULT_GROUP_PERMISSIONS, {
@@ -175,4 +182,53 @@ test("Community permissions matrix enforces moderator, OC-05, OC-06, and announc
     }),
     false,
   );
+
+  // Finding 5: community admin promotion is owner-only; moderators manageable by admin/owner
+  assert.equal(canManageCommunityAdmins("owner"), true);
+  assert.equal(canManageCommunityAdmins("admin"), false);
+  assert.equal(canManageCommunityAdmins("moderator"), false);
+  assert.equal(canManageCommunityModerators("admin"), true);
+  assert.equal(canManageCommunityModerators("moderator"), false);
+});
+
+test("parseChannelInvitationResults distinguishes partial successes, failures, and missing entries", () => {
+  const mixed = parseChannelInvitationResults(
+    [
+      { recipient_id: "u1", id: "inv-1", ok: true },
+      { recipient_id: "u2", ok: false, reason: "ineligible" },
+    ],
+    ["u1", "u2", "u3"],
+  );
+  assert.deepEqual(mixed.succeeded, ["u1"]);
+  assert.deepEqual(mixed.failed, [
+    { recipientId: "u2", reason: "ineligible" },
+    { recipientId: "u3", reason: "unavailable" },
+  ]);
+
+  const invalid = parseChannelInvitationResults(null, ["u1"]);
+  assert.deepEqual(invalid.succeeded, []);
+  assert.deepEqual(invalid.failed, [{ recipientId: "u1", reason: "unavailable" }]);
+});
+
+test("parseCustomSilenceMinutes validates bounds and integer minutes", () => {
+  assert.equal(parseCustomSilenceMinutes("10"), 600_000);
+  assert.equal(parseCustomSilenceMinutes("43200"), 43200 * 60_000);
+  assert.equal(parseCustomSilenceMinutes("0"), null);
+  assert.equal(parseCustomSilenceMinutes("-5"), null);
+  assert.equal(parseCustomSilenceMinutes("1.5"), null);
+  assert.equal(parseCustomSilenceMinutes("50000"), null);
+});
+
+test("encodeQrMatrix produces valid ISO QR finder patterns and sizing for group invite URLs", () => {
+  const url = "https://silverchat.app/chats/join/tok_abcdefghijklmnopqrstuvwxyz123456";
+  const qr = encodeQrMatrix(url);
+  assert.ok(qr.version >= 4 && qr.version <= 10);
+  assert.equal(qr.modules.length, qr.size * qr.size);
+  const at = (r: number, c: number) => qr.modules[r * qr.size + c];
+  // 7x7 finder center (3,3), top-right (3, n-4), bottom-left (n-4, 3) are dark; dark module (4*v+9, 8)
+  assert.equal(at(3, 3), true);
+  assert.equal(at(3, qr.size - 4), true);
+  assert.equal(at(qr.size - 4, 3), true);
+  assert.equal(at(1, 1), false);
+  assert.equal(at(4 * qr.version + 9, 8), true);
 });

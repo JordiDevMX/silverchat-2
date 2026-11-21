@@ -28,7 +28,9 @@ export function resolveGroupPreset(perms: GroupPermissions): GroupPermissionsPre
   return "custom";
 }
 
-export function applyGroupPreset(preset: Exclude<GroupPermissionsPreset, "custom">): GroupPermissions {
+export function applyGroupPreset(
+  preset: Exclude<GroupPermissionsPreset, "custom">,
+): GroupPermissions {
   const flag = preset === "restricted";
   return {
     onlyAdminsCanAddMembers: flag,
@@ -176,7 +178,7 @@ export function canManageCommunityModerators(role: CommunityRole): boolean {
 }
 
 export function canManageCommunityAdmins(role: CommunityRole): boolean {
-  return communityRoleRank(role) >= 3;
+  return role === "owner";
 }
 
 export function canSilenceTarget(actorRole: CommunityRole, targetRole: CommunityRole): boolean {

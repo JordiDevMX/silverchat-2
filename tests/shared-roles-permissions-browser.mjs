@@ -62,9 +62,10 @@ const browser = await launchBrowser();
 const errors = [];
 
 let groupRoleOwnerMode = false; // false => `me` is non-owner admin; true => `me` is owner
-const commRoleMode = "moderator"; // "moderator" | "owner"
+let commRoleMode = "moderator"; // "moderator" | "admin" | "owner"
 let commSilencedUntil = null;
 const rpcCalls = [];
+const invitePayloads = [];
 
 const jwt = `${Buffer.from('{"alg":"HS256"}').toString("base64url")}.${Buffer.from(JSON.stringify({ sub: me, aal: "aal2", exp: Math.floor(Date.now() / 1000) + 3600 })).toString("base64url")}.signature`;
 const authUser = {
@@ -135,7 +136,27 @@ try {
       if (fn === "update_group_info") return json(route, null);
       if (fn === "create_channel")
         return json(route, body.p_channel_id ?? "00000000-0000-4000-8000-000000000999");
-      if (fn === "send_channel_invitations") return json(route, { sent: 1 });
+      if (fn === "send_channel_invitations") {
+        invitePayloads.push(body.p_invitations ?? []);
+        if (invitePayloads.length === 1 && (body.p_invitations ?? []).length === 2) {
+          return json(
+            route,
+            (body.p_invitations ?? []).map((item) =>
+              item.recipient_id === ownerId
+                ? { recipient_id: item.recipient_id, id: item.id, ok: true }
+                : { recipient_id: item.recipient_id, ok: false, reason: "ineligible" },
+            ),
+          );
+        }
+        return json(
+          route,
+          (body.p_invitations ?? []).map((item) => ({
+            recipient_id: item.recipient_id,
+            id: item.id,
+            ok: true,
+          })),
+        );
+      }
       if (fn === "get_channel_viewer_context")
         return json(route, { viewer_role: "admin", following: true });
       if (fn === "get_channel_staff") {
@@ -233,7 +254,38 @@ try {
       return out(id ? rows.filter((r) => r.id === id) : rows);
     }
     if (p.endsWith("/chat_members")) {
-      if (u.searchParams.get("select")?.includes("chat:chats")) {
+      const sel = u.searchParams.get("select") ?? "";
+      if (u.searchParams.get("chat.type") === "eq.direct") {
+        return json(route, [
+          {
+            chat_id: "00000000-0000-4000-8000-000000000701",
+            chat: {
+              id: "00000000-0000-4000-8000-000000000701",
+              type: "direct",
+              status: "active",
+              direct_pair_key: `${me}::${ownerId}`,
+              last_message_at: now,
+            },
+          },
+          {
+            chat_id: "00000000-0000-4000-8000-000000000702",
+            chat: {
+              id: "00000000-0000-4000-8000-000000000702",
+              type: "direct",
+              status: "active",
+              direct_pair_key: `${me}::${peerAdminId}`,
+              last_message_at: now,
+            },
+          },
+        ]);
+      }
+      if (sel === "chat_id, user_id" || sel === "chat_id,user_id") {
+        return json(route, [
+          { chat_id: "00000000-0000-4000-8000-000000000701", user_id: ownerId },
+          { chat_id: "00000000-0000-4000-8000-000000000702", user_id: peerAdminId },
+        ]);
+      }
+      if (sel.includes("chat:chats")) {
         return json(route, [
           {
             chat_id: genChatId,
@@ -359,7 +411,7 @@ try {
         {
           community_id: commId,
           user_id: me,
-          role: commRoleMode === "owner" ? "admin" : "moderator",
+          role: commRoleMode === "moderator" ? "moderator" : "admin",
           joined_at: now,
           silenced_until: commSilencedUntil,
           silenced_by: null,
@@ -445,6 +497,35 @@ try {
   await page.keyboard.press("Escape");
   assert.equal(await page.getByRole("button", { name: "Transfer ownership" }).count(), 0);
 
+  // 2b. Community admin (not owner) cannot see Promote admin & CAN use 10m / custom silence duration (Finding 5)
+  commRoleMode = "admin";
+  await page.reload();
+  await page.getByRole("button", { name: "View members", exact: true }).click();
+  const commMembersDialog = page.getByRole("dialog", { name: "Community members", exact: true });
+  await commMembersDialog.getByText("Dave Member", { exact: true }).waitFor();
+  assert.equal(
+    await commMembersDialog.getByRole("button", { name: "Promote admin", exact: true }).count(),
+    0,
+  );
+  await commMembersDialog.getByRole("button", { name: "Silence", exact: true }).click();
+  const durationSelect = commMembersDialog.getByLabel("Duration", { exact: true });
+  await durationSelect.selectOption("10m");
+  await durationSelect.selectOption("custom");
+  await commMembersDialog.getByLabel("Custom duration (minutes)", { exact: true }).fill("45");
+  await Promise.all([
+    page.waitForResponse((res) => res.url().includes("/rest/v1/rpc/silence_community_member")),
+    commMembersDialog.getByRole("button", { name: "Confirm silence", exact: true }).click(),
+  ]);
+  await commMembersDialog
+    .getByRole("button", { name: "Confirm silence", exact: true })
+    .waitFor({ state: "detached" });
+  const silenceCall = rpcCalls.findLast((c) => c.fn === "silence_community_member");
+  assert.ok(silenceCall);
+  const deltaMin = (Date.parse(silenceCall.body.p_silenced_until) - Date.now()) / 60_000;
+  assert.ok(deltaMin >= 44 && deltaMin <= 46, `Expected ~45m silence, got ${deltaMin}`);
+  await commMembersDialog.getByRole("button", { name: "Close", exact: true }).click();
+  commRoleMode = "moderator";
+
   // Silenced member sees RestrictedComposerNotice with expiry
   commSilencedUntil = new Date(Date.now() + 3600_000).toISOString();
   await page.goto(`${origin}/communities/${commId}/chats/${genChatId}`);
@@ -459,9 +540,10 @@ try {
     assert.equal(await switches.nth(i).getAttribute("aria-checked"), "true");
   }
 
-  // 4. Group info & OC-01 member actions
+  // 4. Group info & OC-01 member actions + QR code (Finding 5)
   await page.goto(`${origin}/chats/${grpId}/info`);
   await page.getByText("Group invite link", { exact: true }).waitFor();
+  await page.getByRole("img", { name: "Group invite QR code", exact: true }).waitFor();
   await page.getByText("Pending join requests (1)").waitFor();
   await page.goto(`${origin}/chats/${grpId}/members`);
   await page.getByRole("heading", { name: /4 members/ }).waitFor();
@@ -491,11 +573,22 @@ try {
     .getByRole("dialog", { name: "Channel photo", exact: true })
     .getByRole("button", { name: "Skip", exact: true })
     .click();
-  await page
-    .getByRole("dialog", { name: "Invite contacts", exact: true })
-    .getByRole("button", { name: "Create channel", exact: true })
-    .click();
+  const inviteDialog = page.getByRole("dialog", { name: "Invite contacts", exact: true });
+  await inviteDialog.getByLabel(/Bob Owner/).check();
+  await inviteDialog.getByLabel(/Carol Admin/).check();
+  await inviteDialog.getByRole("button", { name: "Create channel", exact: true }).click();
+  // Finding 4: mixed partial delivery keeps dialog open, marks Bob Sent, marks Carol Retry needed
+  await inviteDialog.getByRole("alert").waitFor();
+  assert.equal(await inviteDialog.getByText("Sent", { exact: true }).count(), 1);
+  assert.equal(await inviteDialog.getByText("Retry needed", { exact: true }).count(), 1);
+  await inviteDialog.getByRole("button", { name: "Retry pending", exact: true }).click();
   await page.waitForURL("**/channels/**/info");
+  assert.equal(invitePayloads.length, 2);
+  assert.equal(invitePayloads[0].length, 2);
+  assert.deepEqual(
+    invitePayloads[1].map((x) => x.recipient_id),
+    [peerAdminId],
+  );
 
   // 6. Channel Info as admin (OC-02 no unfollow, OC-04 can report without owner block toggle)
   await page.goto(`${origin}/channels/${chId}/info`);

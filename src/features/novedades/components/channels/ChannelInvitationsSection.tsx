@@ -9,6 +9,7 @@ import { Avatar, NavLink } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import { refreshNovedades } from "../../lib/cache";
+import { parseChannelInvitationResults } from "../../lib/channelInvitations";
 import { type ChannelInvitationReceived, mapPublicChannelRow } from "../../types";
 
 export function ChannelInvitationsBanner() {
@@ -141,6 +142,7 @@ export function ChannelInviteContactsPanel({ channelId }: { channelId: string })
   const { say } = useMessageText();
   const cache = useQueryClient();
   const contacts = useDirectContacts();
+  const [failedRecipients, setFailedRecipients] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState("");
 
   const sentQuery = useQuery({
@@ -163,6 +165,22 @@ export function ChannelInviteContactsPanel({ channelId }: { channelId: string })
         p_invitations: [{ id: crypto.randomUUID(), recipient_id: recipientId }],
       });
       if (r.error) throw r.error;
+      const outcome = parseChannelInvitationResults(r.data, [recipientId]);
+      if (outcome.failed.length > 0) {
+        setFailedRecipients((prev) => new Set([...prev, recipientId]));
+        throw new Error(
+          say(
+            "Unable to invite this contact right now.",
+            "No se pudo invitar a este contacto ahora.",
+          ),
+        );
+      }
+      setFailedRecipients((prev) => {
+        const next = new Set(prev);
+        next.delete(recipientId);
+        return next;
+      });
+      return recipientId;
     },
     onSuccess: () => {
       setError("");
@@ -208,11 +226,13 @@ export function ChannelInviteContactsPanel({ channelId }: { channelId: string })
                 <Button
                   type="button"
                   size="sm"
-                  variant="outline"
+                  variant={failedRecipients.has(contact.id) ? "destructive" : "outline"}
                   disabled={inviteMutation.isPending}
                   onClick={() => inviteMutation.mutate(contact.id)}
                 >
-                  {say("Invite", "Invitar")}
+                  {failedRecipients.has(contact.id)
+                    ? say("Retry", "Reintentar")
+                    : say("Invite", "Invitar")}
                 </Button>
               )}
             </li>

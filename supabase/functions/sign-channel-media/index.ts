@@ -22,11 +22,16 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "unauthorized" }, 401);
 
-    const userClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
+      return json({ error: "server_misconfigured" }, 500);
+    }
+
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     const {
       data: { user },
@@ -57,20 +62,35 @@ Deno.serve(async (req) => {
     let ttlSeconds = 3600;
 
     if (kind === "channel_avatar") {
-      if (typeof channelId !== "string" || !UUID_RE.test(channelId) || typeof path !== "string" || !path) {
+      if (
+        typeof channelId !== "string" ||
+        !UUID_RE.test(channelId) ||
+        typeof path !== "string" ||
+        !path
+      ) {
         return json({ error: "channel_avatar requires channelId and path" }, 400);
       }
       rpcName = "authorize_channel_avatar_read";
       rpcArgs = { p_channel_id: channelId, p_path: path };
       ttlSeconds = 900;
     } else if (kind === "channel_post_media") {
-      if (typeof uploadId !== "string" || !UUID_RE.test(uploadId) || typeof channelId !== "string" || !UUID_RE.test(channelId)) {
+      if (
+        typeof uploadId !== "string" ||
+        !UUID_RE.test(uploadId) ||
+        typeof channelId !== "string" ||
+        !UUID_RE.test(channelId)
+      ) {
         return json({ error: "channel_post_media requires uploadId and channelId" }, 400);
       }
       rpcName = "authorize_channel_post_media_read";
       rpcArgs = { p_upload_id: uploadId, p_channel_id: channelId };
     } else if (kind === "forwarded_channel_media") {
-      if (typeof uploadId !== "string" || !UUID_RE.test(uploadId) || typeof messageId !== "string" || !UUID_RE.test(messageId)) {
+      if (
+        typeof uploadId !== "string" ||
+        !UUID_RE.test(uploadId) ||
+        typeof messageId !== "string" ||
+        !UUID_RE.test(messageId)
+      ) {
         return json({ error: "forwarded_channel_media requires uploadId and messageId" }, 400);
       }
       rpcName = "authorize_forwarded_channel_media_read";
@@ -87,10 +107,7 @@ Deno.serve(async (req) => {
     }
 
     // Reserve service-role client strictly for signing after authorization passes.
-    const adminClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const downloadOpt =
       download === true && kind !== "channel_avatar"
         ? { download: typeof filename === "string" && filename.trim() ? filename.trim() : true }
