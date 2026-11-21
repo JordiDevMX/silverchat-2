@@ -109,11 +109,11 @@ export function GroupInviteCard({ chat }: { chat: ChatDetails }) {
                 aria-label="Group invite QR code"
                 width={156}
                 height={156}
-                viewBox={`0 0 ${qr.size + 4} ${qr.size + 4}`}
+                viewBox={`0 0 ${qr.size + 8} ${qr.size + 8}`}
                 shapeRendering="crispEdges"
               >
-                <rect width={qr.size + 4} height={qr.size + 4} fill="#ffffff" />
-                <path d={qrToSvgPath(qr, 2)} fill="#111111" />
+                <rect width={qr.size + 8} height={qr.size + 8} fill="#ffffff" />
+                <path d={qrToSvgPath(qr, 4)} fill="#111111" />
               </svg>
             </div>
           )}

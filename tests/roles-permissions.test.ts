@@ -1,8 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import jsQRImport from "jsqr";
+
+const decodeQr = (typeof jsQRImport === "function" ? jsQRImport : jsQRImport.default) as (
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  options?: { inversionAttempts?: "dontInvert" | "onlyInvert" | "attemptBoth" | "invertFirst" },
+) => { data: string } | null;
+
 import {
+  MAX_CHANNEL_INVITATIONS_PER_BATCH,
   parseChannelInvitationResults,
   parseCustomSilenceMinutes,
+  sendChannelInvitationsInBatches,
 } from "../src/features/novedades/lib/channelInvitations.ts";
 import {
   canAddGroupMembers,
@@ -32,7 +43,8 @@ import {
   DEFAULT_GROUP_PERMISSIONS,
   resolveGroupPreset,
 } from "../src/features/roles/lib/permissions.ts";
-import { encodeQrMatrix } from "../src/features/roles/lib/qr.ts";
+import { encodeQrMatrix, qrToSvgPath } from "../src/features/roles/lib/qr.ts";
+import { parseAuthorizedStagingOrigin } from "./lib/staging-live.mjs";
 
 test("Group permissions matrix enforces OC-01 and configurable 5 toggles", () => {
   assert.deepEqual(DEFAULT_GROUP_PERMISSIONS, {
@@ -219,16 +231,193 @@ test("parseCustomSilenceMinutes validates bounds and integer minutes", () => {
   assert.equal(parseCustomSilenceMinutes("50000"), null);
 });
 
-test("encodeQrMatrix produces valid ISO QR finder patterns and sizing for group invite URLs", () => {
-  const url = "https://silverchat.app/chats/join/tok_abcdefghijklmnopqrstuvwxyz123456";
-  const qr = encodeQrMatrix(url);
-  assert.ok(qr.version >= 4 && qr.version <= 10);
-  assert.equal(qr.modules.length, qr.size * qr.size);
-  const at = (r: number, c: number) => qr.modules[r * qr.size + c];
-  // 7x7 finder center (3,3), top-right (3, n-4), bottom-left (n-4, 3) are dark; dark module (4*v+9, 8)
-  assert.equal(at(3, 3), true);
-  assert.equal(at(3, qr.size - 4), true);
-  assert.equal(at(qr.size - 4, 3), true);
-  assert.equal(at(1, 1), false);
-  assert.equal(at(4 * qr.version + 9, 8), true);
+test("encodeQrMatrix preserves timing modules, valid BCH format copies, 4-module quiet zone, and round-trips via independent decoder", () => {
+  for (const url of [
+    "https://a.co/1",
+    "https://silverchat.test/chats/join/9f66c2740ab04c23ad79541ed8b57e13",
+    "https://silverchat.app/chats/join/tok_abcdefghijklmnopqrstuvwxyz1234567890_extra_len",
+    "https://silverchat.app/chats/join/tok_v7_version_bits_coverage_abcdefghijklmnopqrstuvwxyz0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789",
+  ]) {
+    const qr = encodeQrMatrix(url);
+    assert.ok(qr.version >= 1 && qr.version <= 10);
+    assert.equal(qr.modules.length, qr.size * qr.size);
+    const n = qr.size;
+    const at = (r: number, c: number) => (qr.modules[r * n + c] ? 1 : 0);
+
+    // 7x7 finders + dark module + unbroken alternating timing patterns on row/col 6
+    assert.equal(at(3, 3), 1);
+    assert.equal(at(3, n - 4), 1);
+    assert.equal(at(n - 4, 3), 1);
+    assert.equal(at(1, 1), 0);
+    assert.equal(at(4 * qr.version + 9, 8), 1);
+    for (let i = 8; i < n - 8; i++) {
+      assert.equal(at(6, i), i % 2 === 0 ? 1 : 0, `Row 6 timing broken at col ${i}`);
+      assert.equal(at(i, 6), i % 2 === 0 ? 1 : 0, `Col 6 timing broken at row ${i}`);
+    }
+
+    // Read both redundant 15-bit format copies (ISO/IEC 18004 Figure 25 coordinates)
+    const copy1 =
+      (at(0, 8) << 0) |
+      (at(1, 8) << 1) |
+      (at(2, 8) << 2) |
+      (at(3, 8) << 3) |
+      (at(4, 8) << 4) |
+      (at(5, 8) << 5) |
+      (at(7, 8) << 6) |
+      (at(8, 8) << 7) |
+      (at(8, 7) << 8) |
+      (at(8, 5) << 9) |
+      (at(8, 4) << 10) |
+      (at(8, 3) << 11) |
+      (at(8, 2) << 12) |
+      (at(8, 1) << 13) |
+      (at(8, 0) << 14);
+    const copy2 =
+      (at(8, n - 1) << 0) |
+      (at(8, n - 2) << 1) |
+      (at(8, n - 3) << 2) |
+      (at(8, n - 4) << 3) |
+      (at(8, n - 5) << 4) |
+      (at(8, n - 6) << 5) |
+      (at(8, n - 7) << 6) |
+      (at(8, n - 8) << 7) |
+      (at(n - 7, 8) << 8) |
+      (at(n - 6, 8) << 9) |
+      (at(n - 5, 8) << 10) |
+      (at(n - 4, 8) << 11) |
+      (at(n - 3, 8) << 12) |
+      (at(n - 2, 8) << 13) |
+      (at(n - 1, 8) << 14);
+    assert.equal(copy1, copy2, "Redundant format copies must match identically");
+
+    // Verify EC level L (01) and valid BCH(15, 5) syndrome after unmasking with 0x5412
+    const unmasked = copy1 ^ 0x5412;
+    assert.equal((unmasked >>> 13) & 0x3, 0b01, "Expected EC level L");
+    let rem = unmasked;
+    for (let i = 4; i >= 0; i--) {
+      if (rem & (1 << (i + 10))) rem ^= 0x537 << i;
+    }
+    assert.equal(rem, 0, "Format info BCH syndrome must be zero");
+
+    // Default SVG quiet zone margin is >= 4 modules (x,y coordinates start at >= 4)
+    const path = qrToSvgPath(qr);
+    assert.ok(
+      path.startsWith("M4,4h1v1h-1z"),
+      "Expected 4-module quiet zone around top-left finder",
+    );
+
+    // Rasterize matrix + 4-module quiet zone into RGBA and decode with independent jsQR decoder
+    const margin = 4;
+    const scale = 4;
+    const dim = (n + margin * 2) * scale;
+    const rgba = new Uint8ClampedArray(dim * dim * 4);
+    rgba.fill(255);
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        if (!qr.modules[r * n + c]) continue;
+        for (let py = 0; py < scale; py++) {
+          for (let px = 0; px < scale; px++) {
+            const x = (c + margin) * scale + px;
+            const y = (r + margin) * scale + py;
+            const off = (y * dim + x) * 4;
+            rgba[off] = 17;
+            rgba[off + 1] = 17;
+            rgba[off + 2] = 17;
+          }
+        }
+      }
+    }
+    const decoded = decodeQr(rgba, dim, dim, { inversionAttempts: "dontInvert" });
+    assert.equal(decoded?.data, url, `Independent jsQR decoder mismatch for version ${qr.version}`);
+  }
+});
+
+test("sendChannelInvitationsInBatches splits >50 recipients, preserves cross-batch progress, and retries remainder", async () => {
+  const recipients = Array.from({ length: 51 }, (_, i) => `u-${i + 1}`);
+  const batchesSeen: string[][] = [];
+  const progressed: string[] = [];
+
+  const firstAttempt = await sendChannelInvitationsInBatches({
+    channelId: "ch-1",
+    recipientIds: recipients,
+    getInvitationId: (id) => `inv-${id}`,
+    onBatchSucceeded: (ids) => progressed.push(...ids),
+    sendBatch: async (_channelId, batch) => {
+      batchesSeen.push(batch.map((b) => b.recipient_id));
+      assert.ok(batch.length <= MAX_CHANNEL_INVITATIONS_PER_BATCH);
+      if (batchesSeen.length === 1) {
+        return {
+          data: batch.map((item) =>
+            item.recipient_id === "u-2"
+              ? { recipient_id: item.recipient_id, ok: false, reason: "ineligible" }
+              : { recipient_id: item.recipient_id, id: item.id, ok: true },
+          ),
+          error: null,
+        };
+      }
+      return { data: null, error: { message: "Batch 2 failed" } };
+    },
+  });
+
+  assert.deepEqual(
+    batchesSeen.map((b) => b.length),
+    [50, 1],
+  );
+  assert.equal(firstAttempt.succeeded.length, 49);
+  assert.equal(progressed.length, 49);
+  assert.deepEqual(
+    firstAttempt.failed.map((f) => f.recipientId),
+    ["u-2", "u-51"],
+  );
+  assert.equal(firstAttempt.error?.message, "Batch 2 failed");
+
+  const sentSet = new Set(firstAttempt.succeeded);
+  const remaining = recipients.filter((id) => !sentSet.has(id));
+  const retryBatches: string[][] = [];
+  const retryAttempt = await sendChannelInvitationsInBatches({
+    channelId: "ch-1",
+    recipientIds: remaining,
+    getInvitationId: (id) => `inv-${id}`,
+    sendBatch: async (_channelId, batch) => {
+      retryBatches.push(batch.map((b) => b.recipient_id));
+      return {
+        data: batch.map((item) => ({ recipient_id: item.recipient_id, id: item.id, ok: true })),
+        error: null,
+      };
+    },
+  });
+
+  assert.deepEqual(retryBatches, [["u-2", "u-51"]]);
+  assert.deepEqual(retryAttempt.failed, []);
+  assert.equal(retryAttempt.error, null);
+});
+
+test("parseAuthorizedStagingOrigin binds origin to Staging ref before credential retrieval", () => {
+  assert.equal(
+    parseAuthorizedStagingOrigin(undefined, undefined),
+    "https://gffdrrtatxdiucigtwdn.supabase.co",
+  );
+  assert.equal(
+    parseAuthorizedStagingOrigin(
+      "gffdrrtatxdiucigtwdn",
+      "https://gffdrrtatxdiucigtwdn.supabase.co/",
+    ),
+    "https://gffdrrtatxdiucigtwdn.supabase.co",
+  );
+  assert.throws(() => parseAuthorizedStagingOrigin("lmzbaxlojgsdwgcxkmzx", undefined));
+  assert.throws(() =>
+    parseAuthorizedStagingOrigin("gffdrrtatxdiucigtwdn", "http://gffdrrtatxdiucigtwdn.supabase.co"),
+  );
+  assert.throws(() =>
+    parseAuthorizedStagingOrigin(
+      "gffdrrtatxdiucigtwdn",
+      "https://lmzbaxlojgsdwgcxkmzx.supabase.co",
+    ),
+  );
+  assert.throws(() =>
+    parseAuthorizedStagingOrigin(
+      "gffdrrtatxdiucigtwdn",
+      "https://gffdrrtatxdiucigtwdn.supabase.co/rest/v1",
+    ),
+  );
 });

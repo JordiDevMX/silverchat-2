@@ -1,31 +1,13 @@
 // Live Staging contract verification for the `sign-channel-media` Edge Function.
-// Requires linked Staging target `gffdrrtatxdiucigtwdn` (`db-guard.mjs` enforced).
+// Strictly binds normalized origin to Staging `gffdrrtatxdiucigtwdn` before key lookup.
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { resolveAuthorizedStagingConfig, StagingCleanupVerifier } from "./lib/staging-live.mjs";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const ref = process.env.SUPABASE_PROJECT_REF ?? "gffdrrtatxdiucigtwdn";
-const url = process.env.SUPABASE_URL ?? `https://${ref}.supabase.co`;
-
-execFileSync("node", [path.join(rootDir, "scripts", "db-guard.mjs"), "--expect", ref], {
-  cwd: rootDir,
-  stdio: "inherit",
-});
-
-const keys = JSON.parse(
-  execFileSync(
-    "npx",
-    ["supabase", "--workdir", rootDir, "projects", "api-keys", "--project-ref", ref, "-o", "json"],
-    { encoding: "utf8", shell: true },
-  ),
-);
-const anonKey = keys.find((k) => k.id === "anon")?.api_key;
-const serviceKey = keys.find((k) => k.id === "service_role")?.api_key;
-assert(anonKey && serviceKey, "Missing Staging API keys");
-
+const { url, anonKey, serviceKey } = resolveAuthorizedStagingConfig(rootDir);
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
 async function makeUser(tag) {
@@ -62,8 +44,11 @@ let uViewer;
 let uOutsider;
 let chId;
 let grpId;
+let uploadId;
 const cleanupObjects = [];
 const createdBuckets = [];
+let primaryPassed = false;
+const cleanup = new StagingCleanupVerifier();
 
 try {
   for (const bucketName of ["avatars", "channel-media"]) {
@@ -126,6 +111,7 @@ try {
     .select("id")
     .single();
   assert.ifError(upRes.error);
+  uploadId = upRes.data.id;
 
   const postRes = await admin
     .from("messages")
@@ -133,7 +119,7 @@ try {
       channel_id: chId,
       sender_id: uOwner.user.id,
       type: "image",
-      file_upload_id: upRes.data.id,
+      file_upload_id: uploadId,
       content: "Image post",
     })
     .select("id")
@@ -172,7 +158,7 @@ try {
 
   const postOk = await callSign(uViewer.token, {
     kind: "channel_post_media",
-    uploadId: upRes.data.id,
+    uploadId,
     channelId: chId,
     download: false,
   });
@@ -181,14 +167,14 @@ try {
 
   const fwdDenied = await callSign(uOutsider.token, {
     kind: "forwarded_channel_media",
-    uploadId: upRes.data.id,
+    uploadId,
     messageId: fwdMsgId,
   });
   assert.equal(fwdDenied.status, 403, "Outsider cannot sign forwarded channel media");
 
   const fwdOkBefore = await callSign(uViewer.token, {
     kind: "forwarded_channel_media",
-    uploadId: upRes.data.id,
+    uploadId,
     messageId: fwdMsgId,
     download: true,
     filename: "post-live.webp",
@@ -202,14 +188,14 @@ try {
 
   const postAfterDel = await callSign(uOutsider.token, {
     kind: "channel_post_media",
-    uploadId: upRes.data.id,
+    uploadId,
     channelId: chId,
   });
   assert.equal(postAfterDel.status, 403, "Deleted channel post media denied (403)");
 
   const fwdAfterDel = await callSign(uViewer.token, {
     kind: "forwarded_channel_media",
-    uploadId: upRes.data.id,
+    uploadId,
     messageId: fwdMsgId,
   });
   assert.equal(
@@ -218,22 +204,62 @@ try {
     "Forwarded copy stays accessible after source channel post delete",
   );
 
+  primaryPassed = true;
   console.log("ALL STAGING EDGE SIGNING CONTRACT CHECKS PASSED!");
 } finally {
-  const safe = async (fn) => {
-    try {
-      await fn();
-    } catch {}
-  };
-  if (chId && uOwner) await safe(() => uOwner.client.rpc("delete_channel", { p_channel_id: chId }));
-  if (grpId) await safe(() => admin.from("chats").delete().eq("id", grpId));
+  if (chId && uOwner) {
+    await cleanup.runStep("delete_channel", () =>
+      uOwner.client.rpc("delete_channel", { p_channel_id: chId }),
+    );
+  }
+  if (grpId) {
+    await cleanup.runStep("delete_chat", () => admin.from("chats").delete().eq("id", grpId));
+  }
+  if (uploadId) {
+    await cleanup.runStep("delete_file_upload", () =>
+      admin.from("file_uploads").delete().eq("id", uploadId),
+    );
+  }
   for (const [bucket, objPath] of cleanupObjects) {
-    await safe(() => admin.storage.from(bucket).remove([objPath]));
+    await cleanup.runStep(`storage_remove:${bucket}/${objPath}`, () =>
+      admin.storage.from(bucket).remove([objPath]),
+    );
   }
   for (const bucket of createdBuckets) {
-    await safe(() => admin.storage.deleteBucket(bucket));
+    await cleanup.runStep(`storage_delete_bucket:${bucket}`, () =>
+      admin.storage.deleteBucket(bucket),
+    );
   }
   for (const u of [uOwner, uViewer, uOutsider]) {
-    if (u?.user?.id) await safe(() => admin.auth.admin.deleteUser(u.user.id));
+    if (u?.user?.id) {
+      await cleanup.runStep(`delete_user:${u.user.id}`, () =>
+        admin.auth.admin.deleteUser(u.user.id),
+      );
+    }
+  }
+
+  await cleanup.verifyRowAbsent(admin, "channels", chId, "channels");
+  await cleanup.verifyRowAbsent(admin, "chats", grpId, "chats");
+  await cleanup.verifyRowAbsent(admin, "file_uploads", uploadId, "uploads");
+  for (const [bucket, objPath] of cleanupObjects) {
+    await cleanup.verifyObjectAbsent(admin, bucket, objPath);
+  }
+  for (const bucket of createdBuckets) {
+    await cleanup.verifyBucketAbsent(admin, bucket);
+  }
+  for (const u of [uOwner, uViewer, uOutsider]) {
+    if (u?.user?.id) await cleanup.verifyUserAbsent(admin, u.user.id);
+  }
+
+  try {
+    cleanup.emitSummary({
+      suite: "sign-channel-media-live",
+      origin: url,
+      passed: primaryPassed,
+      metrics: { checksVerified: 8 },
+    });
+  } catch (cleanupErr) {
+    console.error(cleanupErr);
+    process.exitCode = 1;
   }
 }

@@ -7,7 +7,7 @@ import { matchesUserFilter, useDirectContacts } from "@/features/chats/hooks/use
 import { useMessageText } from "@/features/messages/i18n";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
-import { parseChannelInvitationResults } from "../../lib/channelInvitations";
+import { sendChannelInvitationsInBatches } from "../../lib/channelInvitations";
 import { validSlug } from "../../lib/storyOrdering";
 import { useCreateChannel } from "./useCreateChannel";
 
@@ -109,30 +109,33 @@ export function useCreateChannelDialog(onClose: () => void) {
 
       const unsent = selectedContactIds.filter((cid) => !sentInviteContacts.has(cid));
       if (unsent.length > 0) {
-        const payload = unsent.map((recipientId) => {
-          let invId = inviteIdsRef.current.get(recipientId);
-          if (!invId) {
-            invId = crypto.randomUUID();
-            inviteIdsRef.current.set(recipientId, invId);
-          }
-          return { id: invId, recipient_id: recipientId };
+        const batchResult = await sendChannelInvitationsInBatches({
+          channelId: id,
+          recipientIds: unsent,
+          getInvitationId: (recipientId) => {
+            let invId = inviteIdsRef.current.get(recipientId);
+            if (!invId) {
+              invId = crypto.randomUUID();
+              inviteIdsRef.current.set(recipientId, invId);
+            }
+            return invId;
+          },
+          sendBatch: async (channelId, batch) =>
+            supabase.rpc("send_channel_invitations", {
+              p_channel_id: channelId,
+              p_invitations: batch,
+            }),
+          onBatchSucceeded: (batchSucceeded) => {
+            setSentInviteContacts((prev) => new Set([...prev, ...batchSucceeded]));
+          },
         });
 
-        const invResult = await supabase.rpc("send_channel_invitations", {
-          p_channel_id: id,
-          p_invitations: payload,
-        });
-        if (invResult.error) {
-          setFailedInviteContacts(new Set(unsent));
-          throw invResult.error;
-        }
-        const outcome = parseChannelInvitationResults(invResult.data, unsent);
-        if (outcome.succeeded.length > 0) {
-          setSentInviteContacts((prev) => new Set([...prev, ...outcome.succeeded]));
+        if (batchResult.succeeded.length > 0) {
           void cache.invalidateQueries({ queryKey: ["channel-invitations-sent", user?.id, id] });
         }
-        if (outcome.failed.length > 0) {
-          setFailedInviteContacts(new Set(outcome.failed.map((f) => f.recipientId)));
+        if (batchResult.error || batchResult.failed.length > 0) {
+          setFailedInviteContacts(new Set(batchResult.failed.map((f) => f.recipientId)));
+          if (batchResult.error) throw batchResult.error;
           throw new Error(
             say(
               "Some invitations could not be delivered. Retry the remaining contacts or open your channel.",

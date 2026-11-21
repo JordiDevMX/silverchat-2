@@ -286,8 +286,9 @@ function buildFunctionGrid(spec: QrVersionSpec): {
     }
   }
 
-  // Reserve format + dark module
+  // Reserve format (skip timing modules on row/col 6) + dark module
   for (let i = 0; i <= 8; i++) {
+    if (i === 6) continue;
     setFunc(8, i, false);
     setFunc(i, 8, false);
   }
@@ -311,14 +312,14 @@ function buildFunctionGrid(spec: QrVersionSpec): {
 
 function writeFormat(modules: Uint8Array, n: number, mask: number) {
   const fb = formatBits(mask);
-  for (let i = 0; i <= 5; i++) modules[8 * n + i] = (fb >>> i) & 1;
-  modules[8 * n + 7] = (fb >>> 6) & 1;
+  for (let i = 0; i <= 5; i++) modules[i * n + 8] = (fb >>> i) & 1;
+  modules[7 * n + 8] = (fb >>> 6) & 1;
   modules[8 * n + 8] = (fb >>> 7) & 1;
-  modules[7 * n + 8] = (fb >>> 8) & 1;
-  for (let i = 9; i < 15; i++) modules[(14 - i) * n + 8] = (fb >>> i) & 1;
+  modules[8 * n + 7] = (fb >>> 8) & 1;
+  for (let i = 9; i < 15; i++) modules[8 * n + (14 - i)] = (fb >>> i) & 1;
 
-  for (let i = 0; i < 7; i++) modules[(n - 1 - i) * n + 8] = (fb >>> i) & 1;
-  for (let i = 7; i < 15; i++) modules[8 * n + (n - 15 + i)] = (fb >>> i) & 1;
+  for (let i = 0; i < 8; i++) modules[8 * n + (n - 1 - i)] = (fb >>> i) & 1;
+  for (let i = 8; i < 15; i++) modules[(n - 15 + i) * n + 8] = (fb >>> i) & 1;
 }
 
 function maskBit(mask: number, r: number, c: number): boolean {
@@ -438,7 +439,7 @@ export function encodeQrMatrix(text: string): QrMatrix {
   };
 }
 
-export function qrToSvgPath(qr: QrMatrix, margin = 2): string {
+export function qrToSvgPath(qr: QrMatrix, margin = 4): string {
   const parts: string[] = [];
   for (let r = 0; r < qr.size; r++) {
     for (let c = 0; c < qr.size; c++) {

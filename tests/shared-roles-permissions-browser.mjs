@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import jsQR from "jsqr";
 import { launchBrowser } from "./lib/browser.mjs";
 
 const origin = process.env.UI_BASE_URL ?? process.env.TEST_ORIGIN ?? "http://127.0.0.1:5175";
@@ -54,6 +55,25 @@ const profiles = [
     social_links: {},
   },
 ];
+
+const extraContacts = Array.from({ length: 49 }, (_, i) => {
+  const num = i + 1;
+  const id = `00000000-0000-4000-8000-000000001${String(num).padStart(3, "0")}`;
+  return {
+    id,
+    chatId: `00000000-0000-4000-8000-000000002${String(num).padStart(3, "0")}`,
+    profile: {
+      id,
+      username: `contact_${String(num).padStart(2, "0")}`,
+      display_name: `Contact ${String(num).padStart(2, "0")}`,
+      avatar_url: null,
+      bio: null,
+      last_seen_at: now,
+      social_links: {},
+    },
+  };
+});
+const allVisibleProfiles = [...profiles, ...extraContacts.map((c) => c.profile)];
 
 const json = (route, body, status = 200) =>
   route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
@@ -137,20 +157,28 @@ try {
       if (fn === "create_channel")
         return json(route, body.p_channel_id ?? "00000000-0000-4000-8000-000000000999");
       if (fn === "send_channel_invitations") {
-        invitePayloads.push(body.p_invitations ?? []);
-        if (invitePayloads.length === 1 && (body.p_invitations ?? []).length === 2) {
+        const batch = body.p_invitations ?? [];
+        assert.ok(
+          batch.length >= 1 && batch.length <= 50,
+          `Expected <=50 batch, got ${batch.length}`,
+        );
+        invitePayloads.push(batch);
+        if (invitePayloads.length === 1) {
           return json(
             route,
-            (body.p_invitations ?? []).map((item) =>
-              item.recipient_id === ownerId
-                ? { recipient_id: item.recipient_id, id: item.id, ok: true }
-                : { recipient_id: item.recipient_id, ok: false, reason: "ineligible" },
+            batch.map((item) =>
+              item.recipient_id === peerAdminId
+                ? { recipient_id: item.recipient_id, ok: false, reason: "ineligible" }
+                : { recipient_id: item.recipient_id, id: item.id, ok: true },
             ),
           );
         }
+        if (invitePayloads.length === 2 && batch.length === 1) {
+          return json(route, { code: "P0001", message: "Cross-batch failure on contact 51" }, 400);
+        }
         return json(
           route,
-          (body.p_invitations ?? []).map((item) => ({
+          batch.map((item) => ({
             recipient_id: item.recipient_id,
             id: item.id,
             ok: true,
@@ -187,7 +215,7 @@ try {
       return json(route, null);
     }
 
-    if (p.endsWith("/profiles")) return json(route, single ? profiles[0] : profiles);
+    if (p.endsWith("/profiles")) return json(route, single ? profiles[0] : allVisibleProfiles);
     if (p.endsWith("/user_settings")) {
       return out([
         {
@@ -199,7 +227,7 @@ try {
         },
       ]);
     }
-    if (p.endsWith("/profiles_visible")) return out(profiles);
+    if (p.endsWith("/profiles_visible")) return out(allVisibleProfiles);
     if (p.endsWith("/chats")) {
       const id = u.searchParams.get("id")?.slice(3);
       const rows = [
@@ -277,12 +305,23 @@ try {
               last_message_at: now,
             },
           },
+          ...extraContacts.map((c) => ({
+            chat_id: c.chatId,
+            chat: {
+              id: c.chatId,
+              type: "direct",
+              status: "active",
+              direct_pair_key: `${me}::${c.id}`,
+              last_message_at: now,
+            },
+          })),
         ]);
       }
       if (sel === "chat_id, user_id" || sel === "chat_id,user_id") {
         return json(route, [
           { chat_id: "00000000-0000-4000-8000-000000000701", user_id: ownerId },
           { chat_id: "00000000-0000-4000-8000-000000000702", user_id: peerAdminId },
+          ...extraContacts.map((c) => ({ chat_id: c.chatId, user_id: c.id })),
         ]);
       }
       if (sel.includes("chat:chats")) {
@@ -540,10 +579,44 @@ try {
     assert.equal(await switches.nth(i).getAttribute("aria-checked"), "true");
   }
 
-  // 4. Group info & OC-01 member actions + QR code (Finding 5)
+  // 4. Group info & OC-01 member actions + QR code with 4-module quiet zone + jsQR SVG decode
   await page.goto(`${origin}/chats/${grpId}/info`);
   await page.getByText("Group invite link", { exact: true }).waitFor();
-  await page.getByRole("img", { name: "Group invite QR code", exact: true }).waitFor();
+  const qrSvg = page.getByRole("img", { name: "Group invite QR code", exact: true });
+  await qrSvg.waitFor();
+  const qrBox = await qrSvg.getAttribute("viewBox");
+  const qrPathD = await qrSvg.locator("path").getAttribute("d");
+  assert.ok(qrBox && qrPathD?.startsWith("M4,4h1v1h-1z"), "Expected 4-module quiet zone in QR SVG");
+  const qrRaster = await qrSvg.evaluate(async (svgEl) => {
+    const clone = svgEl.cloneNode(true);
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    const svgText = new XMLSerializer().serializeToString(clone);
+    const img = new Image();
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = url;
+    });
+    const size = 320;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, size, size);
+    ctx.drawImage(img, 0, 0, size, size);
+    const data = ctx.getImageData(0, 0, size, size);
+    return { width: data.width, height: data.height, rgba: Array.from(data.data) };
+  });
+  const svgDecoded = jsQR(new Uint8ClampedArray(qrRaster.rgba), qrRaster.width, qrRaster.height, {
+    inversionAttempts: "dontInvert",
+  });
+  assert.equal(
+    svgDecoded?.data,
+    `${origin}/chats/join/tok-abc-1234567890`,
+    "Rendered Group invite SVG QR must round-trip decode to exact invite URL",
+  );
   await page.getByText("Pending join requests (1)").waitFor();
   await page.goto(`${origin}/chats/${grpId}/members`);
   await page.getByRole("heading", { name: /4 members/ }).waitFor();
@@ -574,20 +647,26 @@ try {
     .getByRole("button", { name: "Skip", exact: true })
     .click();
   const inviteDialog = page.getByRole("dialog", { name: "Invite contacts", exact: true });
-  await inviteDialog.getByLabel(/Bob Owner/).check();
-  await inviteDialog.getByLabel(/Carol Admin/).check();
+  // Check all 51 contacts (>50 limit) to exercise 50+1 batching & cross-batch retry
+  const checkboxes = inviteDialog.locator('input[type="checkbox"]');
+  const totalContacts = await checkboxes.count();
+  assert.equal(totalContacts, 51, "Expected 51 loaded direct contacts");
+  for (let i = 0; i < totalContacts; i++) {
+    await checkboxes.nth(i).check();
+  }
   await inviteDialog.getByRole("button", { name: "Create channel", exact: true }).click();
-  // Finding 4: mixed partial delivery keeps dialog open, marks Bob Sent, marks Carol Retry needed
+  // Batch 1 (50): 49 Sent + Carol fails; Batch 2 (1): fails -> 49 Sent, 2 Retry needed
   await inviteDialog.getByRole("alert").waitFor();
-  assert.equal(await inviteDialog.getByText("Sent", { exact: true }).count(), 1);
-  assert.equal(await inviteDialog.getByText("Retry needed", { exact: true }).count(), 1);
+  assert.equal(await inviteDialog.getByText("Sent", { exact: true }).count(), 49);
+  assert.equal(await inviteDialog.getByText("Retry needed", { exact: true }).count(), 2);
   await inviteDialog.getByRole("button", { name: "Retry pending", exact: true }).click();
   await page.waitForURL("**/channels/**/info");
-  assert.equal(invitePayloads.length, 2);
-  assert.equal(invitePayloads[0].length, 2);
+  assert.equal(invitePayloads.length, 3);
+  assert.equal(invitePayloads[0].length, 50);
+  assert.equal(invitePayloads[1].length, 1);
   assert.deepEqual(
-    invitePayloads[1].map((x) => x.recipient_id),
-    [peerAdminId],
+    invitePayloads[2].map((x) => x.recipient_id),
+    [peerAdminId, extraContacts[48].id],
   );
 
   // 6. Channel Info as admin (OC-02 no unfollow, OC-04 can report without owner block toggle)

@@ -451,7 +451,10 @@ async function checkActiveCommunities(page) {
   await page.getByRole("button", { name: "View members", exact: true }).click();
   const membersDialog = page.getByRole("dialog", { name: "Community members", exact: true });
   await membersDialog.getByText("Carol", { exact: true }).waitFor();
-  await membersDialog.getByRole("button", { name: "Promote admin", exact: true }).last().click();
+  await Promise.all([
+    page.waitForResponse((res) => res.url().includes("/rest/v1/rpc/promote_community_admin")),
+    membersDialog.getByRole("button", { name: "Promote admin", exact: true }).last().click(),
+  ]);
   assert.ok(calls.some((c) => c.rpc === "promote_community_admin"));
   await membersDialog.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Mute community", exact: true }).click();

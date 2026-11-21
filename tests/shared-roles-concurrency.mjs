@@ -1,31 +1,13 @@
-// Live Staging multi-session concurrency verification for shared roles & permissions.
-// Requires linked Staging target `gffdrrtatxdiucigtwdn` (`db-guard.mjs` enforced).
+// Live Staging multi-session concurrency & transaction-serialization verification.
+// Strictly binds normalized origin to Staging `gffdrrtatxdiucigtwdn` before key lookup.
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { resolveAuthorizedStagingConfig, StagingCleanupVerifier } from "./lib/staging-live.mjs";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const ref = process.env.SUPABASE_PROJECT_REF ?? "gffdrrtatxdiucigtwdn";
-const url = process.env.SUPABASE_URL ?? `https://${ref}.supabase.co`;
-
-execFileSync("node", [path.join(rootDir, "scripts", "db-guard.mjs"), "--expect", ref], {
-  cwd: rootDir,
-  stdio: "inherit",
-});
-
-const keys = JSON.parse(
-  execFileSync(
-    "npx",
-    ["supabase", "--workdir", rootDir, "projects", "api-keys", "--project-ref", ref, "-o", "json"],
-    { encoding: "utf8", shell: true },
-  ),
-);
-const anonKey = keys.find((k) => k.id === "anon")?.api_key;
-const serviceKey = keys.find((k) => k.id === "service_role")?.api_key;
-assert(anonKey && serviceKey, "Missing Staging API keys");
-
+const { url, anonKey, serviceKey } = resolveAuthorizedStagingConfig(rootDir);
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
 async function makeUser(tag) {
@@ -47,6 +29,11 @@ async function makeUser(tag) {
   return { user: data.user, client };
 }
 
+function outcomeTag(res) {
+  if (!res.error) return "ok";
+  return `err:${res.error.code ?? "unknown"}`;
+}
+
 let uOwner;
 let uAdmin;
 let uMod;
@@ -55,6 +42,9 @@ let chId;
 let commId;
 let grpId;
 let srcGroupId;
+let primaryPassed = false;
+const raceObservations = {};
+const cleanup = new StagingCleanupVerifier();
 
 try {
   uOwner = await makeUser("owner");
@@ -83,13 +73,15 @@ try {
   assert(chOk.length >= 1, "At least one concurrent create_channel must succeed");
   for (const r of chOk) assert.equal(r.data, chDraftId);
   chId = chDraftId;
+  raceObservations.createChannel = [outcomeTag(c1), outcomeTag(c2)];
 
   // 2. Concurrent channel staff appoint + follow + OC-02 follower_count invariant
-  await Promise.all([
+  const chRace = await Promise.all([
     uOwner.client.rpc("appoint_channel_admin", { p_channel_id: chId, p_user_id: uAdmin.user.id }),
     uAdmin.client.rpc("follow_channel", { p_channel_id: chId }),
     uMember.client.rpc("follow_channel", { p_channel_id: chId }),
   ]);
+  for (const r of chRace) assert.ifError(r.error);
   const chRead = await uMember.client
     .from("channels_public")
     .select("follower_count")
@@ -116,7 +108,7 @@ try {
     .single();
   assert.ifError(seedMsg.error);
 
-  // Community setup
+  // Community setup (every RPC asserted explicitly)
   const commRes = await uOwner.client.rpc("create_community", {
     p_name: "Conc Community",
     p_description: "Serialization test",
@@ -124,24 +116,29 @@ try {
   assert.ifError(commRes.error);
   commId = commRes.data;
 
-  await Promise.all([
+  const joins = await Promise.all([
     uOwner.client.rpc("join_community", { p_community_id: commId, p_user_id: uAdmin.user.id }),
     uOwner.client.rpc("join_community", { p_community_id: commId, p_user_id: uMod.user.id }),
     uOwner.client.rpc("join_community", { p_community_id: commId, p_user_id: uMember.user.id }),
   ]);
-  await uOwner.client.rpc("promote_community_admin", {
+  for (const j of joins) assert.ifError(j.error);
+
+  const promAdmin = await uOwner.client.rpc("promote_community_admin", {
     p_community_id: commId,
     p_user_id: uAdmin.user.id,
   });
-  await uOwner.client.rpc("appoint_community_moderator", {
+  assert.ifError(promAdmin.error);
+  const appMod = await uOwner.client.rpc("appoint_community_moderator", {
     p_community_id: commId,
     p_user_id: uMod.user.id,
   });
-  await uOwner.client.rpc("set_announcement_writer", {
+  assert.ifError(appMod.error);
+  const grantRes = await uOwner.client.rpc("set_announcement_writer", {
     p_community_id: commId,
     p_user_id: uMod.user.id,
     p_grant: true,
   });
+  assert.ifError(grantRes.error);
 
   const { data: commChats, error: chatsErr } = await uMod.client
     .from("chats")
@@ -152,7 +149,25 @@ try {
   const avisosChat = commChats.find((c) => c.system_role === "announcements");
   assert(genChat && avisosChat, "Expected General and official announcements chats");
 
-  // 3. Concurrent announcement grant withdrawal vs moderator send & forward in Avisos
+  // 3a. Demonstrate permitted baseline send AND forward by granted moderator BEFORE revocation
+  const baseModSend = await uMod.client.from("messages").insert({
+    chat_id: avisosChat.id,
+    sender_id: uMod.user.id,
+    content: "Baseline granted announcement send",
+  });
+  assert.ifError(baseModSend.error);
+  const baseModFwd = await uMod.client.rpc("forward_chat_message", {
+    p_message_id: seedMsg.data.id,
+    p_chat_ids: [avisosChat.id],
+    p_message_ids: [crypto.randomUUID()],
+  });
+  assert.ifError(baseModFwd.error);
+
+  // 3b. Concurrent HTTP/RPC requests: owner revokes writer grant while moderator sends & forwards
+  // Note: Promise.all issues overlapping client requests; Postgres row-level serialization in
+  // serialize_chat_message_write determines whether each concurrent write commits before revocation
+  // ("ok") or strictly after ("err:42501"), while every post-commit write MUST fail with 42501.
+  const tRevokeStart = performance.now();
   const [revokeRes, modSendRes, modFwdRes] = await Promise.all([
     uOwner.client.rpc("set_announcement_writer", {
       p_community_id: commId,
@@ -170,10 +185,18 @@ try {
       p_message_ids: [crypto.randomUUID()],
     }),
   ]);
+  const tRevokeMs = Math.round(performance.now() - tRevokeStart);
   assert.ifError(revokeRes.error);
   if (modSendRes.error) assert.equal(modSendRes.error.code, "42501");
   if (modFwdRes.error) assert.equal(modFwdRes.error.code, "42501");
+  raceObservations.announcementWithdrawal = {
+    concurrentDispatchMs: tRevokeMs,
+    revoke: outcomeTag(revokeRes),
+    concurrentSend: outcomeTag(modSendRes),
+    concurrentForward: outcomeTag(modFwdRes),
+  };
 
+  // 3c. Post-revocation barrier: both send and forward MUST return 42501
   const afterRevokeSend = await uMod.client.from("messages").insert({
     chat_id: avisosChat.id,
     sender_id: uMod.user.id,
@@ -184,11 +207,30 @@ try {
     p_chat_ids: [avisosChat.id],
     p_message_ids: [crypto.randomUUID()],
   });
-  assert(afterRevokeSend.error, "Post-withdrawal moderator send to announcements must fail");
-  assert(afterRevokeFwd.error, "Post-withdrawal moderator forward to announcements must fail");
+  assert.equal(afterRevokeSend.error?.code, "42501", "Post-withdrawal send must reject with 42501");
+  assert.equal(
+    afterRevokeFwd.error?.code,
+    "42501",
+    "Post-withdrawal forward must reject with 42501",
+  );
 
-  // 4. Concurrent silence_community_member vs member send AND forward_chat_message serialization
+  // 4a. Demonstrate permitted baseline send AND forward by active member BEFORE silence
+  const baseMemSend = await uMember.client.from("messages").insert({
+    chat_id: genChat.id,
+    sender_id: uMember.user.id,
+    content: "Baseline member send before silence",
+  });
+  assert.ifError(baseMemSend.error);
+  const baseMemFwd = await uMember.client.rpc("forward_chat_message", {
+    p_message_id: seedMsg.data.id,
+    p_chat_ids: [genChat.id],
+    p_message_ids: [crypto.randomUUID()],
+  });
+  assert.ifError(baseMemFwd.error);
+
+  // 4b. Concurrent HTTP/RPC requests: owner silences member while member sends & forwards
   const silenceUntil = new Date(Date.now() + 60_000).toISOString();
+  const tSilStart = performance.now();
   const [silRes, memSendRes, memFwdRes] = await Promise.all([
     uOwner.client.rpc("silence_community_member", {
       p_community_id: commId,
@@ -207,10 +249,18 @@ try {
       p_message_ids: [crypto.randomUUID()],
     }),
   ]);
+  const tSilMs = Math.round(performance.now() - tSilStart);
   assert.ifError(silRes.error);
   if (memSendRes.error) assert.equal(memSendRes.error.code, "42501");
   if (memFwdRes.error) assert.equal(memFwdRes.error.code, "42501");
+  raceObservations.communitySilence = {
+    concurrentDispatchMs: tSilMs,
+    silence: outcomeTag(silRes),
+    concurrentSend: outcomeTag(memSendRes),
+    concurrentForward: outcomeTag(memFwdRes),
+  };
 
+  // 4c. Post-silence barrier: both send and forward MUST return 42501
   const afterSilSend = await uMember.client.from("messages").insert({
     chat_id: genChat.id,
     sender_id: uMember.user.id,
@@ -221,8 +271,8 @@ try {
     p_chat_ids: [genChat.id],
     p_message_ids: [crypto.randomUUID()],
   });
-  assert(afterSilSend.error, "Send strictly after silence must reject");
-  assert(afterSilFwd.error, "Forward strictly after silence must reject");
+  assert.equal(afterSilSend.error?.code, "42501", "Post-silence send must reject with 42501");
+  assert.equal(afterSilFwd.error?.code, "42501", "Post-silence forward must reject with 42501");
 
   // 5. OC-01 Concurrent group admin demote race
   const grpRes = await uOwner.client.rpc("create_group_chat", {
@@ -231,19 +281,29 @@ try {
   });
   assert.ifError(grpRes.error);
   grpId = grpRes.data;
-  await uOwner.client.rpc("promote_chat_admin", { p_chat_id: grpId, p_user_id: uAdmin.user.id });
-  await uOwner.client.rpc("promote_chat_admin", { p_chat_id: grpId, p_user_id: uMember.user.id });
+  const p1 = await uOwner.client.rpc("promote_chat_admin", {
+    p_chat_id: grpId,
+    p_user_id: uAdmin.user.id,
+  });
+  assert.ifError(p1.error);
+  const p2 = await uOwner.client.rpc("promote_chat_admin", {
+    p_chat_id: grpId,
+    p_user_id: uMember.user.id,
+  });
+  assert.ifError(p2.error);
 
   const [adminVsMember, memberVsAdmin] = await Promise.all([
     uAdmin.client.rpc("demote_chat_admin", { p_chat_id: grpId, p_user_id: uMember.user.id }),
     uMember.client.rpc("demote_chat_admin", { p_chat_id: grpId, p_user_id: uAdmin.user.id }),
   ]);
-  assert(
-    adminVsMember.error,
-    "Non-owner admin cannot demote another admin in concurrent race (OC-01)",
+  assert.equal(
+    adminVsMember.error?.code,
+    "42501",
+    "Non-owner admin cannot demote peer admin in concurrent race (OC-01)",
   );
-  assert(
-    memberVsAdmin.error,
+  assert.equal(
+    memberVsAdmin.error?.code,
+    "42501",
     "Non-owner admin cannot demote peer admin in concurrent race (OC-01)",
   );
 
@@ -253,20 +313,52 @@ try {
   });
   assert.ifError(ownerDemote.error);
 
+  primaryPassed = true;
   console.log("ALL STAGING TWO-SESSION CONCURRENCY CHECKS PASSED!");
 } finally {
-  const safe = async (fn) => {
-    try {
-      await fn();
-    } catch {}
-  };
-  if (chId && uOwner) await safe(() => uOwner.client.rpc("delete_channel", { p_channel_id: chId }));
-  if (commId && uOwner) {
-    await safe(() => uOwner.client.rpc("delete_community", { p_community_id: commId }));
+  if (chId && uOwner) {
+    await cleanup.runStep("delete_channel", () =>
+      uOwner.client.rpc("delete_channel", { p_channel_id: chId }),
+    );
   }
-  if (grpId) await safe(() => admin.from("chats").delete().eq("id", grpId));
-  if (srcGroupId) await safe(() => admin.from("chats").delete().eq("id", srcGroupId));
+  if (commId && uOwner) {
+    await cleanup.runStep("delete_community", () =>
+      uOwner.client.rpc("delete_community", { p_community_id: commId }),
+    );
+  }
+  if (grpId) {
+    await cleanup.runStep("delete_group", () => admin.from("chats").delete().eq("id", grpId));
+  }
+  if (srcGroupId) {
+    await cleanup.runStep("delete_src_group", () =>
+      admin.from("chats").delete().eq("id", srcGroupId),
+    );
+  }
   for (const u of [uOwner, uAdmin, uMod, uMember]) {
-    if (u?.user?.id) await safe(() => admin.auth.admin.deleteUser(u.user.id));
+    if (u?.user?.id) {
+      await cleanup.runStep(`delete_user:${u.user.id}`, () =>
+        admin.auth.admin.deleteUser(u.user.id),
+      );
+    }
+  }
+
+  await cleanup.verifyRowAbsent(admin, "channels", chId, "channels");
+  await cleanup.verifyRowAbsent(admin, "communities", commId, "communities");
+  await cleanup.verifyRowAbsent(admin, "chats", grpId, "chats");
+  await cleanup.verifyRowAbsent(admin, "chats", srcGroupId, "chats");
+  for (const u of [uOwner, uAdmin, uMod, uMember]) {
+    if (u?.user?.id) await cleanup.verifyUserAbsent(admin, u.user.id);
+  }
+
+  try {
+    cleanup.emitSummary({
+      suite: "shared-roles-concurrency",
+      origin: url,
+      passed: primaryPassed,
+      metrics: raceObservations,
+    });
+  } catch (cleanupErr) {
+    console.error(cleanupErr);
+    process.exitCode = 1;
   }
 }
