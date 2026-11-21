@@ -31,7 +31,9 @@ export function useLeaveGroup(chatId: string) {
     },
     onSuccess: async () => {
       useChatUIStore.getState().close();
-      useChatUIStore.getState().notify(say("You left the group", "Saliste del grupo"));
+      useChatUIStore
+        .getState()
+        .notify(say("You left the group", "Saliste del grupo"), null, { tone: "success" });
       await router.navigate({ href: "/chats" });
       await refreshChatSettings(cache, user?.id ?? "", chatId);
     },

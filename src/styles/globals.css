@@ -8,6 +8,7 @@
  * their styles must load with the app shell (a tab that never opened /calls
  * still has to render an incoming call full screen). */
 @import "./calls.css";
+@import "./toast.css";
 
 /* Theme state is owned by the existing data-theme provider, not OS-only dark variants. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));

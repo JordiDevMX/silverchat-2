@@ -28,7 +28,9 @@ export function useAddMembersDialog(
     setError("");
     try {
       const count = await hook.add(selected);
-      ui.notify(say(`Added ${count} members`, `Se añadieron ${count} miembros`));
+      ui.notify(say(`Added ${count} members`, `Se añadieron ${count} miembros`), null, {
+        tone: "success",
+      });
       close();
     } catch {
       setError(
