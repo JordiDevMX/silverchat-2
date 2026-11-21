@@ -622,7 +622,7 @@ try {
 
   await mobileCtx.close();
 
-  // 2. Desktop mouse text selection must NOT swipe
+  // 2. Desktop PC mouse behavior: text selection preserved, bubble padding/row/media swipe-to-reply
   const desktopCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await setup(desktopCtx);
   const dPage = await desktopCtx.newPage();
@@ -632,17 +632,122 @@ try {
   await dPage.locator(".message-list").waitFor();
   await dPage.waitForTimeout(300);
 
+  const mouseSwipe = async (startX, startY, endX, endY, steps = 8) => {
+    await dPage.mouse.move(startX, startY);
+    await dPage.mouse.down();
+    await dPage.mouse.move(endX, endY, { steps });
+  };
+
+  // 2a. Dragging directly over message text selects text and does NOT swipe
+  await bubble(dPage, incomingText.id).scrollIntoViewIfNeeded();
   const dTextBox = await bubble(dPage, incomingText.id).locator(".message-text").boundingBox();
-  await dPage.mouse.move(dTextBox.x + 4, dTextBox.y + dTextBox.height / 2);
-  await dPage.mouse.down();
-  await dPage.mouse.move(dTextBox.x + 140, dTextBox.y + dTextBox.height / 2, { steps: 8 });
+  await mouseSwipe(
+    dTextBox.x + 4,
+    dTextBox.y + dTextBox.height / 2,
+    dTextBox.x + 140,
+    dTextBox.y + dTextBox.height / 2,
+  );
   assert.equal(await getRowTranslateX(dPage, incomingText.id), 0);
   await dPage.mouse.up();
   assert.equal(await dPage.locator(".reply-bar").count(), 0);
   const selectedText = await dPage.evaluate(() => window.getSelection()?.toString() ?? "");
   assert.ok(selectedText.length > 0, `Expected mouse drag to select text, got "${selectedText}"`);
+  await dPage.evaluate(() => window.getSelection()?.removeAllRanges());
 
-  // Accessible overflow menu reply still works on desktop
+  // 2b. Dragging from bubble padding on incoming text swipes right, arms, and triggers reply
+  const dBubbleBox = await bubble(dPage, incomingText.id).locator(".message-bubble").boundingBox();
+  await mouseSwipe(
+    dBubbleBox.x + 4,
+    dBubbleBox.y + dBubbleBox.height / 2,
+    dBubbleBox.x + 180,
+    dBubbleBox.y + dBubbleBox.height / 2,
+  );
+  const mouseTravel = await getRowTranslateX(dPage, incomingText.id);
+  assert.ok(
+    mouseTravel >= 48 && mouseTravel < 84,
+    `Expected desktop mouse travel in [48, 84), got ${mouseTravel}`,
+  );
+  assert.equal(
+    await bubble(dPage, incomingText.id)
+      .locator(".message-swipe-indicator")
+      .getAttribute("data-armed"),
+    "true",
+  );
+  await dPage.mouse.up();
+  await dPage.locator(".reply-bar").getByText(incomingText.content).waitFor();
+  assert.equal(
+    await dPage.evaluate(() => document.activeElement?.matches(".composer-input textarea")),
+    true,
+  );
+  await waitRowRest(dPage, incomingText.id);
+  await dPage.getByRole("button", { name: "Cancel reply" }).click();
+
+  // 2c. Dragging in row space on an outgoing message swipes right to reply
+  await bubble(dPage, outgoingText.id).scrollIntoViewIfNeeded();
+  const dOutRowBox = await bubble(dPage, outgoingText.id).boundingBox();
+  await mouseSwipe(
+    dOutRowBox.x + 40,
+    dOutRowBox.y + dOutRowBox.height / 2,
+    dOutRowBox.x + 220,
+    dOutRowBox.y + dOutRowBox.height / 2,
+  );
+  await dPage.mouse.up();
+  await dPage.locator(".reply-bar").getByText(outgoingText.content).waitFor();
+  await waitRowRest(dPage, outgoingText.id);
+  await dPage.getByRole("button", { name: "Cancel reply" }).click();
+
+  // 2d. Mouse drag on ImageMessage swipes without opening lightbox; clean click opens lightbox
+  await bubble(dPage, imageMsg.id).evaluate((el) =>
+    el.scrollIntoView({ block: "center", behavior: "instant" }),
+  );
+  await bubble(dPage, imageMsg.id).locator("img").waitFor();
+  const dImgBox = await bubble(dPage, imageMsg.id).locator(".message-image").boundingBox();
+  await mouseSwipe(
+    dImgBox.x + 20,
+    dImgBox.y + dImgBox.height / 2,
+    dImgBox.x + 200,
+    dImgBox.y + dImgBox.height / 2,
+  );
+  await dPage.mouse.up();
+  await dPage.locator(".reply-bar").getByText("📷 Photo").waitFor();
+  assert.equal(await dPage.locator("dialog.media-lightbox[open]").count(), 0);
+  await waitRowRest(dPage, imageMsg.id);
+  await dPage.getByRole("button", { name: "Cancel reply" }).click();
+
+  await bubble(dPage, imageMsg.id).getByRole("button", { name: "Open image" }).click();
+  await dPage.locator("dialog.media-lightbox[open]").waitFor();
+  await dPage.getByRole("button", { name: "Close", exact: true }).click();
+  await dPage.locator("dialog.media-lightbox[open]").waitFor({ state: "detached" });
+
+  // 2e. Mouse drag on StickerMessage and LocationMessage swipes to reply without navigating
+  for (const [id, label] of [
+    [stickerMsg.id, "Sticker"],
+    [locationMsg.id, "Location"],
+  ]) {
+    await bubble(dPage, id).scrollIntoViewIfNeeded();
+    const mBox = await bubble(dPage, id).locator(".message-bubble").boundingBox();
+    await mouseSwipe(mBox.x + 20, mBox.y + mBox.height / 2, mBox.x + 200, mBox.y + mBox.height / 2);
+    await dPage.mouse.up();
+    await dPage.locator(".reply-bar").getByText(label).waitFor();
+    await waitRowRest(dPage, id);
+    await dPage.getByRole("button", { name: "Cancel reply" }).click();
+  }
+
+  // 2f. Mouse drag on audio seek slider scrubs audio and does NOT swipe
+  await bubble(dPage, audioMsg.id).scrollIntoViewIfNeeded();
+  const dSliderBox = await bubble(dPage, audioMsg.id).locator(".voice-track input").boundingBox();
+  await mouseSwipe(
+    dSliderBox.x + 10,
+    dSliderBox.y + dSliderBox.height / 2,
+    dSliderBox.x + 120,
+    dSliderBox.y + dSliderBox.height / 2,
+  );
+  await dPage.mouse.up();
+  assert.equal(await dPage.locator(".reply-bar").count(), 0);
+  assert.equal(await getRowTranslateX(dPage, audioMsg.id), 0);
+
+  // 2g. Accessible overflow menu reply still works on desktop
+  await bubble(dPage, incomingText.id).scrollIntoViewIfNeeded();
   await bubble(dPage, incomingText.id).hover();
   await bubble(dPage, incomingText.id)
     .getByRole("button", { name: "Message actions", exact: true })

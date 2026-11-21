@@ -5,6 +5,7 @@ import {
   classifySwipeIntent,
   computeIndicatorMetrics,
   computeSwipeTravel,
+  isPointInTextRects,
   SWIPE_ARM_THRESHOLD_PX,
   SWIPE_DISARM_THRESHOLD_PX,
   SWIPE_MAX_TRAVEL_PX,
@@ -144,4 +145,16 @@ test("canSwipeReplyToMessage supports all replyable types and blocks restricted/
   );
   assert.equal(canSwipeReplyToMessage(baseMessage(), "me", true, false), false);
   assert.equal(canSwipeReplyToMessage(baseMessage(), "me", false, true), false);
+});
+
+test("isPointInTextRects distinguishes rendered text lines from surrounding bubble padding", () => {
+  const rects = [
+    { left: 20, right: 120, top: 40, bottom: 58 },
+    { left: 20, right: 70, top: 58, bottom: 76 },
+  ];
+  assert.equal(isPointInTextRects(rects, 50, 48), true);
+  assert.equal(isPointInTextRects(rects, 19, 48), true);
+  assert.equal(isPointInTextRects(rects, 95, 66), false);
+  assert.equal(isPointInTextRects(rects, 10, 48), false);
+  assert.equal(isPointInTextRects([], 50, 48), false);
 });

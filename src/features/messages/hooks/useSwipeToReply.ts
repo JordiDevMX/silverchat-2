@@ -1,4 +1,5 @@
 import {
+  type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -10,6 +11,7 @@ import {
   computeIndicatorMetrics,
   computeSwipeTravel,
   invertSwipeTravel,
+  isPointInTextRects,
   SWIPE_LOCK_DISTANCE_PX,
   stepSwipeSpring,
   updateArmedState,
@@ -79,6 +81,9 @@ function computeReleaseVelocity(samples: VelocitySample[], now: number): number 
   return Math.max(-MAX_RELEASE_VELOCITY_PX, Math.min(MAX_RELEASE_VELOCITY_PX, rawVel));
 }
 
+const SELECTABLE_TEXT_SELECTOR =
+  ".message-text, .message-deleted, .message-author, .forwarded-label, .story-reply-reference, .message-file strong, .message-file small, .message-contact strong, .message-contact small";
+
 function isInteractiveSwipeExclusion(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
   return Boolean(
@@ -86,6 +91,21 @@ function isInteractiveSwipeExclusion(target: EventTarget | null): boolean {
       "input, textarea, select, option, [data-no-swipe-reply], .message-overflow, .message-retry, .message-reactions button",
     ),
   );
+}
+
+function isMouseTargetOverSelectableText(
+  target: EventTarget | null,
+  clientX: number,
+  clientY: number,
+): boolean {
+  if (!(target instanceof Element)) return false;
+  const textEl = target.closest(SELECTABLE_TEXT_SELECTOR);
+  if (!textEl || typeof document === "undefined" || typeof document.createRange !== "function") {
+    return false;
+  }
+  const range = document.createRange();
+  range.selectNodeContents(textEl);
+  return isPointInTextRects(range.getClientRects(), clientX, clientY);
 }
 
 /**
@@ -304,7 +324,10 @@ export function useSwipeToReply({
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!enabledRef.current) return;
-      if (e.pointerType === "mouse") return;
+      if (e.pointerType === "mouse") {
+        if (e.button !== 0) return;
+        if (isMouseTargetOverSelectableText(e.target, e.clientX, e.clientY)) return;
+      }
       if (!e.isPrimary) return;
       if (isInteractiveSwipeExclusion(e.target)) return;
       if (activeCoordinator && activeCoordinator.token !== instanceTokenRef.current) return;
@@ -360,6 +383,9 @@ export function useSwipeToReply({
         g.samples = [{ x: g.startX, t: performance.now() }];
         suppressClickUntilRef.current = Date.now() + CLICK_SUPPRESS_MS;
         onSwipeLockRef.current?.();
+        if (e.pointerType === "mouse") {
+          window.getSelection()?.removeAllRanges();
+        }
 
         try {
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -450,6 +476,13 @@ export function useSwipeToReply({
     }
   }, []);
 
+  const onDragStart = useCallback((e: ReactDragEvent<HTMLDivElement>) => {
+    if (!enabledRef.current) return;
+    if (!isInteractiveSwipeExclusion(e.target)) {
+      e.preventDefault();
+    }
+  }, []);
+
   return {
     rowRef,
     trackRef,
@@ -462,6 +495,7 @@ export function useSwipeToReply({
       onPointerCancel,
       onLostPointerCapture,
       onClickCapture,
+      onDragStart,
     },
   };
 }

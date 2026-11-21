@@ -158,3 +158,35 @@ export function canSwipeReplyToMessage(
     "reply",
   );
 }
+
+export type TextRectLike = {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+};
+
+/**
+ * Checks whether a pointer coordinate falls over rendered text line rects
+ * (within a small tolerance) so mouse drags on text preserve text selection
+ * while drags on bubble padding, media, or row whitespace swipe to reply.
+ */
+export function isPointInTextRects(
+  rects: Iterable<TextRectLike>,
+  x: number,
+  y: number,
+  paddingPx = 2,
+): boolean {
+  for (const rect of rects) {
+    if (rect.right <= rect.left || rect.bottom <= rect.top) continue;
+    if (
+      x >= rect.left - paddingPx &&
+      x <= rect.right + paddingPx &&
+      y >= rect.top - paddingPx &&
+      y <= rect.bottom + paddingPx
+    ) {
+      return true;
+    }
+  }
+  return false;
+}

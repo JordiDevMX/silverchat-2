@@ -164,6 +164,7 @@
   .message-row[data-swiping="true"] {
     user-select: none;
     -webkit-user-select: none;
+    cursor: grabbing;
   }
   .message-swipe-track {
     display: flex;
