@@ -4,8 +4,8 @@
 **Submission:** Round-6 corrected delivery addressing the remaining Round-5 audit finding in `.pif/handoffs/shared-roles-permissions-round-5-audit.md` (prior commits: `84ac182`, `1dbaba5`, `65efebd`, `2174130`, `2249fc9`, base `main` @ `7a54131`).  
 **Approved plan reference:** `docs/superpowers/specs/2026-11-20-shared-roles-permissions-design.md` (Rev 4) + `docs/superpowers/plans/2026-11-20-shared-roles-permissions-plan.md` (G1 `PASS` / `USER_APPROVED` 2026-11-20, `.pif/state.md`)  
 **Branch:** `shared-roles-permissions` (isolated worktree `.worktrees/shared-roles-permissions` branched from `main` @ `7a54131690ab4923f59f5ef26b1ee17e25fd6bba`)  
-**Commit SHA(s):** `84ac182` (Round 1) + `1dbaba5` (Round 2) + `65efebd` (Round 3) + `2174130` (Round 4) + `2249fc9` (Round 5) + Round-6 correction commit on `shared-roles-permissions`  
-**Claim status:** `REPORTED` (until independently audited by PIF Guardian)
+**Commit SHA(s):** `84ac182` (Round 1) + `1dbaba5` (Round 2) + `65efebd` (Round 3) + `2174130` (Round 4) + `2249fc9` (Round 5) + `0fa10a2` (Round 6 — audited `G2 PASS` / `G3 PASS`) + post-G4 Production migration & documentation commit on `shared-roles-permissions`  
+**Claim status:** `G2 PASS` / `G3 PASS` (Guardian Round 6); `G4` human verification confirmed by Product Owner (`USER_APPROVED` 2026-11-21); Production DB migrations (`20261120194000`–`20261120210500`) applied under explicit Product Owner authorization (`REPORTED` for Guardian review).
 
 ---
 
@@ -43,12 +43,17 @@
 
 ---
 
-## Human verification needed (`G4`)
+## Human verification (`G4`) & Production database migration
 
-1. Live two-browser manual UI pass against Staging with real email + AAL2 MFA sessions (scanning the Group QR with a real phone camera / `/chats/join/$token` approval flow, 3-step channel creation & partial-retry display, community moderation including `10m`/custom silence & `'Avisos'` writer grant/withdrawal).
-2. Light/dark/mobile (`375px`/`390px`) visual sign-off on Group QR box and Custom silence duration inputs.
-3. Explicit separate Product Owner approvals before `git push`, PR creation, and Production (`lmzbaxlojgsdwgcxkmzx`) migration + `sign-channel-media` Edge Function deploy.
+1. **Human verification (`G4` — `USER_APPROVED` 2026-11-21):** Product Owner verified the live app against Staging (`gffdrrtatxdiucigtwdn`) via `netlify dev --offline` on `http://localhost:8891` with Magic Link sessions (`test-a+silverchat@example.com`, `test-b+silverchat@example.com`, `test-c+silverchat@example.com`) and confirmed all checks passed. Added the Staging `netlify dev --offline` + Magic Link callback setup documentation to `AGENTS.md` and `docs/SUPABASE_CLI.md`.
+2. **Production database migration (`lmzbaxlojgsdwgcxkmzx` — `USER_APPROVED` 2026-11-21):**
+   - Replaced `min(id)` with `(array_agg(id))[1]` in the `OC-10` community `Avisos` backfill loop of `supabase/migrations/20261120194500_shared_roles_permissions.sql` (line 237) after Production's 1 existing community triggered `42883: function min(uuid) does not exist` (and rolled back atomically on first attempt).
+   - Verified `node scripts/db-guard.mjs --expect lmzbaxlojgsdwgcxkmzx --allow-production` (`0` CRLF migration files), applied all 4 `CHG-006` migrations (`20261120194000`, `20261120194500`, `20261120210000`, `20261120210500`) to Production (`lmzbaxlojgsdwgcxkmzx`), verified `migration list --linked` (`local === remote` for all 4 versions), executed transactional `supabase/tests/shared_roles_permissions.sql` (`BEGIN ... ROLLBACK`, exit `0`, `rows: []`) against Production, and re-linked `supabase/.temp/` back to Staging (`gffdrrtatxdiucigtwdn`).
+3. **Remaining operations requiring separate Product Owner authorization:**
+   - Deploying the `sign-channel-media` Edge Function to Production (`lmzbaxlojgsdwgcxkmzx`).
+   - `git push` of branch `shared-roles-permissions` to remote `origin`.
+   - Creating the Pull Request against `main` (and owner merge to `main`).
 
 ## Requested Guardian action
 
-Re-audit branch `shared-roles-permissions` against Round-5 `.pif/handoffs/shared-roles-permissions-round-5-audit.md` and this Round-6 submission (`G2`–`G3`).
+Record `G4 PASS` (`USER_APPROVED`), review the `min(id)` → `(array_agg(id))[1]` backfill fix in `20261120194500_shared_roles_permissions.sql` + Staging documentation in `AGENTS.md` / `docs/SUPABASE_CLI.md`, and evaluate `G5`.

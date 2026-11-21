@@ -234,7 +234,7 @@ BEGIN
   END IF;
 
   FOR v_comm IN SELECT id, owner_id FROM public.communities LOOP
-    SELECT count(*), min(id)
+    SELECT count(*), (array_agg(id))[1]
     INTO v_avisos_count, v_avisos_id
     FROM public.chats
     WHERE community_id = v_comm.id
