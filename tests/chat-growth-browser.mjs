@@ -337,6 +337,7 @@ let userSettings = {
 const storyCalls = [];
 const addedMembersCalls = [];
 const insertedMessages = [];
+const sentChannelInvites = [];
 const sockets = new Map();
 const errors = [];
 let sendDelayMs = 0;
@@ -439,8 +440,35 @@ async function setupRoutes(context) {
       return route.fulfill({ status: 200, contentType: "image/svg+xml", body: avatarBytes });
     }
 
-    if (p.endsWith("/channels")) return result(filterEq(channels));
+    if (p.endsWith("/channels") || p.endsWith("/channels_public")) {
+      const stripOwner = p.endsWith("/channels_public");
+      const list = filterEq(channels).map((c) => {
+        if (!stripOwner) return c;
+        const { owner_id: _o, ...rest } = c;
+        return rest;
+      });
+      return result(list);
+    }
     if (p.endsWith("/channel_followers")) return result(filterEq(channelFollows));
+    if (p.endsWith("/rpc/get_channel_viewer_context")) {
+      const ch = channels.find((c) => c.id === body.p_channel_id);
+      const isOwner = ch?.owner_id === me;
+      const following = channelFollows.some(
+        (f) => f.channel_id === body.p_channel_id && f.user_id === me,
+      );
+      return respond(route, {
+        viewer_role: isOwner ? "owner" : following ? "follower" : "visitor",
+        following,
+      });
+    }
+    if (p.endsWith("/rpc/get_channel_messages")) {
+      return respond(
+        route,
+        messages
+          .filter((m) => m.channel_id === body.p_channel_id && !m.deleted_for_everyone)
+          .slice(0, body.p_limit ?? 100),
+      );
+    }
 
     if (p.endsWith("/chats")) return result(filterEq(chats));
     if (p.endsWith("/chat_members")) {
@@ -491,6 +519,18 @@ async function setupRoutes(context) {
       return respond(route, body.p_user_ids.length);
     }
     if (p.endsWith("/rpc/mark_chat_as_read")) return respond(route, null);
+    if (p.endsWith("/channel_invitations_sent")) return result([]);
+    if (p.endsWith("/rpc/send_channel_invitations")) {
+      sentChannelInvites.push(body);
+      return respond(
+        route,
+        (body.p_invitations ?? []).map((item) => ({
+          recipient_id: item.recipient_id,
+          id: item.id,
+          ok: true,
+        })),
+      );
+    }
 
     return result([]);
   });
@@ -686,9 +726,9 @@ try {
   await storyDialog.waitFor({ state: "detached" });
   assert.equal(storyCalls.length, 1);
 
-  // Action 2: Invite admins -> copy link + DM invite
+  // Action 2: Invite contacts -> copy link + channel-attributed send_channel_invitations (NO personal DM)
   await card.locator('[data-slot="growth-secondary-action"]').click();
-  const inviteDialog = page.getByRole("dialog", { name: "Invite admins", exact: true });
+  const inviteDialog = page.getByRole("dialog", { name: "Invite contacts", exact: true });
   await inviteDialog.waitFor();
   await inviteDialog.getByRole("button", { name: "Copy link", exact: true }).click();
   assert.equal(
@@ -697,8 +737,12 @@ try {
   );
   await inviteDialog.getByRole("button", { name: /Sofia Reyes/ }).click();
   await inviteDialog.waitFor({ state: "detached" });
-  assert.equal(insertedMessages.length, 1);
-  assert.ok(insertedMessages[0].content.includes(`/channels/${ownedEmptyChannelId}`));
+  assert.equal(insertedMessages.length, 0);
+  assert.ok(
+    sentChannelInvites.some(
+      (x) => x.p_channel_id === ownedEmptyChannelId && x.p_invitations?.[0]?.recipient_id === sofia,
+    ),
+  );
 
   // Composer stays interactive with the card visible; optimistic local send hides card immediately!
   sendDelayMs = 400;
@@ -730,7 +774,7 @@ try {
   );
   assert.equal(
     await card.locator('[data-slot="growth-secondary-action"]').textContent(),
-    "Invitar a administradores",
+    "Invitar contactos",
   );
 
   // Switch back to EN

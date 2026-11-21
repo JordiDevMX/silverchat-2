@@ -25,13 +25,15 @@ INSERT INTO public.messages(channel_id,sender_id,type,file_upload_id) VALUES(:'c
 RESET ROLE;
 SELECT set_config('request.jwt.claims','{"sub":"e2222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal1"}',true);
 SET LOCAL ROLE authenticated;
-SELECT pg_temp.assert_true((SELECT count(*)=1 FROM storage.objects WHERE bucket_id='avatars' AND name='chat-'||:'channel'||'/channel-123.webp'),'Discoverable channel avatar readable');
+SELECT pg_temp.assert_true((SELECT count(*)=0 FROM storage.objects WHERE bucket_id='avatars' AND name='chat-'||:'channel'||'/channel-123.webp'),'Non-staff cannot raw-select channel avatar in storage.objects');
+SELECT pg_temp.assert_true((SELECT count(*)=1 FROM public.authorize_channel_avatar_read(:'channel','chat-'||:'channel'||'/channel-123.webp')),'Discoverable channel avatar authorized via RPC');
 SELECT pg_temp.rejects(format('INSERT INTO storage.objects(bucket_id,name,owner) VALUES(''avatars'',%L,auth.uid())','chat-'||:'channel'||'/channel-attacker.webp'));
 SELECT pg_temp.assert_true((SELECT count(*)=2 FROM storage.objects WHERE bucket_id='story-media' AND name LIKE 'e1111111-1111-4111-8111-111111111111/test/%'),'Visible story includes private video and thumbnail');
 SELECT pg_temp.assert_true((SELECT count(*)=1 FROM public.file_uploads WHERE id=:'thumb_upload'),'Viewer can resolve thumbnail metadata');
-SELECT pg_temp.assert_true((SELECT count(*)=0 FROM storage.objects WHERE bucket_id='channel-media' AND name=:'channel'||'/test/image.webp'),'Non-follower cannot read channel upload');
+SELECT pg_temp.assert_true((SELECT count(*)=0 FROM storage.objects WHERE bucket_id='channel-media' AND name=:'channel'||'/test/image.webp'),'Non-staff cannot raw-select channel upload');
 SELECT public.follow_channel(:'channel');
-SELECT pg_temp.assert_true((SELECT count(*)=1 FROM storage.objects WHERE bucket_id='channel-media' AND name=:'channel'||'/test/image.webp'),'Follower can read channel upload');
+SELECT pg_temp.assert_true((SELECT count(*)=0 FROM storage.objects WHERE bucket_id='channel-media' AND name=:'channel'||'/test/image.webp'),'Follower still uses edge signing rather than direct storage.objects SELECT');
+SELECT pg_temp.assert_true((SELECT count(*)=1 FROM public.authorize_channel_post_media_read(:'channel_upload',:'channel')),'Follower authorizes channel media via RPC');
 SELECT pg_temp.rejects(format('INSERT INTO storage.objects(bucket_id,name,owner) VALUES(''channel-media'',%L,auth.uid())',:'channel'||'/test/attacker.webp'));
 RESET ROLE;
 UPDATE public.stories SET expires_at=now()-interval '1 hour' WHERE id=:'story';

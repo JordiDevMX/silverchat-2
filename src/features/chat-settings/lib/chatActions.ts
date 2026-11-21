@@ -15,6 +15,9 @@ export type ChatAction =
   | "view_members"
   | "add_members"
   | "leave_group";
+
+import { canAddGroupMembers, resolveGroupRole } from "../../roles/lib/permissions.ts";
+
 export function getAvailableChatActions(chat: ChatDetails): ChatAction[] {
   const pin = chat.own?.pinned_at ? "unpin" : "pin";
   if (chat.type === "self") return ["search_in_chat", pin, "clear_chat"];
@@ -38,11 +41,23 @@ export function getAvailableChatActions(chat: ChatDetails): ChatAction[] {
       ...(chat.own?.role === "admin" ? ["change_chat_photo" as const] : []),
       ...common,
     ];
+  const groupRole = resolveGroupRole(
+    chat.own?.role === "admin" ? "admin" : "member",
+    chat.own?.user_id,
+    chat.ownerId ?? chat.createdBy,
+  );
+  const canAdd = canAddGroupMembers(groupRole, {
+    onlyAdminsCanAddMembers: Boolean(chat.onlyAdminsCanAddMembers),
+    onlyAdminsCanShareLink: Boolean(chat.onlyAdminsCanShareLink),
+    onlyAdminsCanSend: Boolean(chat.onlyAdminsCanSend),
+    onlyAdminsCanEditInfo: Boolean(chat.onlyAdminsCanEditInfo),
+    requireAdminApproval: Boolean(chat.requireAdminApproval),
+  });
   return [
     "view_group_info",
     ...common,
     "view_members",
-    ...(chat.own?.role === "admin" ? ["add_members" as const] : []),
+    ...(canAdd ? ["add_members" as const] : []),
     "leave_group",
   ];
 }
@@ -60,13 +75,15 @@ export type ChannelActionContext = {
   canSearch: boolean;
   hasLink: boolean;
   isOwner?: boolean;
+  isAdmin?: boolean;
 };
 export function getAvailableChannelActions(context: ChannelActionContext): ChannelAction[] {
+  const isStaff = Boolean(context.isOwner || context.isAdmin);
   return [
     "view_channel_info",
     ...(context.canSearch ? ["search_in_chat" as const] : []),
     ...(context.following ? ["mute" as const, "mark_unread" as const] : []),
-    context.following ? "unfollow" : "follow",
+    ...(!isStaff ? [context.following ? ("unfollow" as const) : ("follow" as const)] : []),
     ...(context.hasLink ? ["copy_channel_link" as const] : []),
     ...(!context.isOwner ? ["report" as const] : []),
   ];
@@ -79,7 +96,7 @@ export type ReportTarget =
       name: string;
       slug?: string | null;
       following?: boolean;
-      blockUserId?: string | null;
+      isStaff?: boolean;
     }
   | {
       kind: "user";

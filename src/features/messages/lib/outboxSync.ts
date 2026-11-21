@@ -100,6 +100,12 @@ export function hydrateOutboxCache(cache: QueryClient, userId: string) {
   }
 }
 
+function isPermanentPolicyError(error: unknown, status?: number): boolean {
+  if (status === 403) return true;
+  if (error && typeof error === "object" && "code" in error && error.code === "42501") return true;
+  return false;
+}
+
 async function deliverOutboxEntry(cache: QueryClient, entry: OutboxEntry) {
   const { upload: _upload, thumbnail: _thumbnail, ...fields } = entry.input;
   try {
@@ -114,6 +120,9 @@ async function deliverOutboxEntry(cache: QueryClient, entry: OutboxEntry) {
       .select("id")
       .single();
     if (result.error) {
+      if (isPermanentPolicyError(result.error, result.status)) {
+        throw result.error;
+      }
       if (isOfflineOrNetworkError(result.error, result.status)) {
         throw new OfflineTransportError(result.error);
       }

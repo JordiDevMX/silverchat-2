@@ -132,6 +132,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.1.2
         version: 6.1.2(vite@8.3.5(@types/node@24.19.2)(jiti@2.7.0))
+      jsqr:
+        specifier: 1.4.0
+        version: 1.4.0
       playwright-core:
         specifier: 1.65.1
         version: 1.65.1
@@ -1428,6 +1431,9 @@ packages:
 
   jose@6.2.13:
     resolution: {integrity: sha512-7TIg10ZE1x82YediN+lcrPNvGMKge9yFHQD+Qho/b8y2adfugU3AsvvHfxV0fzyFllT6l9xCjf4RWY9g/Z9PJQ==}
+
+  jsqr@1.4.0:
+    resolution: {integrity: sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==}
 
   launch-editor@2.14.2:
     resolution: {integrity: sha512-NHJEb30MGBCkmZXLZwz25t37QR4aY03ZzPYUJXOJaOa92uWwExI9SBQUuIznBYc1xkD7cJNGX7oc3Nl3sq2kQQ==}
@@ -2929,6 +2935,8 @@ snapshots:
   jiti@2.7.0: {}
 
   jose@6.2.13: {}
+
+  jsqr@1.4.0: {}
 
   launch-editor@2.14.2:
     dependencies:

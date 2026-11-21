@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, Send } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -8,21 +8,22 @@ import {
   matchesUserFilter,
   type UserSearchResult,
   useDirectContacts,
-  useUserSearch,
 } from "@/features/chats/hooks/useUserSearch";
 import { useMessageText } from "@/features/messages/i18n";
-import { messageKey } from "@/features/messages/types";
+import { parseChannelInvitationResults } from "@/features/novedades/lib/channelInvitations";
 import { Avatar } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 import type { SupportedGrowthChatType } from "../types";
 
 export function ChannelInviteAdminModal({
+  channelId,
   chatType,
   chatName,
   inviteUrl,
   onClose,
 }: {
+  channelId: string;
   chatType: SupportedGrowthChatType;
   chatName: string;
   inviteUrl: string;
@@ -35,30 +36,37 @@ export function ChannelInviteAdminModal({
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
+  const [failedIds, setFailedIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState("");
   const contacts = useDirectContacts();
-  const search = useUserSearch(query);
 
   const isChannel = chatType === "channel";
-  const title = isChannel
-    ? say("Invite admins", "Invitar a administradores")
-    : say("Invite members", "Invitar miembros");
+  const sentQuery = useQuery({
+    queryKey: ["channel-invitations-sent", user?.id, channelId],
+    enabled: Boolean(user && isChannel && channelId),
+    queryFn: async () => {
+      const r = await supabase
+        .from("channel_invitations_sent")
+        .select("*")
+        .eq("channel_id", channelId);
+      if (r.error) throw r.error;
+      return r.data ?? [];
+    },
+  });
 
-  const inviteMessage = isChannel
-    ? say(
-        `Join me as an admin for '${chatName}' on SilverChat: ${inviteUrl}`,
-        `Te invito a administrar '${chatName}' en SilverChat: ${inviteUrl}`,
-      )
-    : say(
-        `Join '${chatName}' on SilverChat: ${inviteUrl}`,
-        `Únete a '${chatName}' en SilverChat: ${inviteUrl}`,
-      );
+  const sentByRecipient = new Map(
+    (sentQuery.data ?? [])
+      .filter((row): row is typeof row & { recipient_id: string } => Boolean(row.recipient_id))
+      .map((row) => [row.recipient_id, row.status ?? "pending"]),
+  );
+
+  const title = isChannel
+    ? say("Invite contacts", "Invitar contactos")
+    : say("Invite members", "Invitar miembros");
 
   const contactUsers = (contacts.data ?? [])
     .map((item) => item.user)
     .filter((u) => matchesUserFilter(u, query));
-  const contactIds = new Set(contactUsers.map((u) => u.id));
-  const otherUsers = search.hasQuery ? search.results.filter((u) => !contactIds.has(u.id)) : [];
 
   const copyLink = async () => {
     setError("");
@@ -72,81 +80,82 @@ export function ChannelInviteAdminModal({
   };
 
   const sendInvite = async (target: UserSearchResult) => {
-    if (!user?.id || sendingTo) return;
+    if (!user?.id || !isChannel || sendingTo) return;
     setSendingTo(target.id);
     setError("");
     try {
-      const knownChatId = contacts.data?.find((item) => item.user.id === target.id)?.chatId;
-      let targetChatId = knownChatId;
-      if (!targetChatId) {
-        const pairKey =
-          user.id < target.id ? `${user.id}::${target.id}` : `${target.id}::${user.id}`;
-        const existing = await supabase
-          .from("chats")
-          .select("id")
-          .eq("direct_pair_key", pairKey)
-          .eq("status", "active")
-          .maybeSingle();
-        if (existing.error) throw existing.error;
-        targetChatId = existing.data?.id;
+      const rpc = await supabase.rpc("send_channel_invitations", {
+        p_channel_id: channelId,
+        p_invitations: [{ id: crypto.randomUUID(), recipient_id: target.id }],
+      });
+      if (rpc.error) throw rpc.error;
+
+      const outcome = parseChannelInvitationResults(rpc.data, [target.id]);
+      if (outcome.failed.length > 0) {
+        setFailedIds((prev) => new Set([...prev, target.id]));
+        throw new Error(
+          say(
+            `Could not invite ${target.display_name}.`,
+            `No se pudo invitar a ${target.display_name}.`,
+          ),
+        );
       }
 
-      if (targetChatId) {
-        const inserted = await supabase.from("messages").insert({
-          id: crypto.randomUUID(),
-          chat_id: targetChatId,
-          sender_id: user.id,
-          type: "text",
-          content: inviteMessage,
-        });
-        if (inserted.error) throw inserted.error;
-        void cache.invalidateQueries({ queryKey: messageKey(user.id, targetChatId) });
-      } else {
-        const rpc = await supabase.rpc("create_direct_chat_request", {
-          p_target_user_id: target.id,
-          p_initial_content: inviteMessage,
-        });
-        if (rpc.error) throw rpc.error;
-      }
-
-      void cache.invalidateQueries({ queryKey: ["chats"] });
-      void cache.invalidateQueries({ queryKey: ["direct-contacts"] });
-      void cache.invalidateQueries({ queryKey: ["message-requests"] });
+      setFailedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(target.id);
+        return next;
+      });
+      await cache.invalidateQueries({ queryKey: ["channel-invitations-sent", user.id, channelId] });
       notify(
         say(
-          `Invitation sent to ${target.display_name}`,
-          `Invitación enviada a ${target.display_name}`,
+          `Channel invitation sent for '${chatName}'`,
+          `Invitación del canal '${chatName}' enviada`,
         ),
       );
       onClose();
-    } catch {
+    } catch (err) {
+      setFailedIds((prev) => new Set([...prev, target.id]));
       setError(
-        say(
-          "Unable to send invitation. Try again.",
-          "No se pudo enviar la invitación. Reinténtalo.",
-        ),
+        err instanceof Error
+          ? err.message
+          : say(
+              "Unable to send invitation. Try again.",
+              "No se pudo enviar la invitación. Reinténtalo.",
+            ),
       );
     } finally {
       setSendingTo(null);
     }
   };
 
-  const renderUserRow = (target: UserSearchResult) => (
-    <button
-      key={target.id}
-      type="button"
-      className="chat-growth-invite-row"
-      disabled={!!sendingTo}
-      onClick={() => void sendInvite(target)}
-    >
-      <Avatar profile={target} size="small" />
-      <span>
-        <strong>{target.display_name}</strong>
-        <small>@{target.username}</small>
-      </span>
-      <Send size={16} aria-hidden="true" />
-    </button>
-  );
+  const renderUserRow = (target: UserSearchResult) => {
+    const existingStatus = sentByRecipient.get(target.id);
+    const failed = failedIds.has(target.id);
+    return (
+      <button
+        key={target.id}
+        type="button"
+        className="chat-growth-invite-row"
+        disabled={!!sendingTo || Boolean(existingStatus)}
+        onClick={() => void sendInvite(target)}
+      >
+        <Avatar profile={target} size="small" />
+        <span>
+          <strong>{target.display_name}</strong>
+          <small>
+            @{target.username}
+            {existingStatus
+              ? ` · ${existingStatus === "accepted" ? say("Accepted", "Aceptada") : say("Pending", "Pendiente")}`
+              : failed
+                ? ` · ${say("Retry needed", "Reintentar")}`
+                : ""}
+          </small>
+        </span>
+        <Send size={16} aria-hidden="true" />
+      </button>
+    );
+  };
 
   return (
     <MotionOverlay
@@ -169,30 +178,32 @@ export function ChannelInviteAdminModal({
             </Button>
           </div>
 
-          <input
-            type="search"
-            className="input"
-            aria-label={say("Search by name or username", "Buscar por nombre o usuario")}
-            placeholder={say("Search by name or @username", "Buscar por nombre o @usuario")}
-            value={query}
-            disabled={!!sendingTo}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+          {isChannel && (
+            <>
+              <input
+                type="search"
+                className="input"
+                aria-label={say("Filter contacts", "Filtrar contactos")}
+                placeholder={say(
+                  "Filter contacts by name or @username",
+                  "Filtrar contactos por nombre o @usuario",
+                )}
+                value={query}
+                disabled={!!sendingTo}
+                onChange={(event) => setQuery(event.target.value)}
+              />
 
-          <div className="chat-growth-invite-list">
-            {contactUsers.map(renderUserRow)}
-            {contacts.isPending && <p>{say("Loading…", "Cargando…")}</p>}
-            {search.isLoading && <p role="status">{say("Searching…", "Buscando…")}</p>}
-            {otherUsers.map(renderUserRow)}
-            {!contacts.isPending &&
-              !search.isLoading &&
-              !contactUsers.length &&
-              !otherUsers.length && (
-                <p className="quiet-note">
-                  {say("No matching contacts found.", "No se encontraron contactos.")}
-                </p>
-              )}
-          </div>
+              <div className="chat-growth-invite-list">
+                {contactUsers.map(renderUserRow)}
+                {contacts.isPending && <p>{say("Loading…", "Cargando…")}</p>}
+                {!contacts.isPending && !contactUsers.length && (
+                  <p className="quiet-note">
+                    {say("No matching contacts found.", "No se encontraron contactos.")}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
 
           {error && <p role="alert">{error}</p>}
 

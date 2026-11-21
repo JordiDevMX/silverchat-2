@@ -5,6 +5,8 @@ import { SearchField } from "@/components/ui/search-field";
 import { ChatContactRow, ChatListSkeleton } from "@/features/chats/components/ChatPickerSurfaces";
 import { MAX_GROUP_MEMBERS, useNewGroupPage } from "@/features/chats/hooks/useNewGroupPage";
 import type { UserSearchResult } from "@/features/chats/hooks/useUserSearch";
+import { GroupPermissionsControl } from "@/features/roles/components/GroupPermissionsControl";
+import { PhotoEditorPanel } from "@/features/roles/components/PhotoEditorPanel";
 import { Avatar } from "@/features/settings/components/shared";
 
 export function NewGroupPage() {
@@ -14,6 +16,10 @@ export function NewGroupPage() {
     dismissError,
     groupName,
     changeName,
+    avatarFile,
+    setAvatarFile,
+    permissions,
+    setPermissions,
     searchQuery,
     setSearchQuery,
     selectedMap,
@@ -88,6 +94,26 @@ export function NewGroupPage() {
               onChange={(event) => changeName(event.target.value)}
             />
           </div>
+
+          <section className="flex flex-col gap-2" aria-label="Group photo (optional)">
+            <h2 className="new-chat-section-title">Group photo (optional)</h2>
+            <PhotoEditorPanel
+              stagedFile={avatarFile}
+              busy={createGroup.isPending}
+              previewAlt="Selected group photo"
+              onSelectCropped={(file) => setAvatarFile(file)}
+              onRemove={() => setAvatarFile(null)}
+            />
+          </section>
+
+          <section className="flex flex-col gap-2" aria-label="Group permissions">
+            <h2 className="new-chat-section-title">Group permissions</h2>
+            <GroupPermissionsControl
+              value={permissions}
+              disabled={createGroup.isPending}
+              onChange={setPermissions}
+            />
+          </section>
 
           {activeError && (
             <div className="chats-error new-chat-alert" role="alert">

@@ -280,6 +280,14 @@ const protectedRoutes = [
   }),
   createRoute({
     getParentRoute: () => authenticated,
+    path: "/chats/join/$token",
+    component: lazyRouteComponent(
+      () => import("@/routes/_authenticated.chats.join.$token"),
+      "JoinGroupInvitePage",
+    ),
+  }),
+  createRoute({
+    getParentRoute: () => authenticated,
     path: "/chats/$chatId",
     validateSearch: (search: Record<string, unknown>): { scrollTo?: string } => ({
       scrollTo:

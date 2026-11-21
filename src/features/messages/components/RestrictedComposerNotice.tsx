@@ -1,8 +1,14 @@
 import { Lock } from "lucide-react";
+import { isSilenced } from "@/features/roles/lib/permissions";
 import { useMessageText } from "../i18n";
 
-export function RestrictedComposerNotice() {
-  const { say } = useMessageText();
+export function RestrictedComposerNotice({
+  silencedUntil,
+}: {
+  silencedUntil?: string | null;
+} = {}) {
+  const { say, language } = useMessageText();
+  const silenced = isSilenced(silencedUntil);
   return (
     <div
       className="restricted-composer-notice"
@@ -11,10 +17,21 @@ export function RestrictedComposerNotice() {
     >
       <Lock size={15} aria-hidden="true" />
       <span>
-        {say(
-          "Only admins are allowed to chat here",
-          "Solo los administradores pueden enviar mensajes aquí",
-        )}
+        {silenced && silencedUntil
+          ? say(
+              `You are silenced until ${new Intl.DateTimeFormat(language, {
+                dateStyle: "short",
+                timeStyle: "short",
+              }).format(new Date(silencedUntil))}`,
+              `Estás silenciado hasta ${new Intl.DateTimeFormat(language, {
+                dateStyle: "short",
+                timeStyle: "short",
+              }).format(new Date(silencedUntil))}`,
+            )
+          : say(
+              "Only authorized roles can send messages here",
+              "Solo los roles autorizados pueden enviar mensajes aquí",
+            )}
       </span>
     </div>
   );

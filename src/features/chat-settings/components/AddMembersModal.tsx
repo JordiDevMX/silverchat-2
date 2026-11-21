@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ChatSettingsDialog } from "@/components/ui/chat-settings-surfaces";
 import type { ChatDetails, Profile } from "@/features/messages/types";
+import { canAddGroupMembers, resolveGroupRole } from "@/features/roles/lib/permissions";
 import { Avatar } from "@/features/settings/components/shared";
 import { useAddMembersDialog } from "../hooks/useAddMembersDialog";
 import { toggleMember } from "../lib/chatActions";
@@ -131,7 +132,26 @@ export function AddMembersModal({
             </Button>
             <Button
               type="button"
-              disabled={hook.busy || !selected.length || chat.own?.role !== "admin"}
+              disabled={
+                hook.busy ||
+                !selected.length ||
+                (context === "community"
+                  ? chat.own?.role !== "admin"
+                  : !canAddGroupMembers(
+                      resolveGroupRole(
+                        chat.own?.role === "admin" ? "admin" : "member",
+                        chat.own?.user_id,
+                        chat.ownerId ?? chat.createdBy,
+                      ),
+                      {
+                        onlyAdminsCanAddMembers: Boolean(chat.onlyAdminsCanAddMembers),
+                        onlyAdminsCanShareLink: Boolean(chat.onlyAdminsCanShareLink),
+                        onlyAdminsCanSend: Boolean(chat.onlyAdminsCanSend),
+                        onlyAdminsCanEditInfo: Boolean(chat.onlyAdminsCanEditInfo),
+                        requireAdminApproval: Boolean(chat.requireAdminApproval),
+                      },
+                    ))
+              }
               onClick={submit}
             >
               {say(`Add ${selected.length} members`, `Añadir ${selected.length} miembros`)}

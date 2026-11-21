@@ -14,6 +14,7 @@ import type { ChatDetails, Member } from "../src/features/messages/types.ts";
 const chat = (
   type: ChatDetails["type"] = "direct",
   role: Member["role"] = "member",
+  overrides: Partial<ChatDetails> = {},
 ): ChatDetails => ({
   id: "chat",
   type,
@@ -22,7 +23,13 @@ const chat = (
   members: [],
   readOnly: false,
   status: "active",
-  createdBy: "me",
+  createdBy: "owner-id",
+  ownerId: "owner-id",
+  onlyAdminsCanAddMembers: false,
+  onlyAdminsCanShareLink: false,
+  onlyAdminsCanSend: false,
+  onlyAdminsCanEditInfo: false,
+  requireAdminApproval: false,
   createdAt: "2026-01-01",
   description: null,
   own: {
@@ -37,6 +44,7 @@ const chat = (
     muted_until: null,
     manually_unread: false,
   },
+  ...overrides,
 });
 test("chat menus distinguish direct, self, groups, communities, admins and pending recipients without report", () => {
   const directActions = getAvailableChatActions(chat());
@@ -44,8 +52,18 @@ test("chat menus distinguish direct, self, groups, communities, admins and pendi
   assert.ok(directActions.includes("block"));
   assert.ok(!directActions.includes("report" as never));
   assert.deepEqual(getAvailableChatActions(chat("self")), ["search_in_chat", "pin", "clear_chat"]);
-  assert.ok(!getAvailableChatActions(chat("group")).includes("add_members"));
-  assert.ok(getAvailableChatActions(chat("group", "admin")).includes("add_members"));
+  // Group members follow onlyAdminsCanAddMembers (open defaults to member add allowed; restricted hides it)
+  assert.ok(getAvailableChatActions(chat("group")).includes("add_members"));
+  assert.ok(
+    !getAvailableChatActions(chat("group", "member", { onlyAdminsCanAddMembers: true })).includes(
+      "add_members",
+    ),
+  );
+  assert.ok(
+    getAvailableChatActions(chat("group", "admin", { onlyAdminsCanAddMembers: true })).includes(
+      "add_members",
+    ),
+  );
   assert.deepEqual(getAvailableChatActions(chat("community_chat", "admin")), [
     "view_community_info",
     "change_chat_photo",
@@ -70,7 +88,7 @@ test("chat menus distinguish direct, self, groups, communities, admins and pendi
     ["view_profile", "search_in_chat", "block"],
   );
 });
-test("channel menus expose follower actions and public report only for non-owners", () => {
+test("channel menus enforce OC-02 staff unfollow lock and OC-04 admin reporting", () => {
   assert.deepEqual(
     getAvailableChannelActions({ following: true, canSearch: true, hasLink: true, isOwner: false }),
     [
@@ -84,8 +102,18 @@ test("channel menus expose follower actions and public report only for non-owner
     ],
   );
   assert.deepEqual(
+    getAvailableChannelActions({
+      following: true,
+      canSearch: true,
+      hasLink: true,
+      isAdmin: true,
+      isOwner: false,
+    }),
+    ["view_channel_info", "search_in_chat", "mute", "mark_unread", "copy_channel_link", "report"],
+  );
+  assert.deepEqual(
     getAvailableChannelActions({ following: true, canSearch: true, hasLink: true, isOwner: true }),
-    ["view_channel_info", "search_in_chat", "mute", "mark_unread", "unfollow", "copy_channel_link"],
+    ["view_channel_info", "search_in_chat", "mute", "mark_unread", "copy_channel_link"],
   );
   assert.deepEqual(
     getAvailableChannelActions({ following: false, canSearch: false, hasLink: true }),
@@ -112,7 +140,7 @@ test("reports require an Other explanation, enforce length, and build public-onl
   assert.deepEqual(
     buildReportPayload(
       "me",
-      { kind: "channel", channelId: "ch-1", name: "News", blockUserId: "owner-1" },
+      { kind: "channel", channelId: "ch-1", name: "News" },
       "spam",
       "  promo links  ",
     ),

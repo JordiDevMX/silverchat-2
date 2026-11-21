@@ -8,8 +8,17 @@ export function CreateCommunityChatModal({
   communityId: string;
   onClose: () => void;
 }) {
-  const { say, name, setName, description, setDescription, mutation, submit } =
-    useCreateCommunityChatDialog(communityId, onClose);
+  const {
+    say,
+    name,
+    setName,
+    description,
+    setDescription,
+    writePolicy,
+    setWritePolicy,
+    mutation,
+    submit,
+  } = useCreateCommunityChatDialog(communityId, onClose);
   return (
     <CreationDialog
       title={say("New chat", "Nuevo chat")}
@@ -34,6 +43,21 @@ export function CreateCommunityChatModal({
             disabled={mutation.isPending}
             onChange={(e) => setDescription(e.target.value)}
           />
+        </label>
+        <label className="field">
+          {say("Who can send messages", "Quién puede enviar mensajes")}
+          <select
+            value={writePolicy}
+            disabled={mutation.isPending}
+            onChange={(e) => setWritePolicy(e.target.value as typeof writePolicy)}
+          >
+            <option value="all">{say("All members", "Todos los miembros")}</option>
+            <option value="moderators">
+              {say("Moderators, admins & owner", "Moderadores, admins y propietario")}
+            </option>
+            <option value="admins">{say("Admins & owner", "Admins y propietario")}</option>
+            <option value="owner_only">{say("Owner only", "Solo propietario")}</option>
+          </select>
         </label>
         {mutation.isError && (
           <p role="alert">

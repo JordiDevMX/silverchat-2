@@ -27,7 +27,7 @@ BEGIN
 END;
 $$;
 
-SELECT pg_temp.assert_true((SELECT count(*) = 22 FROM pg_tables WHERE schemaname = 'public'), '22 application tables including auth backup codes');
+SELECT pg_temp.assert_true((SELECT count(*) = 30 FROM pg_tables WHERE schemaname = 'public'), '30 application tables including shared roles, channel privacy, and community moderation');
 SELECT pg_temp.assert_true((SELECT count(*) = 13 FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typtype='e'), '13 explicitly specified enums');
 SELECT pg_temp.assert_true((SELECT bool_and(rowsecurity) FROM pg_tables WHERE schemaname='public'), 'RLS on every table');
 SELECT pg_temp.assert_true((SELECT count(*) = 9 FROM public.app_config), 'nine app_config seeds');
@@ -143,7 +143,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT set_config('test.community',public.create_community('Community','Test')::text,true);
 RESET ROLE;
 INSERT INTO public.chats(type,community_id,name) VALUES ('community_chat',current_setting('test.community')::uuid,'Community room');
-SELECT set_config('test.community_chat',(SELECT id::text FROM public.chats WHERE community_id=current_setting('test.community')::uuid),true);
+SELECT set_config('test.community_chat',(SELECT id::text FROM public.chats WHERE community_id=current_setting('test.community')::uuid AND name='Community room'),true);
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',true);
 SELECT public.join_community(current_setting('test.community')::uuid);

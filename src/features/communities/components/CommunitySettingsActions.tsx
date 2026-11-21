@@ -1,13 +1,28 @@
-import { BellOff, LogOut, MessageCirclePlus, Trash2, UserPlus, Users } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Ban,
+  BellOff,
+  History,
+  LogOut,
+  MessageCirclePlus,
+  Trash2,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardSurface, SettingsRow } from "@/components/ui/settings-row";
 import { Modal } from "@/features/auth/components";
 import { AddMembersModal } from "@/features/chat-settings/components/AddMembersModal";
-import { GroupMembersList } from "@/features/chat-settings/components/GroupMembersList";
 import { MuteSubmenu } from "@/features/chat-settings/components/MuteSubmenu";
 import type { ChatDetails } from "@/features/messages/types";
 import { useCommunitySettingsActions } from "../hooks/useCommunitySettingsActions";
 import type { Community } from "../types";
+import {
+  CommunityAuditLogModal,
+  CommunityBansModal,
+  CommunityMembersModerationModal,
+  TransferCommunityOwnershipModal,
+} from "./CommunityModerationModals";
 import { CreateCommunityChatModal } from "./CreateCommunityChatModal";
 export function CommunitySettingsActions({
   community,
@@ -65,6 +80,27 @@ export function CommunitySettingsActions({
             onClick={() => open("create")}
           />
         )}
+        {actions.includes("view_bans") && (
+          <SettingsRow
+            icon={<Ban />}
+            label={say("Blocked users", "Usuarios bloqueados")}
+            onClick={() => open("bans")}
+          />
+        )}
+        {actions.includes("view_audit_log") && (
+          <SettingsRow
+            icon={<History />}
+            label={say("Moderation audit log", "Registro de moderación")}
+            onClick={() => open("audit")}
+          />
+        )}
+        {actions.includes("transfer_ownership") && (
+          <SettingsRow
+            icon={<ArrowRightLeft />}
+            label={say("Transfer ownership", "Transferir propiedad")}
+            onClick={() => open("transfer")}
+          />
+        )}
         <SettingsRow
           className="text-destructive [&_svg]:text-destructive"
           icon={<LogOut />}
@@ -81,17 +117,16 @@ export function CommunitySettingsActions({
         )}
       </CardSurface>
       {modal === "members" && (
-        <Modal
-          title={say("Community members", "Miembros de la comunidad")}
-          className="chat-settings-modal"
-          onClose={() => setModal(null)}
-        >
-          <GroupMembersList
-            context="community"
-            chatId={community.id}
-            onBack={() => setModal(null)}
-          />
-        </Modal>
+        <CommunityMembersModerationModal community={community} onClose={() => setModal(null)} />
+      )}
+      {modal === "bans" && (
+        <CommunityBansModal community={community} onClose={() => setModal(null)} />
+      )}
+      {modal === "audit" && (
+        <CommunityAuditLogModal community={community} onClose={() => setModal(null)} />
+      )}
+      {modal === "transfer" && owner && (
+        <TransferCommunityOwnershipModal community={community} onClose={() => setModal(null)} />
       )}
       {modal === "add" && admin && (
         <AddMembersModal chat={chat} context="community" onClose={() => setModal(null)} />

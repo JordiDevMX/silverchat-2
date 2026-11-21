@@ -75,12 +75,17 @@ const chat = (id = chatId, type = "direct") => ({
   type,
   name: type === "group" ? groupName : null,
   created_by: me,
+  owner_id: type === "group" ? (memberMode ? other : me) : null,
   created_at: "2020-01-01T00:00:00Z",
   description,
   direct_pair_key: [me, other].sort().join("::"),
   status: "active",
   avatar_url: type === "group" ? groupAvatar : null,
   only_admins_can_send: type === "group" ? onlyAdminsCanSend : false,
+  only_admins_can_edit_info: type === "group",
+  only_admins_can_add_members: type === "group",
+  only_admins_can_share_link: type === "group",
+  require_admin_approval: false,
   community_id: null,
 });
 const member = (id = chatId, who = me) => ({
@@ -625,7 +630,7 @@ try {
   await page.getByRole("link", { name: "View members →" }).click();
   await page.getByRole("heading", { name: "3 members", exact: true }).waitFor();
   contactChatAvailable = false;
-  await page.getByRole("button", { name: /Alice Rivera.*Creator/ }).click();
+  await page.getByRole("button", { name: /Alice Rivera.*Owner/ }).click();
   await page.getByRole("button", { name: "Message", exact: true }).click();
   await page.waitForURL(`**/chats/${selfId}`);
   assert.equal(workflowCalls.filter((c) => c.kind === "self").length, 1);
@@ -686,12 +691,7 @@ try {
   await page.getByRole("button", { name: "Confirm", exact: true }).click();
   await settle();
   assert.equal(groupMembers.find((m) => m.user_id === other).role, "member");
-  await page.getByRole("button", { name: "Member actions: Alice Rivera" }).click();
-  assert.equal(
-    await page.getByRole("button", { name: "Demote from admin", exact: true }).count(),
-    0,
-  );
-  await page.getByRole("button", { name: "Member actions: Alice Rivera" }).click();
+  assert.equal(await page.getByRole("button", { name: "Member actions: Alice Rivera" }).count(), 0);
   await page.getByRole("button", { name: "Member actions: Sofia Reyes" }).click();
   await page.getByRole("button", { name: "Remove from group", exact: true }).click();
   await page.getByRole("button", { name: "Confirm", exact: true }).click();

@@ -24,8 +24,8 @@ export const GROWTH_CHAT_CONFIG: Record<SupportedGrowthChatType, GrowthTypeConfi
       es: { one: "seguidor", other: "seguidores" },
     },
     secondaryActionLabel: {
-      en: "Invite admins",
-      es: "Invitar a administradores",
+      en: "Invite contacts",
+      es: "Invitar contactos",
     },
     secondaryActionIcon: "plus",
     storyVerb: { en: "Follow", es: "¡Sigue" },
@@ -183,11 +183,10 @@ function createGrowthModel(params: {
 
 export function buildChannelGrowthModel(
   channel: Channel,
-  userId: string | undefined,
+  isOwner: boolean,
   language: Language,
   origin: string,
 ): GrowthChatModel {
-  const isOwner = !!userId && channel.owner_id === userId;
   return createGrowthModel({
     type: "channel",
     id: channel.id,

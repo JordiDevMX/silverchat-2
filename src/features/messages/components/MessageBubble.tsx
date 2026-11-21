@@ -5,7 +5,7 @@ import { Avatar } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
 import { useSwipeToReply } from "../hooks/useSwipeToReply";
 import { useMessageText } from "../i18n";
-import { getAvailableActions } from "../lib/actionMatrix";
+import { canModerateCommunityMessage, getAvailableActions } from "../lib/actionMatrix";
 import { messageStatus } from "../lib/messageStatus";
 import { canSwipeReplyToMessage } from "../lib/swipeToReply";
 import type { ChatDetails, Message } from "../types";
@@ -46,8 +46,15 @@ export function MessageBubble({
   }, []);
   useEffect(() => () => cancelPress(), [cancelPress]);
   const available =
-    getAvailableActions(message, user?.id ?? "", chat.readOnly, Date.now(), ui.writeRestricted)
-      .length > 0;
+    getAvailableActions(
+      message,
+      user?.id ?? "",
+      chat.readOnly,
+      Date.now(),
+      ui.writeRestricted,
+      chat.channelStaffRole ?? null,
+      canModerateCommunityMessage(chat, message),
+    ).length > 0;
   const canSwipeReply =
     !ui.busy &&
     !chat.channelMode &&

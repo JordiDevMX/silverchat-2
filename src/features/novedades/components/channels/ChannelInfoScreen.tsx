@@ -1,4 +1,4 @@
-import { BadgeCheck, BellOff, Flag, Pencil, Trash2 } from "lucide-react";
+import { BadgeCheck, BellOff, Flag, Pencil, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChannelFollowButton, ChannelInfoSurface } from "@/components/ui/channel-surfaces";
@@ -9,6 +9,12 @@ import { ReportModal } from "@/features/chat-settings/components/ReportModal";
 import { saveGroupAvatar } from "@/features/chat-settings/lib/groupAvatar";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
 import { useMessageText } from "@/features/messages/i18n";
+import {
+  canEditChannelInfo,
+  canReportChannel,
+  canSendChannelInvitation,
+  getRoleLabel,
+} from "@/features/roles/lib/permissions";
 import { AvatarPickerModal } from "@/features/settings/components/AvatarPickerModal";
 import { Avatar, NavLink, QueryState } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
@@ -20,6 +26,8 @@ import { useUnfollowChannel } from "../../hooks/channels/useUnfollowChannel";
 import { useUpdateChannelInfo } from "../../hooks/channels/useUpdateChannelInfo";
 import type { Channel } from "../../types";
 import { ChannelHeader } from "./ChannelHeader";
+import { ChannelInviteContactsPanel } from "./ChannelInvitationsSection";
+import { ChannelStaffModal } from "./ChannelStaffModal";
 
 function EditFields({ channel, onDone }: { channel: Channel; onDone: () => void }) {
   const { say } = useMessageText();
@@ -98,9 +106,13 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
   const [photo, setPhoto] = useState(false);
   const [muteOpen, setMuteOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [staffOpen, setStaffOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const c = q.data?.channel;
   const follow = q.data?.follow ?? null;
+  const staffRole = q.data?.staffRole ?? null;
+  const role = q.data?.role ?? "visitor";
+  const isOwner = canEditChannelInfo(role);
   return (
     <main id="main" className="novedades-page channel-info">
       <NavLink href={`/channels/${channelId}`}>
@@ -110,7 +122,7 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
       {!q.isPending && !c && <p>{say("Channel unavailable", "Canal no disponible")}</p>}
       {c && (
         <>
-          <ChannelHeader channel={c} follow={follow} />
+          <ChannelHeader channel={c} follow={follow} staffRole={staffRole} />
           <ChannelInfoSurface
             avatar={
               <>
@@ -118,7 +130,7 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
                   profile={{ id: c.id, display_name: c.name, avatar_url: c.avatar_url }}
                   size="large"
                 />
-                {c.owner_id === user?.id && (
+                {isOwner && (
                   <Button variant="outline" onClick={() => setPhoto(true)}>
                     {say("Change photo", "Cambiar foto")}
                   </Button>
@@ -136,6 +148,7 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
             meta={
               <>
                 @{c.slug} · {c.follower_count} {say("followers", "seguidores")}
+                {role !== "visitor" ? ` · ${getRoleLabel(role, say)}` : ""}
               </>
             }
             description={c.description}
@@ -148,15 +161,17 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
               </>
             }
           >
-            <ChannelFollowButton
-              following={!!follow}
-              busy={add.isPending || remove.isPending}
-              label={follow ? say("Unfollow", "Dejar de seguir") : say("Follow", "Seguir")}
-              onClick={() => {
-                if (follow) remove.mutate(c.id);
-                else add.mutate(c.id);
-              }}
-            />
+            {!staffRole && (
+              <ChannelFollowButton
+                following={!!follow}
+                busy={add.isPending || remove.isPending}
+                label={follow ? say("Unfollow", "Dejar de seguir") : say("Follow", "Seguir")}
+                onClick={() => {
+                  if (follow) remove.mutate(c.id);
+                  else add.mutate(c.id);
+                }}
+              />
+            )}
             {follow && (
               <SettingsRow
                 icon={<BellOff />}
@@ -164,7 +179,14 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
                 onClick={() => setMuteOpen(true)}
               />
             )}
-            {c.owner_id !== user?.id && (
+            {staffRole && (
+              <SettingsRow
+                icon={<Users />}
+                label={say("Channel admins & staff", "Equipo y administradores")}
+                onClick={() => setStaffOpen(true)}
+              />
+            )}
+            {canReportChannel(role) && (
               <SettingsRow
                 icon={<Flag />}
                 className="text-destructive [&_svg]:text-destructive"
@@ -172,7 +194,7 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
                 onClick={() => setReportOpen(true)}
               />
             )}
-            {c.owner_id === user?.id && (
+            {isOwner && (
               <>
                 <SettingsRow
                   icon={<Pencil />}
@@ -188,6 +210,7 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
               </>
             )}
           </ChannelInfoSurface>
+          {canSendChannelInvitation(role) && <ChannelInviteContactsPanel channelId={c.id} />}
           {muteOpen && (
             <MuteSubmenu
               muted={!!follow?.muted_until && Date.parse(follow.muted_until) > Date.now()}
@@ -196,7 +219,7 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
               onChoose={(until) => mute.mutate(until, { onSuccess: () => setMuteOpen(false) })}
             />
           )}
-          {reportOpen && c.owner_id !== user?.id && (
+          {reportOpen && canReportChannel(role) && (
             <ReportModal
               target={{
                 kind: "channel",
@@ -204,12 +227,19 @@ export function ChannelInfoScreen({ channelId }: { channelId: string }) {
                 name: c.name,
                 slug: c.slug,
                 following: !!follow,
-                blockUserId: c.owner_id,
+                isStaff: Boolean(staffRole),
               }}
               onClose={() => setReportOpen(false)}
             />
           )}
-          {c.owner_id === user?.id && (
+          {staffOpen && staffRole && (
+            <ChannelStaffModal
+              channelId={c.id}
+              staffRole={staffRole}
+              onClose={() => setStaffOpen(false)}
+            />
+          )}
+          {isOwner && (
             <>
               {editing && <EditFields key={c.id} channel={c} onDone={() => setEditing(false)} />}
               {photo && (

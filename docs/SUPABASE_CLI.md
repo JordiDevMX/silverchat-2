@@ -179,3 +179,29 @@ powershell -File scripts/setup-supabase.ps1   # Windows PowerShell
 Both scripts are idempotent, prompt-free health checks: they verify the CLI
 version and authentication, and link the project if `SUPABASE_PROJECT_ID`
 is available. They never ask for credentials — that is the human's job.
+
+### Live Staging app & Magic Link test sessions
+
+When setting up a local server for live or manual verification against Staging
+(`gffdrrtatxdiucigtwdn`):
+
+1. **Prepare the server:** Start `netlify dev --offline` on
+   `http://localhost:8891` with the `/api/auth/*` functions active (if port
+   `5173` is already occupied, bind Vite to an isolated `--target-port` such as
+   `5191`). Configure `SITE_URL=http://localhost:8891` and
+   `ALLOWED_ORIGINS=http://localhost:8891,http://127.0.0.1:8891`. Because the
+   primary checkout's `.env.local` has previously pointed to Production
+   (`lmzbaxlojgsdwgcxkmzx`), always verify the target before loading any local
+   env file and confirm that the served app embeds
+   `https://gffdrrtatxdiucigtwdn.supabase.co` (and never
+   `lmzbaxlojgsdwgcxkmzx`).
+2. **Prepare the test accounts:** Use `test-a+silverchat@example.com` (normal
+   browser window), `test-b+silverchat@example.com` (incognito window), and,
+   for busy or three-party scenarios, `test-c+silverchat@example.com` (another
+   browser profile or browser). Generate a Staging magic link for each account
+   via the Supabase Admin API
+   (`admin.auth.admin.generateLink({ type: "magiclink", email })`) and
+   construct the single-use callback URL:
+   `http://localhost:8891/api/auth/callback?token_hash=<hashed_token>&type=magiclink`.
+   Never pre-fetch the callback URL from a script, as that consumes the
+   one-time OTP token before the browser opens it.

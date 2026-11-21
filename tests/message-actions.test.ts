@@ -162,17 +162,17 @@ test("exclusive playback handles toggle, unmount, rejected play, and late play p
   store().stop();
 });
 
-test("channel followers only react/copy; owners retain editing without chat reply or pins", () => {
-  const post = row({ chat_id: null, channel_id: "channel", sender_id: "other" });
-  assert.deepEqual(getAvailableActions(post, "me", false, now), ["react", "copy"]);
+test("channel followers copy/forward without reactions; owners retain editing/deleting without chat reply or pins", () => {
+  const post = row({ chat_id: null, channel_id: "channel", sender_id: null });
+  assert.deepEqual(getAvailableActions(post, "me", false, now), ["copy", "forward"]);
   assert.deepEqual(
     getAvailableActions({ ...post, deleted_for_everyone: true }, "me", false, now),
     [],
   );
-  const owner = getAvailableActions({ ...post, sender_id: "me" }, "me", false, now);
+  const owner = getAvailableActions({ ...post, sender_id: "me" }, "me", false, now, false, "owner");
   for (const action of ["edit", "forward", "delete_for_everyone"])
     assert.ok(owner.includes(action as (typeof owner)[number]));
-  for (const action of ["reply", "pin", "unpin"])
+  for (const action of ["reply", "react", "pin", "unpin"])
     assert.ok(!owner.includes(action as (typeof owner)[number]));
 });
 

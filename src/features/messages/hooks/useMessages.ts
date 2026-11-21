@@ -32,9 +32,53 @@ export async function enrichMessages(rows: MessageRow[], userId: string): Promis
         )
       : [],
     uploadIds.length
-      ? allRows((from, to) =>
-          supabase.from("file_uploads").select("*").in("id", uploadIds).order("id").range(from, to),
-        )
+      ? (async () => {
+          const uniqueIds = [...new Set(uploadIds)];
+          const ownOrChat = await allRows((from, to) =>
+            supabase
+              .from("file_uploads")
+              .select("*")
+              .in("id", uniqueIds)
+              .order("id")
+              .range(from, to),
+          );
+          const foundIds = new Set(ownOrChat.map((u) => u.id));
+          const missingIds = uniqueIds.filter((id) => !foundIds.has(id));
+          if (!missingIds.length) return ownOrChat;
+          const pubRows = await allRows((from, to) =>
+            supabase
+              .from("message_media_public")
+              .select("*")
+              .in("id", missingIds)
+              .order("id")
+              .range(from, to),
+          );
+          const normalized = pubRows
+            .filter(
+              (
+                r,
+              ): r is typeof r & {
+                id: string;
+                bucket: string;
+                path: string;
+                mime_type: string;
+                original_filename: string;
+                size_bytes: number;
+                created_at: string;
+                status: NonNullable<typeof r.status>;
+              } =>
+                !!r.id &&
+                !!r.bucket &&
+                !!r.path &&
+                !!r.mime_type &&
+                !!r.original_filename &&
+                r.size_bytes !== null &&
+                !!r.created_at &&
+                !!r.status,
+            )
+            .map((r) => ({ ...r }));
+          return [...ownOrChat, ...normalized];
+        })()
       : [],
     allRows((from, to) =>
       supabase
@@ -57,11 +101,14 @@ export async function enrichMessages(rows: MessageRow[], userId: string): Promis
   ]);
   return rows.map((m) => {
     const reply = replies.find((r) => r.id === m.reply_to_message_id && r.chat_id === m.chat_id);
+    const rawUpload = uploads.find((u) => u.id === m.file_upload_id);
+    const rawThumbnail = uploads.find((u) => u.id === m.media_thumbnail_upload_id);
+    const ctx = { channelId: m.channel_id, messageId: m.id };
     return {
       ...m,
       sender: profiles.find((p) => p.id === m.sender_id),
-      upload: uploads.find((u) => u.id === m.file_upload_id),
-      thumbnail: uploads.find((u) => u.id === m.media_thumbnail_upload_id),
+      upload: rawUpload ? { ...rawUpload, ...ctx } : undefined,
+      thumbnail: rawThumbnail ? { ...rawThumbnail, ...ctx } : undefined,
       reply,
       replySender: profiles.find((p) => p.id === reply?.sender_id),
       receipts: receipts.filter((r) => r.message_id === m.id),

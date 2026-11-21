@@ -58,19 +58,69 @@ export function useChat(chatId: string) {
       ).flat();
       const other = profiles.find((p) => p.id !== (user?.id ?? ""));
       let communityName: string | undefined;
+      let communityOwnerId: string | null = null;
+      let communityRole: ChatDetails["communityRole"];
+      let communitySilencedUntil: string | null = null;
+      let isAnnouncementWriter = false;
+      let communityAuthorRoles:
+        | Record<string, NonNullable<ChatDetails["communityRole"]>>
+        | undefined;
+      const systemRole =
+        chat.data?.system_role === "announcements" ? ("announcements" as const) : null;
+      const writePolicy =
+        chat.data?.write_policy === "owner_only" ||
+        chat.data?.write_policy === "admins" ||
+        chat.data?.write_policy === "moderators"
+          ? chat.data.write_policy
+          : "all";
+
       if (chat.data?.community_id) {
-        const c = await supabase
-          .from("communities")
-          .select("name")
-          .eq("id", chat.data.community_id)
-          .maybeSingle();
+        const communityId = chat.data.community_id;
+        const [c, cm, writers] = await Promise.all([
+          supabase.from("communities").select("name, owner_id").eq("id", communityId).maybeSingle(),
+          allRows((from, to) =>
+            supabase
+              .from("community_members")
+              .select("user_id, role, silenced_until")
+              .eq("community_id", communityId)
+              .order("user_id")
+              .range(from, to),
+          ),
+          systemRole === "announcements" && user?.id
+            ? supabase
+                .from("community_announcement_writers")
+                .select("user_id")
+                .eq("community_id", communityId)
+                .eq("user_id", user.id)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+        ]);
         if (c.error) throw c.error;
         communityName = c.data?.name;
+        communityOwnerId = c.data?.owner_id ?? null;
+        isAnnouncementWriter = Boolean(writers.data);
+        communityAuthorRoles = {};
+        for (const row of cm) {
+          const effRole =
+            row.user_id === communityOwnerId
+              ? "owner"
+              : row.role === "admin"
+                ? "admin"
+                : row.role === "moderator"
+                  ? "moderator"
+                  : "member";
+          communityAuthorRoles[row.user_id] = effRole;
+          if (row.user_id === user?.id) {
+            communityRole = effRole;
+            communitySilencedUntil = row.silenced_until ?? null;
+          }
+        }
       }
       return {
         id: chatId,
         status: chat.data?.status ?? "pending_request",
         createdBy: chat.data?.created_by ?? null,
+        ownerId: chat.data?.owner_id ?? null,
         createdAt: chat.data?.created_at ?? "",
         description: chat.data?.description ?? null,
         otherUserId:
@@ -94,8 +144,19 @@ export function useChat(chatId: string) {
         other,
         communityId: chat.data?.community_id ?? null,
         communityName,
+        communityOwnerId,
+        communityRole,
+        communitySilencedUntil,
+        communityAuthorRoles,
+        systemRole,
+        writePolicy,
+        isAnnouncementWriter,
         request,
+        onlyAdminsCanAddMembers: !!chat.data?.only_admins_can_add_members,
+        onlyAdminsCanShareLink: !!chat.data?.only_admins_can_share_link,
         onlyAdminsCanSend: !!chat.data?.only_admins_can_send,
+        onlyAdminsCanEditInfo: !!chat.data?.only_admins_can_edit_info,
+        requireAdminApproval: !!chat.data?.require_admin_approval,
         readOnly: pendingRecipient,
       };
     },

@@ -100,6 +100,46 @@ export type Database = {
           },
         ];
       };
+      channel_feed_events: {
+        Row: {
+          channel_id: string;
+          created_at: string;
+          event_type: string;
+          id: string;
+          message_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          channel_id: string;
+          created_at?: string;
+          event_type: string;
+          id?: string;
+          message_id: string;
+        };
+        Update: {
+          channel_id?: string;
+          created_at?: string;
+          event_type?: string;
+          id?: string;
+          message_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "channel_feed_events_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_feed_events_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels_public";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       channel_followers: {
         Row: {
           channel_id: string;
@@ -132,6 +172,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "channel_followers_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels_public";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "channel_followers_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
@@ -147,6 +194,152 @@ export type Database = {
           },
           {
             foreignKeyName: "channel_followers_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      channel_invitations: {
+        Row: {
+          accepted_at: string | null;
+          channel_id: string;
+          created_at: string;
+          id: string;
+          recipient_id: string;
+          sender_id: string;
+          status: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          accepted_at?: string | null;
+          channel_id: string;
+          created_at?: string;
+          id?: string;
+          recipient_id: string;
+          sender_id: string;
+          status?: string;
+        };
+        Update: {
+          accepted_at?: string | null;
+          channel_id?: string;
+          created_at?: string;
+          id?: string;
+          recipient_id?: string;
+          sender_id?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "channel_invitations_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels_public";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_sender_id_fkey";
+            columns: ["sender_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_sender_id_fkey";
+            columns: ["sender_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_sender_id_fkey";
+            columns: ["sender_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      channel_staff: {
+        Row: {
+          channel_id: string;
+          joined_at: string;
+          role: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          channel_id: string;
+          joined_at?: string;
+          role: string;
+          user_id: string;
+        };
+        Update: {
+          channel_id?: string;
+          joined_at?: string;
+          role?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "channel_staff_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_staff_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels_public";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_staff_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_staff_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_staff_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles_visible";
@@ -226,6 +419,66 @@ export type Database = {
           {
             foreignKeyName: "channels_owner_id_fkey";
             columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      chat_invite_links: {
+        Row: {
+          chat_id: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          is_active: boolean;
+          token: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          chat_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          token?: string;
+          updated_at?: string;
+        };
+        Update: {
+          chat_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          token?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chat_invite_links_chat_id_fkey";
+            columns: ["chat_id"];
+            isOneToOne: true;
+            referencedRelation: "chats";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chat_invite_links_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chat_invite_links_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chat_invite_links_created_by_fkey";
+            columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
@@ -395,11 +648,18 @@ export type Database = {
           last_message_id: string | null;
           last_message_preview: string | null;
           name: string | null;
+          only_admins_can_add_members: boolean;
+          only_admins_can_edit_info: boolean;
           only_admins_can_send: boolean;
+          only_admins_can_share_link: boolean;
+          owner_id: string | null;
           rejected_at: string | null;
+          require_admin_approval: boolean;
           status: Database["public"]["Enums"]["chat_status"];
+          system_role: string | null;
           type: Database["public"]["Enums"]["chat_type"];
           updated_at: string;
+          write_policy: string;
         };
         ComputedFields: never;
         Insert: {
@@ -414,11 +674,18 @@ export type Database = {
           last_message_id?: string | null;
           last_message_preview?: string | null;
           name?: string | null;
+          only_admins_can_add_members?: boolean;
+          only_admins_can_edit_info?: boolean;
           only_admins_can_send?: boolean;
+          only_admins_can_share_link?: boolean;
+          owner_id?: string | null;
           rejected_at?: string | null;
+          require_admin_approval?: boolean;
           status?: Database["public"]["Enums"]["chat_status"];
+          system_role?: string | null;
           type: Database["public"]["Enums"]["chat_type"];
           updated_at?: string;
+          write_policy?: string;
         };
         Update: {
           avatar_url?: string | null;
@@ -432,11 +699,18 @@ export type Database = {
           last_message_id?: string | null;
           last_message_preview?: string | null;
           name?: string | null;
+          only_admins_can_add_members?: boolean;
+          only_admins_can_edit_info?: boolean;
           only_admins_can_send?: boolean;
+          only_admins_can_share_link?: boolean;
+          owner_id?: string | null;
           rejected_at?: string | null;
+          require_admin_approval?: boolean;
           status?: Database["public"]["Enums"]["chat_status"];
+          system_role?: string | null;
           type?: Database["public"]["Enums"]["chat_type"];
           updated_at?: string;
+          write_policy?: string;
         };
         Relationships: [
           {
@@ -472,6 +746,27 @@ export type Database = {
             columns: ["last_message_id"];
             isOneToOne: false;
             referencedRelation: "messages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chats_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chats_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chats_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
         ];
@@ -532,11 +827,255 @@ export type Database = {
           },
         ];
       };
+      community_announcement_writers: {
+        Row: {
+          community_id: string;
+          granted_at: string;
+          granted_by: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          community_id: string;
+          granted_at?: string;
+          granted_by?: string | null;
+          user_id: string;
+        };
+        Update: {
+          community_id?: string;
+          granted_at?: string;
+          granted_by?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_announcement_writers_community_id_fkey";
+            columns: ["community_id"];
+            isOneToOne: false;
+            referencedRelation: "communities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_announcement_writers_granted_by_fkey";
+            columns: ["granted_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_announcement_writers_granted_by_fkey";
+            columns: ["granted_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_announcement_writers_granted_by_fkey";
+            columns: ["granted_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_announcement_writers_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_announcement_writers_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_announcement_writers_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      community_audit_logs: {
+        Row: {
+          action_type: string;
+          actor_id: string | null;
+          community_id: string;
+          created_at: string;
+          details: NonNullable<Json>;
+          id: string;
+          reason: string | null;
+          target_chat_id: string | null;
+          target_user_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          action_type: string;
+          actor_id?: string | null;
+          community_id: string;
+          created_at?: string;
+          details?: NonNullable<Json>;
+          id?: string;
+          reason?: string | null;
+          target_chat_id?: string | null;
+          target_user_id?: string | null;
+        };
+        Update: {
+          action_type?: string;
+          actor_id?: string | null;
+          community_id?: string;
+          created_at?: string;
+          details?: NonNullable<Json>;
+          id?: string;
+          reason?: string | null;
+          target_chat_id?: string | null;
+          target_user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_audit_logs_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_audit_logs_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_audit_logs_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_audit_logs_community_id_fkey";
+            columns: ["community_id"];
+            isOneToOne: false;
+            referencedRelation: "communities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_audit_logs_target_chat_id_fkey";
+            columns: ["target_chat_id"];
+            isOneToOne: false;
+            referencedRelation: "chats";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_audit_logs_target_user_id_fkey";
+            columns: ["target_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_audit_logs_target_user_id_fkey";
+            columns: ["target_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_audit_logs_target_user_id_fkey";
+            columns: ["target_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      community_bans: {
+        Row: {
+          banned_by: string | null;
+          community_id: string;
+          created_at: string;
+          reason: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          banned_by?: string | null;
+          community_id: string;
+          created_at?: string;
+          reason?: string | null;
+          user_id: string;
+        };
+        Update: {
+          banned_by?: string | null;
+          community_id?: string;
+          created_at?: string;
+          reason?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "community_bans_banned_by_fkey";
+            columns: ["banned_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_bans_banned_by_fkey";
+            columns: ["banned_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_bans_banned_by_fkey";
+            columns: ["banned_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_bans_community_id_fkey";
+            columns: ["community_id"];
+            isOneToOne: false;
+            referencedRelation: "communities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_bans_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_bans_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_bans_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       community_members: {
         Row: {
           community_id: string;
           joined_at: string;
           role: Database["public"]["Enums"]["chat_member_role"];
+          silence_reason: string | null;
+          silenced_by: string | null;
+          silenced_until: string | null;
           user_id: string;
         };
         ComputedFields: never;
@@ -544,12 +1083,18 @@ export type Database = {
           community_id: string;
           joined_at?: string;
           role?: Database["public"]["Enums"]["chat_member_role"];
+          silence_reason?: string | null;
+          silenced_by?: string | null;
+          silenced_until?: string | null;
           user_id: string;
         };
         Update: {
           community_id?: string;
           joined_at?: string;
           role?: Database["public"]["Enums"]["chat_member_role"];
+          silence_reason?: string | null;
+          silenced_by?: string | null;
+          silenced_until?: string | null;
           user_id?: string;
         };
         Relationships: [
@@ -558,6 +1103,27 @@ export type Database = {
             columns: ["community_id"];
             isOneToOne: false;
             referencedRelation: "communities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_members_silenced_by_fkey";
+            columns: ["silenced_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_members_silenced_by_fkey";
+            columns: ["silenced_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "community_members_silenced_by_fkey";
+            columns: ["silenced_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
           },
           {
@@ -710,6 +1276,111 @@ export type Database = {
           {
             foreignKeyName: "file_uploads_uploader_id_fkey";
             columns: ["uploader_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      group_join_requests: {
+        Row: {
+          chat_id: string;
+          created_at: string;
+          id: string;
+          requested_by: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          status: string;
+          target_user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          chat_id: string;
+          created_at?: string;
+          id?: string;
+          requested_by: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+          target_user_id: string;
+        };
+        Update: {
+          chat_id?: string;
+          created_at?: string;
+          id?: string;
+          requested_by?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+          target_user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "group_join_requests_chat_id_fkey";
+            columns: ["chat_id"];
+            isOneToOne: false;
+            referencedRelation: "chats";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_join_requests_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_join_requests_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_join_requests_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_join_requests_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_join_requests_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_join_requests_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_join_requests_target_user_id_fkey";
+            columns: ["target_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_join_requests_target_user_id_fkey";
+            columns: ["target_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "group_join_requests_target_user_id_fkey";
+            columns: ["target_user_id"];
             isOneToOne: false;
             referencedRelation: "profiles_visible";
             referencedColumns: ["id"];
@@ -944,6 +1615,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "messages_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels_public";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "messages_chat_id_fkey";
             columns: ["chat_id"];
             isOneToOne: false;
@@ -958,6 +1636,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "messages_file_upload_id_fkey";
+            columns: ["file_upload_id"];
+            isOneToOne: false;
+            referencedRelation: "message_media_public";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "messages_forwarded_from_message_id_fkey";
             columns: ["forwarded_from_message_id"];
             isOneToOne: false;
@@ -969,6 +1654,13 @@ export type Database = {
             columns: ["media_thumbnail_upload_id"];
             isOneToOne: false;
             referencedRelation: "file_uploads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_media_thumbnail_upload_id_fkey";
+            columns: ["media_thumbnail_upload_id"];
+            isOneToOne: false;
+            referencedRelation: "message_media_public";
             referencedColumns: ["id"];
           },
           {
@@ -1110,6 +1802,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "reports_reported_channel_id_fkey";
+            columns: ["reported_channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels_public";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "reports_reported_chat_id_fkey";
             columns: ["reported_chat_id"];
             isOneToOne: false;
@@ -1235,10 +1934,24 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "stories_file_upload_id_fkey";
+            columns: ["file_upload_id"];
+            isOneToOne: false;
+            referencedRelation: "message_media_public";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "stories_media_thumbnail_upload_id_fkey";
             columns: ["media_thumbnail_upload_id"];
             isOneToOne: false;
             referencedRelation: "file_uploads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stories_media_thumbnail_upload_id_fkey";
+            columns: ["media_thumbnail_upload_id"];
+            isOneToOne: false;
+            referencedRelation: "message_media_public";
             referencedColumns: ["id"];
           },
           {
@@ -1497,6 +2210,207 @@ export type Database = {
       };
     };
     Views: {
+      channel_invitations_received: {
+        Row: {
+          channel_id: string | null;
+          created_at: string | null;
+          id: string | null;
+          status: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          channel_id?: string | null;
+          created_at?: string | null;
+          id?: string | null;
+          status?: string | null;
+        };
+        Update: {
+          channel_id?: string | null;
+          created_at?: string | null;
+          id?: string | null;
+          status?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "channel_invitations_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels_public";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      channel_invitations_sent: {
+        Row: {
+          accepted_at: string | null;
+          channel_id: string | null;
+          created_at: string | null;
+          id: string | null;
+          recipient_id: string | null;
+          status: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          accepted_at?: string | null;
+          channel_id?: string | null;
+          created_at?: string | null;
+          id?: string | null;
+          recipient_id?: string | null;
+          status?: never;
+        };
+        Update: {
+          accepted_at?: string | null;
+          channel_id?: string | null;
+          created_at?: string | null;
+          id?: string | null;
+          recipient_id?: string | null;
+          status?: never;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "channel_invitations_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels_public";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_blocked";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "channel_invitations_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles_visible";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      channels_public: {
+        Row: {
+          avatar_url: string | null;
+          created_at: string | null;
+          description: string | null;
+          follower_count: number | null;
+          id: string | null;
+          is_verified: boolean | null;
+          last_message_at: string | null;
+          last_message_id: string | null;
+          last_message_preview: string | null;
+          name: string | null;
+          slug: string | null;
+          updated_at: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          avatar_url?: string | null;
+          created_at?: string | null;
+          description?: string | null;
+          follower_count?: number | null;
+          id?: string | null;
+          is_verified?: boolean | null;
+          last_message_at?: string | null;
+          last_message_id?: string | null;
+          last_message_preview?: string | null;
+          name?: string | null;
+          slug?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          avatar_url?: string | null;
+          created_at?: string | null;
+          description?: string | null;
+          follower_count?: number | null;
+          id?: string | null;
+          is_verified?: boolean | null;
+          last_message_at?: string | null;
+          last_message_id?: string | null;
+          last_message_preview?: string | null;
+          name?: string | null;
+          slug?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "channels_last_message_id_fkey";
+            columns: ["last_message_id"];
+            isOneToOne: false;
+            referencedRelation: "messages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      message_media_public: {
+        Row: {
+          bucket: string | null;
+          completed_at: string | null;
+          created_at: string | null;
+          duration_seconds: number | null;
+          height: number | null;
+          id: string | null;
+          mime_type: string | null;
+          original_filename: string | null;
+          path: string | null;
+          size_bytes: number | null;
+          status: Database["public"]["Enums"]["upload_status"] | null;
+          width: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          bucket?: string | null;
+          completed_at?: string | null;
+          created_at?: string | null;
+          duration_seconds?: number | null;
+          height?: number | null;
+          id?: string | null;
+          mime_type?: string | null;
+          original_filename?: string | null;
+          path?: string | null;
+          size_bytes?: number | null;
+          status?: Database["public"]["Enums"]["upload_status"] | null;
+          width?: number | null;
+        };
+        Update: {
+          bucket?: string | null;
+          completed_at?: string | null;
+          created_at?: string | null;
+          duration_seconds?: number | null;
+          height?: number | null;
+          id?: string | null;
+          mime_type?: string | null;
+          original_filename?: string | null;
+          path?: string | null;
+          size_bytes?: number | null;
+          status?: Database["public"]["Enums"]["upload_status"] | null;
+          width?: number | null;
+        };
+        Relationships: [];
+      };
       profiles_blocked: {
         Row: {
           avatar_initials: string | null;
@@ -1540,15 +2454,52 @@ export type Database = {
           type: Database["public"]["Enums"]["call_type"];
         }[];
       };
+      appoint_channel_admin: {
+        Args: { p_channel_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      appoint_community_moderator: {
+        Args: { p_community_id: string; p_user_id: string };
+        Returns: undefined;
+      };
       auth_mfa_satisfied: { Args: Record<PropertyKey, never>; Returns: boolean };
+      authorize_channel_avatar_read: {
+        Args: { p_channel_id: string; p_path: string };
+        Returns: {
+          bucket: string;
+          path: string;
+        }[];
+      };
+      authorize_channel_post_media_read: {
+        Args: { p_channel_id: string; p_upload_id: string };
+        Returns: {
+          bucket: string;
+          path: string;
+        }[];
+      };
+      authorize_forwarded_channel_media_read: {
+        Args: { p_message_id: string; p_upload_id: string };
+        Returns: {
+          bucket: string;
+          path: string;
+        }[];
+      };
       can_access_chat_message: {
         Args: { p_include_deleted?: boolean; p_message_id: string };
         Returns: boolean;
       };
+      can_add_group_members: { Args: { p_chat_id: string; p_user_id: string }; Returns: boolean };
+      can_edit_group_info: { Args: { p_chat_id: string; p_user_id: string }; Returns: boolean };
+      can_share_group_invite: { Args: { p_chat_id: string; p_user_id: string }; Returns: boolean };
       can_view_avatar: { Args: { p_owner: string; p_viewer: string }; Returns: boolean };
       can_view_story: { Args: { p_owner: string; p_viewer: string }; Returns: boolean };
+      can_write_community_chat: {
+        Args: { p_chat_id: string; p_user_id: string };
+        Returns: boolean;
+      };
       cancel_account_deletion: { Args: Record<PropertyKey, never>; Returns: undefined };
       clear_chat_for_me: { Args: { p_chat_id: string }; Returns: number };
+      community_role_rank: { Args: { p_community_id: string; p_user_id: string }; Returns: number };
       compute_message_preview: {
         Args: {
           m: Omit<
@@ -1563,7 +2514,7 @@ export type Database = {
         Returns: boolean;
       };
       create_channel: {
-        Args: { p_description: string; p_name: string; p_slug: string };
+        Args: { p_channel_id?: string; p_description: string; p_name: string; p_slug: string };
         Returns: string;
       };
       create_community: { Args: { p_description?: string; p_name: string }; Returns: string };
@@ -1573,6 +2524,7 @@ export type Database = {
           p_description?: string;
           p_name: string;
           p_only_admins_can_send?: boolean;
+          p_write_policy?: string;
         };
         Returns: string;
       };
@@ -1580,7 +2532,18 @@ export type Database = {
         Args: { p_initial_content: string; p_target_user_id: string };
         Returns: string;
       };
-      create_group_chat: { Args: { p_member_ids: string[]; p_name: string }; Returns: string };
+      create_group_chat: {
+        Args: {
+          p_member_ids: string[];
+          p_name: string;
+          p_only_admins_can_add_members?: boolean;
+          p_only_admins_can_edit_info?: boolean;
+          p_only_admins_can_send?: boolean;
+          p_only_admins_can_share_link?: boolean;
+          p_require_admin_approval?: boolean;
+        };
+        Returns: string;
+      };
       create_self_chat: { Args: Record<PropertyKey, never>; Returns: string };
       create_story: {
         Args: {
@@ -1594,8 +2557,11 @@ export type Database = {
         };
         Returns: string;
       };
+      delete_channel: { Args: { p_channel_id: string }; Returns: undefined };
+      delete_channel_post: { Args: { p_message_id: string }; Returns: undefined };
       delete_chat_message_for_me: { Args: { p_message_id: string }; Returns: undefined };
       delete_community: { Args: { p_community_id: string }; Returns: undefined };
+      delete_community_chat: { Args: { p_chat_id: string }; Returns: undefined };
       delete_direct_chat_for_me: { Args: { p_chat_id: string }; Returns: undefined };
       delete_message_for_everyone: { Args: { p_message_id: string }; Returns: undefined };
       delete_self_chat: { Args: { p_chat_id: string }; Returns: undefined };
@@ -1605,11 +2571,67 @@ export type Database = {
         Args: { p_community_id: string; p_user_id: string };
         Returns: undefined;
       };
-      follow_channel: { Args: { p_channel_id: string }; Returns: undefined };
+      dismiss_channel_invitation: { Args: { p_invitation_id: string }; Returns: undefined };
+      expel_community_member: {
+        Args: {
+          p_community_id: string;
+          p_delete_messages?: boolean;
+          p_reason?: string;
+          p_user_id: string;
+        };
+        Returns: undefined;
+      };
+      follow_channel: {
+        Args: { p_channel_id: string; p_invitation_id?: string };
+        Returns: undefined;
+      };
       forward_chat_message: {
         Args: { p_chat_ids: string[]; p_message_id: string; p_message_ids: string[] };
         Returns: undefined;
       };
+      get_channel_messages: {
+        Args: { p_before_at?: string; p_before_id?: string; p_channel_id: string };
+        Returns: {
+          channel_id: string | null;
+          chat_id: string | null;
+          contact_data: Json | null;
+          content: string | null;
+          created_at: string;
+          deleted_at: string | null;
+          deleted_for_everyone: boolean;
+          edited_at: string | null;
+          file_upload_id: string | null;
+          forwarded_from_message_id: string | null;
+          id: string;
+          is_pinned_in_chat: boolean;
+          location_data: Json | null;
+          media_peaks: number[] | null;
+          media_thumbnail_upload_id: string | null;
+          mentions: string[] | null;
+          reply_to_message_id: string | null;
+          reply_to_story_id: string | null;
+          sender_id: string | null;
+          type: Database["public"]["Enums"]["message_type"];
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "messages";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
+      get_channel_staff: {
+        Args: { p_channel_id: string };
+        Returns: {
+          avatar_url: string;
+          display_name: string;
+          joined_at: string;
+          role: string;
+          user_id: string;
+          username: string;
+        }[];
+      };
+      get_channel_viewer_context: { Args: { p_channel_id: string }; Returns: Json };
       get_chat_messages: {
         Args: { p_before_at?: string; p_before_id?: string; p_chat_id: string };
         Returns: {
@@ -1641,6 +2663,7 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      get_group_invite: { Args: { p_chat_id: string }; Returns: string };
       get_my_storage_usage: { Args: Record<PropertyKey, never>; Returns: number };
       get_story_viewers: {
         Args: { p_story_id: string };
@@ -1657,14 +2680,22 @@ export type Database = {
       is_blocked_either_way: { Args: { p_user_a: string; p_user_b: string }; Returns: boolean };
       is_channel_follower: { Args: { p_channel_id: string; p_user_id: string }; Returns: boolean };
       is_channel_owner: { Args: { p_channel_id: string; p_user_id: string }; Returns: boolean };
+      is_channel_staff: { Args: { p_channel_id: string; p_user_id: string }; Returns: boolean };
       is_chat_active: { Args: { p_chat_id: string }; Returns: boolean };
       is_chat_admin: { Args: { p_chat_id: string; p_user_id: string }; Returns: boolean };
       is_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: boolean };
+      is_community_admin_or_owner: {
+        Args: { p_community_id: string; p_user_id: string };
+        Returns: boolean;
+      };
       is_community_member: {
         Args: { p_community_id: string; p_user_id: string };
         Returns: boolean;
       };
+      is_community_staff: { Args: { p_community_id: string; p_user_id: string }; Returns: boolean };
       is_contact: { Args: { p_user_a: string; p_user_b: string }; Returns: boolean };
+      is_group_owner: { Args: { p_chat_id: string; p_user_id: string }; Returns: boolean };
+      is_group_owner_or_admin: { Args: { p_chat_id: string; p_user_id: string }; Returns: boolean };
       is_message_deleted_for_user: {
         Args: { p_message_id: string; p_user_id: string };
         Returns: boolean;
@@ -1672,10 +2703,12 @@ export type Database = {
       join_community:
         | { Args: { p_community_id: string }; Returns: undefined }
         | { Args: { p_community_id: string; p_user_id: string }; Returns: undefined };
+      join_group_via_invite: { Args: { p_token: string }; Returns: string };
       leave_community: { Args: { p_community_id: string }; Returns: undefined };
       mark_chat_as_read: { Args: { p_chat_id: string }; Returns: undefined };
       mark_chat_as_unread: { Args: { p_chat_id: string }; Returns: undefined };
       mark_story_viewed: { Args: { p_story_id: string }; Returns: undefined };
+      moderate_delete_community_message: { Args: { p_message_id: string }; Returns: undefined };
       mute_community: {
         Args: { p_community_id: string; p_muted_until: string };
         Returns: undefined;
@@ -1687,23 +2720,78 @@ export type Database = {
         Returns: undefined;
       };
       reject_chat_request: { Args: { p_request_id: string }; Returns: undefined };
+      remove_channel_admin: {
+        Args: { p_channel_id: string; p_user_id: string };
+        Returns: undefined;
+      };
       remove_chat_member: { Args: { p_chat_id: string; p_user_id: string }; Returns: undefined };
       remove_community_member: {
         Args: { p_community_id: string; p_user_id: string };
         Returns: undefined;
       };
+      remove_community_moderator: {
+        Args: { p_community_id: string; p_user_id: string };
+        Returns: undefined;
+      };
       replace_backup_codes: { Args: { p_hashes: string[]; p_user_id: string }; Returns: undefined };
+      request_group_member_add: {
+        Args: { p_chat_id: string; p_user_ids: string[] };
+        Returns: Json;
+      };
+      review_group_join_request: {
+        Args: { p_approve: boolean; p_request_id: string };
+        Returns: undefined;
+      };
+      revoke_group_invite: { Args: { p_chat_id: string }; Returns: undefined };
+      rotate_group_invite: { Args: { p_chat_id: string }; Returns: string };
       schedule_account_deletion: { Args: Record<PropertyKey, never>; Returns: string };
+      send_channel_invitations: {
+        Args: { p_channel_id: string; p_invitations: Json };
+        Returns: Json;
+      };
+      set_announcement_writer: {
+        Args: { p_community_id: string; p_grant: boolean; p_user_id: string };
+        Returns: undefined;
+      };
       set_message_pin: { Args: { p_message_id: string; p_pin: boolean }; Returns: undefined };
       set_message_reaction: {
         Args: { p_emoji?: string; p_message_id: string };
+        Returns: undefined;
+      };
+      silence_community_member: {
+        Args: {
+          p_community_id: string;
+          p_reason?: string;
+          p_silenced_until: string;
+          p_user_id: string;
+        };
         Returns: undefined;
       };
       start_call: {
         Args: { p_chat_id: string; p_type: Database["public"]["Enums"]["call_type"] };
         Returns: string;
       };
+      transfer_channel_ownership: {
+        Args: { p_channel_id: string; p_new_owner_id: string };
+        Returns: undefined;
+      };
+      transfer_community_ownership: {
+        Args: { p_community_id: string; p_new_owner_id: string };
+        Returns: undefined;
+      };
+      transfer_group_ownership: {
+        Args: { p_chat_id: string; p_new_owner_id: string };
+        Returns: undefined;
+      };
+      unban_community_member: {
+        Args: { p_community_id: string; p_user_id: string };
+        Returns: undefined;
+      };
       unfollow_channel: { Args: { p_channel_id: string }; Returns: undefined };
+      unsilence_community_member: {
+        Args: { p_community_id: string; p_user_id: string };
+        Returns: undefined;
+      };
       update_channel_info: {
         Args: {
           p_avatar_url?: string;
@@ -1716,6 +2804,14 @@ export type Database = {
       };
       update_community_chat_avatar: {
         Args: { p_avatar_url: string; p_chat_id: string };
+        Returns: undefined;
+      };
+      update_community_chat_info: {
+        Args: { p_chat_id: string; p_description?: string; p_name?: string };
+        Returns: undefined;
+      };
+      update_community_chat_write_policy: {
+        Args: { p_chat_id: string; p_write_policy: string };
         Returns: undefined;
       };
       update_community_info: {
@@ -1733,7 +2829,11 @@ export type Database = {
           p_chat_id: string;
           p_description?: string;
           p_name?: string;
+          p_only_admins_can_add_members?: boolean;
+          p_only_admins_can_edit_info?: boolean;
           p_only_admins_can_send?: boolean;
+          p_only_admins_can_share_link?: boolean;
+          p_require_admin_approval?: boolean;
         };
         Returns: undefined;
       };
@@ -1742,7 +2842,7 @@ export type Database = {
       accent_theme: "blue" | "purple" | "red" | "orange" | "yellow" | "green";
       call_status: "ringing" | "answered" | "missed" | "declined" | "canceled" | "failed" | "ended";
       call_type: "voice" | "video";
-      chat_member_role: "admin" | "member";
+      chat_member_role: "admin" | "member" | "moderator";
       chat_request_status: "pending" | "accepted" | "rejected";
       chat_status: "active" | "pending_request" | "rejected";
       chat_type: "direct" | "group" | "self" | "community_chat";
@@ -1879,7 +2979,7 @@ export const Constants = {
       accent_theme: ["blue", "purple", "red", "orange", "yellow", "green"],
       call_status: ["ringing", "answered", "missed", "declined", "canceled", "failed", "ended"],
       call_type: ["voice", "video"],
-      chat_member_role: ["admin", "member"],
+      chat_member_role: ["admin", "member", "moderator"],
       chat_request_status: ["pending", "accepted", "rejected"],
       chat_status: ["active", "pending_request", "rejected"],
       chat_type: ["direct", "group", "self", "community_chat"],

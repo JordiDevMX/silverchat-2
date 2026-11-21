@@ -155,6 +155,9 @@ const respond = (r, v, status = 200) =>
     body: JSON.stringify(v),
   });
 async function setup(ctx) {
+  await ctx.route("**/functions/v1/sign-channel-media", (r) =>
+    respond(r, { signedUrl: `${baseUrl}/favicon.ico`, expiresIn: 900 }),
+  );
   await ctx.route("**/api/auth/**", (r) =>
     respond(r, {
       accessToken: jwt,
@@ -236,25 +239,32 @@ async function setup(ctx) {
       return respond(r, { Key: p });
     }
     if (p.includes("/storage/v1/object/")) return respond(r, { Key: "story-media/test" });
-    if (p.endsWith("/channels")) {
+    if (p.endsWith("/channels") || p.endsWith("/channels_public")) {
       if (failChannelSlug && s.has("slug"))
         return respond(r, { message: "Availability unavailable" }, 500);
       if (method === "DELETE") {
-        assert.equal(s.get("owner_id"), `eq.${me}`);
         const i = channels.findIndex((x) => x.id === s.get("id").slice(3));
         const [removed] = channels.splice(i, 1);
         follows = follows.filter((f) => f.channel_id !== removed.id);
         posts = posts.filter((m) => m.channel_id !== removed.id);
         return result([removed]);
       }
-      return result(
-        filter(channels)
-          .sort((a, b) => b.follower_count - a.follower_count)
-          .slice(
-            Number(s.get("offset") ?? 0),
-            Number(s.get("offset") ?? 0) + Number(s.get("limit") ?? 100),
-          ),
-      );
+      const stripOwner = p.endsWith("/channels_public");
+      const sliced = filter(channels)
+        .sort((a, b) => b.follower_count - a.follower_count)
+        .slice(
+          Number(s.get("offset") ?? 0),
+          Number(s.get("offset") ?? 0) + Number(s.get("limit") ?? 100),
+        )
+        .map((c) => {
+          if (!stripOwner) return c;
+          const { owner_id: _o, ...rest } = c;
+          return rest;
+        });
+      return result(sliced);
+    }
+    if (p.endsWith("/channel_invitations_received") || p.endsWith("/channel_feed_events")) {
+      return result([]);
     }
     if (p.endsWith("/channel_followers")) {
       if (method === "PATCH") {
@@ -375,11 +385,38 @@ async function setup(ctx) {
         });
         return respond(r, null);
       }
+      if (fn === "get_channel_viewer_context") {
+        const ch = channels.find((x) => x.id === body.p_channel_id);
+        const isOwner = ch?.owner_id === me;
+        const following = follows.some((x) => x.channel_id === body.p_channel_id);
+        return respond(r, {
+          viewer_role: isOwner ? "owner" : following ? "follower" : "visitor",
+          following,
+        });
+      }
+      if (fn === "get_channel_messages") {
+        queries.push(`get_channel_messages:${JSON.stringify(body)}`);
+        let a = posts
+          .filter((x) => x.channel_id === body.p_channel_id && !x.deleted_for_everyone)
+          .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
+        if (body.p_before_at) {
+          a = a.filter(
+            (x) =>
+              x.created_at < body.p_before_at ||
+              (x.created_at === body.p_before_at && x.id < body.p_before_id),
+          );
+        }
+        return respond(r, a.slice(0, 50));
+      }
       if (fn === "create_channel") {
         channelCreates++;
+        const existing = body.p_channel_id
+          ? channels.find((x) => x.id === body.p_channel_id)
+          : null;
+        if (existing) return respond(r, existing.id);
         const c = {
           ...channels[0],
-          id: uid(999),
+          id: body.p_channel_id ?? uid(999),
           name: body.p_name,
           slug: body.p_slug,
           description: body.p_description,
@@ -714,7 +751,7 @@ try {
   posts.push(live);
   for (const [topic, { socket, config }] of sockets) {
     const ids = config
-      .filter((c) => c.table === "messages" && c.filter === `channel_id=eq.${followed}`)
+      .filter((c) => c.table === "channel_feed_events" && c.filter === `channel_id=eq.${followed}`)
       .map((c) => c.id);
     if (ids.length)
       socket.send(
@@ -727,15 +764,22 @@ try {
             ids,
             data: {
               schema: "public",
-              table: "messages",
+              table: "channel_feed_events",
               type: "INSERT",
-              record: live,
+              record: {
+                id: uid(1901),
+                channel_id: followed,
+                event_type: "post",
+                created_at: now(),
+              },
               old_record: {},
               errors: null,
-              columns: Object.keys(live).map((name) => ({
-                name,
-                type: "text",
-              })),
+              columns: [
+                { name: "id", type: "uuid" },
+                { name: "channel_id", type: "uuid" },
+                { name: "event_type", type: "text" },
+                { name: "created_at", type: "timestamptz" },
+              ],
               commit_timestamp: now(),
             },
           },
@@ -748,16 +792,14 @@ try {
     el.dispatchEvent(new Event("scroll"));
   });
   await page.getByText("Broadcast 0", { exact: true }).waitFor();
-  assert.ok(queries.some((q) => q.includes("or=")));
+  assert.ok(queries.some((q) => q.includes("get_channel_messages") && q.includes("p_before_at")));
   await page
     .locator("[data-message-id]")
     .last()
     .locator(".message-bubble")
     .click({ button: "right" });
-  await page.getByRole("menuitem", { name: "React", exact: true }).click();
-  assert.equal(await page.locator(".quick-reactions button").count(), 8);
-  assert.equal(await page.getByRole("button", { name: "More emoji" }).count(), 0);
-  await page.getByRole("button", { name: "👍", exact: true }).click();
+  assert.equal(await page.getByRole("menuitem", { name: "React", exact: true }).count(), 0);
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Channel options" }).click();
   assert.equal(await page.locator(".chat-options-menu [role=menuitem]").count(), 7);
   await page.getByRole("menuitem", { name: "Report channel", exact: true }).click();
@@ -826,10 +868,14 @@ try {
     assert.ok(Math.abs(box.x - radioBoxes[0].x) <= 1, "Radios must align vertically");
   }
   await infoReportDialog.getByRole("radio", { name: "Other", exact: true }).check();
-  assert.equal(await infoReportDialog.getByRole("button", { name: "Submit report" }).isDisabled(), true);
+  assert.equal(
+    await infoReportDialog.getByRole("button", { name: "Submit report" }).isDisabled(),
+    true,
+  );
   await infoReportDialog.getByRole("textbox", { name: "Details" }).fill("Spam broadcast");
-  await infoReportDialog.getByRole("switch", { name: "Block this channel’s creator", exact: true }).click();
-  await infoReportDialog.getByRole("button", { name: "Report and block", exact: true }).click();
+  assert.equal(await infoReportDialog.getByRole("switch").count(), 1);
+  assert.equal(await infoReportDialog.getByRole("switch", { name: /creator/i }).count(), 0);
+  await infoReportDialog.getByRole("button", { name: "Submit report", exact: true }).click();
   await infoReportDialog.waitFor({ state: "detached" });
   assert.deepEqual(reports.at(-1), {
     reporter_id: me,
@@ -838,7 +884,7 @@ try {
     reason: "other",
     description: "Spam broadcast",
   });
-  assert.deepEqual(blocks.at(-1), { blocker_id: me, blocked_id: other });
+  assert.equal(blocks.length, 0);
   await goto(`/channels/${owned}/info`);
   await page.locator(".channel-profile").waitFor();
   assert.equal(await page.getByRole("button", { name: "Report channel", exact: true }).count(), 0);
@@ -1047,7 +1093,7 @@ try {
   await goto("/novedades");
   await page.getByRole("button", { name: "Create channel", exact: true }).click();
   const createDialog = page.getByRole("dialog", {
-    name: "Create channel",
+    name: "Channel details",
     exact: true,
   });
   await cycleFocus(createDialog);
@@ -1067,12 +1113,12 @@ try {
     await page.getByRole("textbox", { name: "Slug", exact: true }).inputValue(),
     "cafe-announcements",
   );
-  await page.getByRole("button", { name: "Channel photo (optional)", exact: true }).click();
-  const cropDialog = page.getByRole("dialog", {
-    name: "Change photo",
+  await createDialog.getByRole("button", { name: "Next", exact: true }).click();
+  const photoStep = page.getByRole("dialog", {
+    name: "Channel photo",
     exact: true,
   });
-  await cropDialog
+  await photoStep
     .locator("input[type=file]")
     .first()
     .setInputFiles({
@@ -1080,43 +1126,40 @@ try {
       mimeType: "image/png",
       buffer: Buffer.from(png, "base64"),
     });
-  await cropDialog.locator(".avatar-crop img").waitFor();
-  await cropDialog.getByRole("slider").fill("2");
-  await cycleFocus(cropDialog);
-  await cropDialog.getByRole("button", { name: "Save", exact: true }).click();
-  await cropDialog.waitFor({ state: "detached" });
-  assert.ok(
-    await page
-      .getByRole("button", { name: "Channel photo (optional)", exact: true })
-      .evaluate((el) => el === document.activeElement),
-  );
-  await createDialog.locator(".avatar-preview").waitFor();
-  await cycleFocus(createDialog);
+  await photoStep.locator(".avatar-crop img").waitFor();
+  await photoStep.getByRole("slider").fill("2");
+  await cycleFocus(photoStep);
+  await photoStep.getByRole("button", { name: "Apply photo", exact: true }).click();
+  await photoStep.getByRole("img", { name: "Channel photo", exact: true }).waitFor();
+  await photoStep.getByRole("button", { name: "Next", exact: true }).click();
+  const inviteStep = page.getByRole("dialog", {
+    name: "Invite contacts",
+    exact: true,
+  });
+  await cycleFocus(inviteStep);
   failChannelAvatar = true;
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Create channel", exact: true })
-    .click();
-  await createDialog
-    .getByText("Channel created. Retry the photo upload or continue without a photo.", {
+  await inviteStep.getByRole("button", { name: "Create channel", exact: true }).click();
+  await inviteStep
+    .getByText("Channel created. Retry remaining steps or open your channel now.", {
       exact: true,
     })
     .waitFor();
   assert.equal(channelCreates, 1);
-  assert.ok(await createDialog.getByRole("textbox", { name: "Name", exact: true }).isDisabled());
   failChannelAvatar = false;
-  await createDialog.getByRole("button", { name: "Finish", exact: true }).click();
-  await page.waitForURL(`**/channels/${uid(999)}/info`);
+  await inviteStep.getByRole("button", { name: "Retry pending", exact: true }).click();
+  await page.waitForURL("**/channels/*/info");
   assert.equal(channelCreates, 1);
+  const createdId = page.url().match(/\/channels\/([^/]+)\/info/)?.[1];
+  assert.ok(createdId);
   const avatar = uploads.findLast(
-    (x) => x.bucket === "avatars" && x.path.startsWith(`chat-${uid(999)}/channel-`),
+    (x) => x.bucket === "avatars" && x.path.startsWith(`chat-${createdId}/channel-`),
   );
   assert.ok(avatar);
   assert.equal(avatar.mime_type, "image/webp");
   assert.equal(avatar.width, 512);
   assert.equal(avatar.height, 512);
   assert.ok(avatar.size_bytes < 100000);
-  assert.equal(channels.find((x) => x.id === uid(999)).avatar_url, avatar.path);
+  assert.equal(channels.find((x) => x.id === createdId).avatar_url, avatar.path);
   await page.getByRole("button", { name: "Delete channel", exact: true }).click();
   await page
     .getByRole("dialog")
@@ -1128,7 +1171,7 @@ try {
   await goto("/channels/new");
   await page.waitForURL("**/novedades?create=true");
   const redirectedCreate = page.getByRole("dialog", {
-    name: "Create channel",
+    name: "Channel details",
     exact: true,
   });
   await redirectedCreate.getByRole("button", { name: "Cancel", exact: true }).click();

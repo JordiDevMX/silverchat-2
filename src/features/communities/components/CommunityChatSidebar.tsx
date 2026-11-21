@@ -8,6 +8,7 @@ import { QueryState } from "@/features/settings/components/shared";
 import { useCommunityChats } from "../hooks/useCommunityChats";
 import type { Community } from "../types";
 import { CommunityChatListItem } from "./CommunityChatListItem";
+import { CreateCommunityChatModal } from "./CreateCommunityChatModal";
 export function CommunityChatSidebar({
   community,
   activeChatId,
@@ -17,7 +18,7 @@ export function CommunityChatSidebar({
 }) {
   const { say } = useMessageText();
   const chats = useCommunityChats(community.id);
-  const [, setCreate] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const visible = chats.data?.filter((chat) =>
     chat.name?.toLocaleLowerCase().includes(filter.trim().toLocaleLowerCase()),
@@ -54,12 +55,15 @@ export function CommunityChatSidebar({
           </p>
         )}
         {community.role === "admin" && (
-          <button type="button" className="community-new-chat" onClick={() => setCreate(true)}>
+          <button type="button" className="community-new-chat" onClick={() => setCreateOpen(true)}>
             <Plus size={18} />
             {say("New chat", "Nuevo chat")}
           </button>
         )}
       </nav>
+      {createOpen && (
+        <CreateCommunityChatModal communityId={community.id} onClose={() => setCreateOpen(false)} />
+      )}
     </aside>
   );
 }

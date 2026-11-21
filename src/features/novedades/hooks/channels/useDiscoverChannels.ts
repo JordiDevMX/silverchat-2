@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { allRows } from "@/features/chats/hooks/useChats";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
-import type { Channel } from "../../types";
+import { type Channel, mapPublicChannelRow } from "../../types";
 export function useDiscoverChannels() {
   const { user } = useAuth();
   return useQuery({
@@ -24,14 +24,15 @@ export function useDiscoverChannels() {
       // Scan ordered pages to return exactly the top 20 not followed, without an oversized NOT IN URL.
       for (let offset = 0; result.length < 20; offset += 100) {
         const r = await supabase
-          .from("channels")
+          .from("channels_public")
           .select("*")
           .order("follower_count", { ascending: false })
           .order("id")
           .range(offset, offset + 99);
         if (r.error) throw r.error;
-        result.push(...r.data.filter((c) => !ids.has(c.id)));
-        if (r.data.length < 100) break;
+        const rows = (r.data ?? []).map(mapPublicChannelRow).filter((c) => c.id && !ids.has(c.id));
+        result.push(...rows);
+        if ((r.data?.length ?? 0) < 100) break;
       }
       return result.slice(0, 20);
     },

@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { createContext, type ReactNode, useContext } from "react";
 import { type UI, useMessageActionsController } from "../hooks/useMessageActionsController";
-import { getAvailableActions } from "../lib/actionMatrix";
+import { canModerateCommunityMessage, getAvailableActions } from "../lib/actionMatrix";
 import type { ChatDetails, Message } from "../types";
 import { DeleteMessageModal } from "./DeleteMessageModal";
 import { EditMessageModal } from "./EditMessageModal";
@@ -63,6 +63,8 @@ export function MessageActionsProvider({
             point={selected.point ?? { x: 20, y: 80 }}
             readOnly={chat.readOnly}
             writeRestricted={ui.writeRestricted}
+            channelStaffRole={chat.channelStaffRole ?? null}
+            communityDeleteAllowed={canModerateCommunityMessage(chat, message)}
             onChoose={choose}
             onClose={close}
           />
@@ -86,12 +88,20 @@ export function MessageActionsProvider({
           />
         ) : selected.mode === "delete" ? (
           <DeleteMessageModal
-            everyone={getAvailableActions(message, user?.id ?? "", chat.readOnly).includes(
-              "delete_for_everyone",
-            )}
+            everyone={getAvailableActions(
+              message,
+              user?.id ?? "",
+              chat.readOnly,
+              Date.now(),
+              ui.writeRestricted,
+              chat.channelStaffRole ?? null,
+              canModerateCommunityMessage(chat, message),
+            ).includes("delete_for_everyone")}
             busy={busy}
             onDelete={(all) =>
-              all ? actions.deleteForEveryone(message) : actions.deleteForMe(message)
+              all
+                ? actions.deleteForEveryone(message, canModerateCommunityMessage(chat, message))
+                : actions.deleteForMe(message)
             }
             onClose={close}
           />

@@ -6,6 +6,14 @@ import {
   MemberRowSurface,
 } from "@/components/ui/chat-settings-surfaces";
 import { useMessageText } from "@/features/messages/i18n";
+import {
+  canAddGroupMembers,
+  canDemoteGroupMember,
+  canPromoteGroupAdmin,
+  canRemoveGroupMember,
+  isGroupStaff,
+  resolveGroupRole,
+} from "@/features/roles/lib/permissions";
 import { Avatar, NavLink, QueryState } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
 import { useGroupMembers } from "../hooks/useGroupMembers";
@@ -30,7 +38,23 @@ export function GroupMembersList({
   const { confirm, setConfirm, error, setError, apply } = useMemberConfirmation(hook.run);
   if (!chat) return <ChatSettingsLoading query={hook.chat} />;
   if (!["group", "community_chat"].includes(chat.type)) return <ChatSettingsLoading />;
-  const admin = chat.own?.role === "admin";
+  const ownerId = chat.ownerId ?? chat.createdBy;
+  const actorRole = resolveGroupRole(
+    chat.own?.role === "admin" ? "admin" : "member",
+    user?.id,
+    ownerId,
+  );
+  const admin = isGroupStaff(actorRole);
+  const canAdd =
+    context === "community"
+      ? admin
+      : canAddGroupMembers(actorRole, {
+          onlyAdminsCanAddMembers: Boolean(chat.onlyAdminsCanAddMembers),
+          onlyAdminsCanShareLink: Boolean(chat.onlyAdminsCanShareLink),
+          onlyAdminsCanSend: Boolean(chat.onlyAdminsCanSend),
+          onlyAdminsCanEditInfo: Boolean(chat.onlyAdminsCanEditInfo),
+          requireAdminApproval: Boolean(chat.requireAdminApproval),
+        });
   return (
     <ChatSettingsScreenSurface
       as="section"
@@ -50,7 +74,7 @@ export function GroupMembersList({
           <h1>
             {hook.members.length} {say("members", "miembros")}
           </h1>
-          {admin && (
+          {canAdd && (
             <Button type="button" onClick={() => ui.open(chatId, { kind: "add" })}>
               + {say("Add", "Añadir")}
             </Button>
@@ -82,41 +106,45 @@ export function GroupMembersList({
                   <span>
                     <strong>
                       {member.profile?.display_name ?? say("Member", "Miembro")}
-                      {member.user_id === chat.createdBy &&
-                        ` · ${context === "community" ? say("Owner", "Propietario") : say("Creator", "Creador")}`}
+                      {member.user_id === ownerId && ` · ${say("Owner", "Propietario")}`}
                     </strong>
                     <small>
                       @{member.profile?.username ?? "—"}{" "}
-                      {role === "admin" && ` · ${say("Admin", "Administrador")}`}
+                      {role === "admin" &&
+                        member.user_id !== ownerId &&
+                        ` · ${say("Admin", "Administrador")}`}
                     </small>
                   </span>
                 </Button>
-                {admin && (
-                  <div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`${say("Member actions", "Acciones del miembro")}: ${member.profile?.display_name ?? member.user_id}`}
-                      aria-expanded={menu === member.user_id}
-                      onClick={() => setMenu(menu === member.user_id ? null : member.user_id)}
-                    >
-                      ⋮
-                    </Button>
-                    {menu === member.user_id && (
-                      <div className="member-actions">
-                        {(member.role === "member"
-                          ? ["promote"]
-                          : member.user_id !== chat.createdBy
-                            ? ["demote"]
-                            : []
-                        )
-                          .concat(
-                            member.user_id !== chat.createdBy && member.user_id !== user?.id
-                              ? ["remove"]
-                              : [],
-                          )
-                          .map((action) => (
+                {(() => {
+                  const targetRole = resolveGroupRole(
+                    member.role === "admin" ? "admin" : "member",
+                    member.user_id,
+                    ownerId,
+                  );
+                  const actions = [
+                    ...(canPromoteGroupAdmin(actorRole, targetRole) ? ["promote"] : []),
+                    ...(canDemoteGroupMember(actorRole, targetRole) ? ["demote"] : []),
+                    ...(member.user_id !== user?.id && canRemoveGroupMember(actorRole, targetRole)
+                      ? ["remove"]
+                      : []),
+                  ];
+                  if (!actions.length) return null;
+                  return (
+                    <div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`${say("Member actions", "Acciones del miembro")}: ${member.profile?.display_name ?? member.user_id}`}
+                        aria-expanded={menu === member.user_id}
+                        onClick={() => setMenu(menu === member.user_id ? null : member.user_id)}
+                      >
+                        ⋮
+                      </Button>
+                      {menu === member.user_id && (
+                        <div className="member-actions">
+                          {actions.map((action) => (
                             <Button
                               variant="ghost"
                               type="button"
@@ -140,10 +168,11 @@ export function GroupMembersList({
                                     : say("Remove from group", "Eliminar del grupo")}
                             </Button>
                           ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </MemberRowSurface>
             ))}
         </section>

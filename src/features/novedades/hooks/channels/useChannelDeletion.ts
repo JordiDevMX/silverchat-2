@@ -14,13 +14,7 @@ export function useChannelDeletion(channelId: string) {
     setBusy(true);
     setError(false);
     try {
-      const r = await supabase
-        .from("channels")
-        .delete()
-        .eq("id", channelId)
-        .eq("owner_id", user?.id ?? "")
-        .select("id")
-        .single();
+      const r = await supabase.from("channels").delete().eq("id", channelId).select("id").single();
       if (r.error) throw r.error;
       await refreshNovedades(cache, user?.id ?? "");
       await router.navigate({ href: "/novedades" });

@@ -17,7 +17,6 @@ const makeChannel = (patch: Partial<Channel> = {}): Channel => ({
   slug: "silver-updates",
   description: null,
   avatar_url: "chat-ch-1/channel-1.webp",
-  owner_id: "user-1",
   follower_count: 100,
   is_verified: false,
   created_at: "2026-11-19T00:00:00Z",
@@ -137,7 +136,7 @@ test("shouldShowGrowthCard renders exclusively for owner/admin on ready chats wi
 test("buildChannelGrowthModel formats owner copy, plurals, empty description, and actions", () => {
   const esOwner = buildChannelGrowthModel(
     makeChannel({ follower_count: 1 }),
-    "user-1",
+    true,
     "es",
     "https://app.test",
   );
@@ -150,13 +149,13 @@ test("buildChannelGrowthModel formats owner copy, plurals, empty description, an
   assert.equal(esOwner.emptyDescriptionLabel, "agregar una descripción");
   assert.equal(esOwner.primaryAction.label, "Compartir en mi estado");
   assert.equal(esOwner.primaryAction.icon, "share_status");
-  assert.equal(esOwner.secondaryAction.label, "Invitar a administradores");
+  assert.equal(esOwner.secondaryAction.label, "Invitar contactos");
   assert.equal(esOwner.secondaryAction.icon, "plus");
   assert.equal(esOwner.inviteUrl, "https://app.test/channels/ch-1");
 
   const enPlural = buildChannelGrowthModel(
     makeChannel({ follower_count: 100, description: "News feed" }),
-    "user-1",
+    true,
     "en",
     "https://app.test",
   );
@@ -164,9 +163,9 @@ test("buildChannelGrowthModel formats owner copy, plurals, empty description, an
   assert.equal(enPlural.subtitle, "Channel - 100 followers");
   assert.equal(enPlural.description, "News feed");
   assert.equal(enPlural.primaryAction.label, "Share to my status");
-  assert.equal(enPlural.secondaryAction.label, "Invite admins");
+  assert.equal(enPlural.secondaryAction.label, "Invite contacts");
 
-  const follower = buildChannelGrowthModel(makeChannel(), "user-2", "es", "https://app.test");
+  const follower = buildChannelGrowthModel(makeChannel(), false, "es", "https://app.test");
   assert.equal(follower.isOwnerOrAdmin, false);
 });
 

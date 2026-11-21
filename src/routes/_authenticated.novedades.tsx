@@ -5,6 +5,7 @@ import { BrandLockup } from "@/components/ui/brand-lockup";
 import { Button } from "@/components/ui/button";
 import { SearchField } from "@/components/ui/search-field";
 import { useMessageText } from "@/features/messages/i18n";
+import { ChannelInvitationsBanner } from "@/features/novedades/components/channels/ChannelInvitationsSection";
 import { ChannelsSection } from "@/features/novedades/components/channels/ChannelsSection";
 import { CreateChannelModal } from "@/features/novedades/components/channels/CreateChannelModal";
 import { DiscoverChannelsSection } from "@/features/novedades/components/channels/DiscoverChannelsSection";
@@ -35,6 +36,7 @@ export function NovedadesPage() {
         />
       </header>
       <StoriesRow search={text} onOpen={setViewer} onCreate={() => setCreator(true)} />
+      <ChannelInvitationsBanner />
       <ChannelsSection search={text} />
       <DiscoverChannelsSection search={text} />
       <footer className="novedades-bottom">

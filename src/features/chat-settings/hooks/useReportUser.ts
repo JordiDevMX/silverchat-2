@@ -44,7 +44,7 @@ export function useSubmitReport() {
 
       let unfollowed = false;
       let unfollowFailed = false;
-      if (alsoUnfollow && target.kind === "channel" && target.following) {
+      if (alsoUnfollow && target.kind === "channel" && target.following && !target.isStaff) {
         try {
           const r = await supabase.rpc("unfollow_channel", { p_channel_id: target.channelId });
           if (r.error) throw r.error;
@@ -57,7 +57,12 @@ export function useSubmitReport() {
 
       let blocked = false;
       let blockFailed = false;
-      if (alsoBlock && target.blockUserId && target.blockUserId !== user.id) {
+      if (
+        alsoBlock &&
+        target.kind === "user" &&
+        target.blockUserId &&
+        target.blockUserId !== user.id
+      ) {
         try {
           await blockUser(target.blockUserId, user.id);
           await Promise.all(
