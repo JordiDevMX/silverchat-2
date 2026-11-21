@@ -283,23 +283,6 @@ async function setup(context) {
     }),
   );
 }
-async function checkComingSoon(page) {
-  for (const width of [390, 1440]) {
-    await page.setViewportSize({ width, height: 900 });
-    for (const path of [
-      "/communities",
-      `/communities/${cid}`,
-      `/communities/${cid}/info`,
-      `/communities/${cid}/chats/${general}`,
-      `/communities/${cid}/chats/${general}/media`,
-    ]) {
-      await page.goto(origin + path);
-      await page.getByRole("heading", { name: "Coming soon", exact: true }).waitFor();
-      await page.getByText("Work in progress 👷 🚧", { exact: true }).waitFor();
-      await page.getByRole("link", { name: "Communities" }).waitFor();
-    }
-  }
-}
 
 async function checkActiveCommunities(page) {
   await page.goto(`${origin}/communities`);
@@ -308,8 +291,6 @@ async function checkActiveCommunities(page) {
   const dialog = page.getByRole("dialog", { name: "New community", exact: true });
   await dialog.getByLabel("Name", { exact: true }).fill("Weekend friends");
   await dialog.getByLabel("Description", { exact: true }).fill("Plans together");
-  await dialog.getByRole("button", { name: "Choose photo" }).click();
-  const picker = page.getByRole("dialog", { name: "Change photo" });
   const image = await page.evaluate(() => {
     const c = document.createElement("canvas");
     c.width = 100;
@@ -319,7 +300,7 @@ async function checkActiveCommunities(page) {
     ctx.fillRect(0, 0, 100, 100);
     return c.toDataURL("image/png").split(",")[1];
   });
-  await picker
+  await dialog
     .locator('input[type="file"]')
     .first()
     .setInputFiles({
@@ -327,8 +308,9 @@ async function checkActiveCommunities(page) {
       mimeType: "image/png",
       buffer: Buffer.from(image, "base64"),
     });
-  await picker.getByRole("slider").waitFor();
-  await picker.getByRole("button", { name: "Save", exact: true }).click();
+  await dialog.getByRole("slider").waitFor();
+  await dialog.getByRole("button", { name: "Apply photo", exact: true }).click();
+  await dialog.getByRole("img", { name: "Community photo", exact: true }).waitFor();
   await dialog.getByRole("button", { name: "Create community", exact: true }).focus();
   await page.keyboard.press("Tab");
   assert.equal(await dialog.locator(":focus").count(), 1, "focus remains in create modal");
@@ -468,20 +450,10 @@ async function checkActiveCommunities(page) {
   assert.ok(calls.some((c) => c.rpc === "join_community" && c.body.p_user_id === third));
   await page.getByRole("button", { name: "View members", exact: true }).click();
   const membersDialog = page.getByRole("dialog", { name: "Community members", exact: true });
-  await membersDialog.locator(".chat-settings-panel").waitFor();
-  assert.ok(
-    (await membersDialog.locator(".group-member-v2").count()) > 0,
-    "Communities use the same migrated member surface",
-  );
-  await membersDialog.getByRole("button", { name: "Member actions: Carol" }).click();
-  await membersDialog.getByRole("button", { name: "Promote to admin", exact: true }).click();
-  await page
-    .getByRole("dialog", { name: "Promote Carol?" })
-    .getByRole("button", { name: "Confirm", exact: true })
-    .click();
-  await page.getByRole("dialog", { name: "Promote Carol?" }).waitFor({ state: "hidden" });
+  await membersDialog.getByText("Carol", { exact: true }).waitFor();
+  await membersDialog.getByRole("button", { name: "Promote admin", exact: true }).last().click();
   assert.ok(calls.some((c) => c.rpc === "promote_community_admin"));
-  await membersDialog.getByRole("button", { name: "Back", exact: true }).click();
+  await membersDialog.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Mute community", exact: true }).click();
   await page.getByRole("button", { name: "8 hours", exact: true }).click();
   await page.getByRole("button", { name: "Unmute community", exact: true }).waitFor();
@@ -580,8 +552,7 @@ try {
   diagnosticPage = page;
   page.setDefaultTimeout(10000);
   page.on("pageerror", (e) => errors.push(e.message));
-  if (process.env.TEST_ACTIVE_COMMUNITIES === "1") await checkActiveCommunities(page);
-  else await checkComingSoon(page);
+  await checkActiveCommunities(page);
   assert.deepEqual(errors, []);
   await context.close();
 } catch (error) {

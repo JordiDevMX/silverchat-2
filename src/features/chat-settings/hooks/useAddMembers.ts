@@ -10,6 +10,7 @@ export function useAddMembers(
   chatId: string,
   text: string,
   context: "group" | "community" = "group",
+  requireApprovalRequest = false,
 ) {
   const { user } = useAuth();
   const cache = useQueryClient();
@@ -51,9 +52,17 @@ export function useAddMembers(
         for (const id of ids) await communityApi(supabase).join(chatId, id);
         return ids.length;
       }
+      if (requireApprovalRequest) {
+        const result = await supabase.rpc("request_group_member_add", {
+          p_chat_id: chatId,
+          p_user_ids: ids,
+        });
+        if (result.error) throw result.error;
+        return { mode: "requested" as const, count: ids.length };
+      }
       const result = await supabase.rpc("add_chat_members", { p_chat_id: chatId, p_user_ids: ids });
       if (result.error) throw result.error;
-      return result.data;
+      return { mode: "added" as const, count: result.data ?? 0 };
     },
     onSettled: () =>
       context === "community"

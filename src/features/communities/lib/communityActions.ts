@@ -1,3 +1,4 @@
+import type { CommunityRole } from "../../roles/types.ts";
 import type { Community, CommunityChat } from "../types.ts";
 
 export type CommunityAction =
@@ -7,6 +8,9 @@ export type CommunityAction =
   | "unmute"
   | "add_members"
   | "create_chat"
+  | "view_bans"
+  | "view_audit_log"
+  | "transfer_ownership"
   | "leave"
   | "delete";
 export function getAvailableCommunityActions(
@@ -15,14 +19,29 @@ export function getAvailableCommunityActions(
   isAdmin: boolean,
   isOwner: boolean,
   isMuted: boolean,
+  role?: CommunityRole,
 ): CommunityAction[] {
+  const effectiveRole: CommunityRole =
+    role ??
+    (isOwner
+      ? "owner"
+      : isAdmin
+        ? "admin"
+        : community.role === "moderator"
+          ? "moderator"
+          : "member");
+  const isStaff =
+    effectiveRole === "owner" || effectiveRole === "admin" || effectiveRole === "moderator";
+  const owner = isOwner && community.owner_id === userId;
   return [
     "view_info",
     "view_members",
     isMuted ? "unmute" : "mute",
     ...(isAdmin ? (["add_members", "create_chat"] as const) : []),
+    ...(isStaff ? (["view_bans", "view_audit_log"] as const) : []),
+    ...(owner ? (["transfer_ownership"] as const) : []),
     "leave",
-    ...(isOwner && community.owner_id === userId ? (["delete"] as const) : []),
+    ...(owner ? (["delete"] as const) : []),
   ];
 }
 export function orderCommunities(items: Community[]) {

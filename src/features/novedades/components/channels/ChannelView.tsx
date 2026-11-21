@@ -15,8 +15,8 @@ import { MessageList } from "@/features/messages/components/MessageList";
 import { useInChatSearch } from "@/features/messages/hooks/useInChatSearch";
 import { useSendMessage } from "@/features/messages/hooks/useSendMessage";
 import { useMessageText } from "@/features/messages/i18n";
+import { canPublishChannelPost } from "@/features/roles/lib/permissions";
 import { NavLink, QueryState } from "@/features/settings/components/shared";
-import { useAuth } from "@/lib/auth-provider";
 import { useChannelInfo } from "../../hooks/channels/useChannelInfo";
 import { useChannelMessages } from "../../hooks/channels/useChannelMessages";
 import { useChannelReadCursor } from "../../hooks/channels/useChannelReadCursor";
@@ -27,17 +27,18 @@ import { ChannelFollowFooter } from "./ChannelFollowFooter";
 import { ChannelHeader } from "./ChannelHeader";
 import "@/styles/messages.css";
 export function ChannelView({ channelId }: { channelId: string }) {
-  const { user } = useAuth();
   const { say, t, language } = useMessageText();
   const info = useChannelInfo(channelId);
   const follow = useFollowChannel();
   const channel = info.data?.channel;
-  const owner = channel?.owner_id === user?.id;
+  const staffRole = info.data?.staffRole ?? null;
+  const role = info.data?.role ?? "visitor";
+  const canPublish = canPublishChannelPost(role);
   const following = !!info.data?.follow;
   const messages = useChannelMessages(channelId, true);
   const send = useSendMessage(channelId, true);
   const growthModel = channel
-    ? buildChannelGrowthModel(channel, user?.id, language, window.location.origin)
+    ? buildChannelGrowthModel(channel, staffRole === "owner", language, window.location.origin)
     : null;
   const userMessageCount = messages.hasNextPage ? 1 : countUserMessages(messages.messages);
   const growth = useChatGrowthController({
@@ -67,7 +68,7 @@ export function ChannelView({ channelId }: { channelId: string }) {
         )}
       </main>
     );
-  const chat = channelChat(channel, following || owner);
+  const chat = channelChat(channel, staffRole);
   return (
     <MessageActionsProvider
       chat={chat}
@@ -91,6 +92,7 @@ export function ChannelView({ channelId }: { channelId: string }) {
             <ChannelHeader
               channel={channel}
               follow={info.data?.follow ?? null}
+              staffRole={staffRole}
               onSearch={() => setSearchOpen(true)}
             />
           )
@@ -108,13 +110,13 @@ export function ChannelView({ channelId }: { channelId: string }) {
           ) : null
         }
         footer={
-          !following && !owner ? (
+          !following && !staffRole ? (
             <ChannelFollowFooter
               busy={follow.isPending}
               error={follow.isError}
               onFollow={() => follow.mutate(channel.id)}
             />
-          ) : owner ? (
+          ) : canPublish ? (
             <ChannelComposer channel={channel} onSend={send.send} />
           ) : null
         }

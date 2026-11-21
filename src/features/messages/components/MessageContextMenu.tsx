@@ -22,6 +22,8 @@ export function MessageContextMenu({
   point,
   readOnly,
   writeRestricted = false,
+  channelStaffRole = null,
+  communityDeleteAllowed = false,
   onChoose,
   onClose,
 }: {
@@ -29,10 +31,19 @@ export function MessageContextMenu({
   point: { x: number; y: number };
   readOnly: boolean;
   writeRestricted?: boolean;
+  channelStaffRole?: "owner" | "admin" | null;
+  communityDeleteAllowed?: boolean;
   onChoose: (action: MessageAction) => void;
   onClose: () => void;
 }) {
-  const { ref, actions, labels, say } = useMessageMenu(message, readOnly, onClose, writeRestricted);
+  const { ref, actions, labels, say } = useMessageMenu(
+    message,
+    readOnly,
+    onClose,
+    writeRestricted,
+    channelStaffRole,
+    communityDeleteAllowed,
+  );
   return createPortal(
     <div
       ref={ref}

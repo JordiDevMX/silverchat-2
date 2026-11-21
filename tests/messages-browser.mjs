@@ -819,7 +819,7 @@ try {
   await page.locator('[data-slot="restricted-composer-notice"]').waitFor();
   assert.equal(
     await page.locator('[data-slot="restricted-composer-notice"]').textContent(),
-    "Only admins are allowed to chat here",
+    "Only authorized roles can send messages here",
   );
   assert.equal(await page.getByRole("textbox", { name: "Message", exact: true }).count(), 0);
   await page
@@ -837,7 +837,7 @@ try {
   await page.getByText("'Sofia Reyes' se unió al chat", { exact: true }).waitFor();
   assert.equal(
     await page.locator('[data-slot="restricted-composer-notice"]').textContent(),
-    "Solo los administradores pueden enviar mensajes aquí",
+    "Solo los roles autorizados pueden enviar mensajes aquí",
   );
 
   language = "en";

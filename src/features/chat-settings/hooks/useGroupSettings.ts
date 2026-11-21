@@ -11,7 +11,11 @@ export type GroupSettingsPatch = {
   name?: string;
   description?: string;
   avatar_url?: string;
+  only_admins_can_add_members?: boolean;
+  only_admins_can_share_link?: boolean;
   only_admins_can_send?: boolean;
+  only_admins_can_edit_info?: boolean;
+  require_admin_approval?: boolean;
 };
 
 export function useGroupSettings(chatId: string, context: "group" | "community" = "group") {
@@ -28,8 +32,20 @@ export function useGroupSettings(chatId: string, context: "group" | "community" 
         p_name: patch.name,
         p_description: patch.description,
         p_avatar_url: patch.avatar_url,
+        ...(patch.only_admins_can_add_members !== undefined
+          ? { p_only_admins_can_add_members: patch.only_admins_can_add_members }
+          : {}),
+        ...(patch.only_admins_can_share_link !== undefined
+          ? { p_only_admins_can_share_link: patch.only_admins_can_share_link }
+          : {}),
         ...(patch.only_admins_can_send !== undefined
           ? { p_only_admins_can_send: patch.only_admins_can_send }
+          : {}),
+        ...(patch.only_admins_can_edit_info !== undefined
+          ? { p_only_admins_can_edit_info: patch.only_admins_can_edit_info }
+          : {}),
+        ...(patch.require_admin_approval !== undefined
+          ? { p_require_admin_approval: patch.require_admin_approval }
           : {}),
       });
       if (result.error) throw result.error;

@@ -2,13 +2,17 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { useI18n } from "@/app/providers/i18n-provider";
+import { saveGroupAvatar } from "@/features/chat-settings/lib/groupAvatar";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
+import type { GroupPermissions } from "@/features/roles/types";
 import { useAuth } from "@/lib/auth-provider";
 import { supabase } from "@/lib/supabase";
 
 export interface CreateGroupChatInput {
   name: string;
   memberIds: string[];
+  avatarFile?: File | null;
+  permissions?: Partial<GroupPermissions>;
 }
 
 export function validateGroupChatInput(
@@ -117,10 +121,36 @@ export function useCreateGroupChat() {
       const { data, error } = await supabase.rpc("create_group_chat", {
         p_name: validation.trimmedName,
         p_member_ids: validation.uniqueMemberIds,
+        p_only_admins_can_add_members: input.permissions?.onlyAdminsCanAddMembers ?? false,
+        p_only_admins_can_share_link: input.permissions?.onlyAdminsCanShareLink ?? false,
+        p_only_admins_can_send: input.permissions?.onlyAdminsCanSend ?? false,
+        p_only_admins_can_edit_info: input.permissions?.onlyAdminsCanEditInfo ?? false,
+        p_require_admin_approval: input.permissions?.requireAdminApproval ?? false,
       });
 
       if (error) throw error;
       if (!data) throw new Error("No group chat ID returned");
+
+      if (input.avatarFile && user?.id) {
+        try {
+          await saveGroupAvatar(
+            data,
+            user.id,
+            input.avatarFile,
+            null,
+            async ({ avatar_url }) => {
+              const r = await supabase.rpc("update_group_info", {
+                p_chat_id: data,
+                p_avatar_url: avatar_url,
+              });
+              if (r.error) throw r.error;
+            },
+            "group",
+          );
+        } catch {
+          notify("Group created, but photo upload failed. You can set it in Group info.");
+        }
+      }
       return data;
     },
     onMutate: () => {

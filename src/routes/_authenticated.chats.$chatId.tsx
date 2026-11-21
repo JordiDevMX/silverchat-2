@@ -170,7 +170,7 @@ export function Conversation({ chatId, scrollTo }: { chatId: string; scrollTo?: 
         }
         footer={
           details.readOnly ? null : isWriteRestricted(details) ? (
-            <RestrictedComposerNotice />
+            <RestrictedComposerNotice silencedUntil={details.communitySilencedUntil} />
           ) : (
             <Composer
               chat={details}

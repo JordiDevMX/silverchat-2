@@ -183,11 +183,10 @@ function createGrowthModel(params: {
 
 export function buildChannelGrowthModel(
   channel: Channel,
-  userId: string | undefined,
+  isOwner: boolean,
   language: Language,
   origin: string,
 ): GrowthChatModel {
-  const isOwner = !!userId && channel.owner_id === userId;
   return createGrowthModel({
     type: "channel",
     id: channel.id,

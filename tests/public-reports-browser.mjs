@@ -154,9 +154,27 @@ async function setupRoutes(context) {
       }
       return out([]);
     }
-    if (p.endsWith("/channels")) {
+    if (p.endsWith("/channels") || p.endsWith("/channels_public")) {
       const id = s.get("id")?.slice(3);
-      return out(id ? channels.filter((c) => c.id === id) : channels);
+      const list = (id ? channels.filter((c) => c.id === id) : channels).map((c) => {
+        if (!p.endsWith("/channels_public")) return c;
+        const { owner_id: _o, ...rest } = c;
+        return rest;
+      });
+      return out(list);
+    }
+    if (p.endsWith("/rpc/get_channel_viewer_context")) {
+      const cid = body.p_channel_id;
+      const ch = channels.find((c) => c.id === cid);
+      const isOwner = ch?.owner_id === me;
+      const following = cid === followedChannelId && followingTechDispatch;
+      return respond(route, {
+        viewer_role: isOwner ? "owner" : following ? "follower" : "visitor",
+        following,
+      });
+    }
+    if (p.endsWith("/rpc/get_channel_messages")) {
+      return respond(route, []);
     }
     if (p.endsWith("/channel_followers")) {
       const cid = s.get("channel_id")?.slice(3);
@@ -317,14 +335,8 @@ try {
   );
   await infoModal.getByRole("textbox", { name: "Details" }).fill("Repeated scam links");
   await infoModal.getByRole("switch", { name: "Unfollow this channel", exact: true }).click();
-  assert.equal(
-    await infoModal.getByRole("button", { name: "Report and unfollow", exact: true }).isVisible(),
-    true,
-  );
-  await infoModal
-    .getByRole("switch", { name: "Block this channel’s creator", exact: true })
-    .click();
-  await infoModal.getByRole("button", { name: "Report and block", exact: true }).click();
+  assert.equal(await infoModal.getByRole("switch").count(), 1);
+  await infoModal.getByRole("button", { name: "Report and unfollow", exact: true }).click();
   await infoModal.waitFor({ state: "detached" });
   assert.deepEqual(reports.at(-1), {
     reporter_id: me,
@@ -334,12 +346,12 @@ try {
     description: "Repeated scam links",
   });
   assert.deepEqual(unfollows.at(-1), followedChannelId);
-  assert.deepEqual(blocks.at(-1), { blocker_id: me, blocked_id: sofiaId });
+  assert.equal(blocks.length, 0);
   await page
     .locator(".chat-settings-notice")
-    .filter({ hasText: "Report submitted, channel unfollowed, and user blocked." })
+    .filter({ hasText: "Report submitted and channel unfollowed." })
     .waitFor();
-  console.log("PASS 2: channel report + unfollow + anonymous creator block + aligned radios");
+  console.log("PASS 2: channel report + unfollow + no creator block leak + aligned radios");
 
   // 3. Ownerless / unfollowed channel omits switches without breaking submission.
   await page.goto(`${baseUrl}/channels/${orphanChannelId}/info`);

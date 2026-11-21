@@ -143,7 +143,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 SELECT set_config('test.community',public.create_community('Community','Test')::text,true);
 RESET ROLE;
 INSERT INTO public.chats(type,community_id,name) VALUES ('community_chat',current_setting('test.community')::uuid,'Community room');
-SELECT set_config('test.community_chat',(SELECT id::text FROM public.chats WHERE community_id=current_setting('test.community')::uuid),true);
+SELECT set_config('test.community_chat',(SELECT id::text FROM public.chats WHERE community_id=current_setting('test.community')::uuid AND name='Community room'),true);
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',true);
 SELECT public.join_community(current_setting('test.community')::uuid);

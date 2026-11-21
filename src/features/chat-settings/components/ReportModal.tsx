@@ -35,8 +35,9 @@ export function ReportModal({ target, onClose }: { target: ReportTarget; onClose
   const unfollowHintId = `${unfollowId}-hint`;
 
   const isChannel = target.kind === "channel";
-  const canUnfollow = isChannel && Boolean(target.following);
-  const canBlock = Boolean(target.blockUserId && target.blockUserId !== user?.id);
+  const canUnfollow = isChannel && Boolean(target.following) && !target.isStaff;
+  const canBlock =
+    target.kind === "user" && Boolean(target.blockUserId && target.blockUserId !== user?.id);
   const targetHandle = isChannel
     ? target.slug
       ? `@${target.slug}`

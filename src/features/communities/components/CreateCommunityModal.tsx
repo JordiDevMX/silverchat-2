@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { AvatarPickerModal } from "@/features/settings/components/AvatarPickerModal";
+import { PhotoEditorPanel } from "@/features/roles/components/PhotoEditorPanel";
 import { useCreateCommunityDialog } from "../hooks/useCreateCommunityDialog";
 import { CreationDialog } from "./CreationDialog";
 export function CreateCommunityModal({ onClose }: { onClose: () => void }) {
@@ -11,9 +11,6 @@ export function CreateCommunityModal({ onClose }: { onClose: () => void }) {
     setDescription,
     file,
     setFile,
-    photo,
-    setPhoto,
-    preview,
     createdId,
     busy,
     error,
@@ -23,9 +20,12 @@ export function CreateCommunityModal({ onClose }: { onClose: () => void }) {
     <CreationDialog
       title={say("New community", "Nueva comunidad")}
       onClose={busy ? undefined : onClose}
-      paused={photo}
     >
-      <form className="community-creation-form" data-clipboard-reason="avatar-hint" onSubmit={submit}>
+      <form
+        className="community-creation-form"
+        data-clipboard-reason="avatar-hint"
+        onSubmit={submit}
+      >
         <label className="field">
           {say("Name", "Nombre")}
           <input
@@ -46,33 +46,13 @@ export function CreateCommunityModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => setDescription(e.target.value)}
           />
         </label>
-        {preview && (
-          <img
-            src={preview}
-            className="size-20 rounded-full object-cover"
-            alt={say("Community photo", "Foto de la comunidad")}
-          />
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          className="rounded-xl"
-          disabled={busy}
-          onClick={() => setPhoto(true)}
-        >
-          {say("Choose photo", "Elegir foto")}
-        </Button>
-        {file && (
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-xl"
-            disabled={busy}
-            onClick={() => setFile(null)}
-          >
-            {say("Remove photo", "Quitar foto")}
-          </Button>
-        )}
+        <PhotoEditorPanel
+          stagedFile={file}
+          busy={busy}
+          previewAlt={say("Community photo", "Foto de la comunidad")}
+          onSelectCropped={(cropped) => setFile(cropped)}
+          onRemove={file ? () => setFile(null) : undefined}
+        />
         {error && <p role="alert">{error}</p>}
         <div className="modal-actions">
           <Button
@@ -89,17 +69,6 @@ export function CreateCommunityModal({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
       </form>
-      {photo && (
-        <AvatarPickerModal
-          profile={{ id: "new-community", avatar_url: null }}
-          onClose={() => setPhoto(false)}
-          onSaved={() => {}}
-          onSave={async (image) => {
-            setFile(image);
-            return { cleanupPending: false };
-          }}
-        />
-      )}
     </CreationDialog>
   );
 }

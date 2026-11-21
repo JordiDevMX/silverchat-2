@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMessageText } from "@/features/messages/i18n";
+import { resolveCommunityRole } from "@/features/roles/lib/permissions";
 import { useAuth } from "@/lib/auth-provider";
 import { getAvailableCommunityActions } from "../lib/communityActions";
 import type { Community } from "../types";
@@ -11,7 +12,16 @@ export function useCommunitySettingsActions(community: Community) {
   const { say } = useMessageText();
   const { user } = useAuth();
   const [modal, setModal] = useState<
-    "members" | "add" | "mute" | "leave" | "delete" | "create" | null
+    | "members"
+    | "add"
+    | "mute"
+    | "leave"
+    | "delete"
+    | "create"
+    | "bans"
+    | "audit"
+    | "transfer"
+    | null
   >(null);
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState(false);
@@ -19,14 +29,22 @@ export function useCommunitySettingsActions(community: Community) {
   const leave = useLeaveCommunity(community.id);
   const remove = useDeleteCommunity(community.id);
   const mute = useMuteCommunity(community.id);
-  const owner = community.owner_id === user?.id;
-  const admin = community.role === "admin";
+  const role = resolveCommunityRole(community.role, user?.id, community.owner_id);
+  const owner = role === "owner";
+  const admin = role === "owner" || role === "admin";
   const muted =
     !!chats.data?.length &&
     chats.data.every(
       (c) => !!c.membership.muted_until && Date.parse(c.membership.muted_until) > Date.now(),
     );
-  const actions = getAvailableCommunityActions(community, user?.id ?? "", admin, owner, muted);
+  const actions = getAvailableCommunityActions(
+    community,
+    user?.id ?? "",
+    admin,
+    owner,
+    muted,
+    role,
+  );
   const open = (value: typeof modal) => {
     setError(false);
     setConfirmation("");

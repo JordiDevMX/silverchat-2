@@ -8,12 +8,22 @@ export function useMessageMenu(
   readOnly: boolean,
   onClose: () => void,
   writeRestricted = false,
+  channelStaffRole: "owner" | "admin" | null = null,
+  communityDeleteAllowed = false,
 ) {
   const { user } = useAuth();
   const { say } = useMessageText();
   const ref = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(Date.now());
-  const actions = getAvailableActions(message, user?.id ?? "", readOnly, now, writeRestricted);
+  const actions = getAvailableActions(
+    message,
+    user?.id ?? "",
+    readOnly,
+    now,
+    writeRestricted,
+    channelStaffRole,
+    communityDeleteAllowed,
+  );
   const labels: Record<MessageAction, string> = {
     reply: say("Reply", "Responder"),
     react: say("React", "Reaccionar"),

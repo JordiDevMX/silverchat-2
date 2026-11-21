@@ -1,6 +1,8 @@
 import { useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useChatUIStore } from "@/features/chat-settings/stores/uiStore";
+import { DEFAULT_GROUP_PERMISSIONS } from "@/features/roles/lib/permissions";
+import type { GroupPermissions } from "@/features/roles/types";
 import { useAuth } from "@/lib/auth-provider";
 import { useChatText } from "../i18n";
 import { useCreateGroupChat } from "./useCreateGroupChat";
@@ -20,6 +22,8 @@ export function useNewGroupPage() {
   const notify = useChatUIStore((s) => s.notify);
 
   const [groupName, setGroupName] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [permissions, setPermissions] = useState<GroupPermissions>(DEFAULT_GROUP_PERMISSIONS);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMap, setSelectedMap] = useState<Map<string, UserSearchResult>>(() => new Map());
   const [localError, setLocalError] = useState<string | null>(null);
@@ -118,6 +122,8 @@ export function useNewGroupPage() {
     createGroup.mutate({
       name: groupName,
       memberIds: selectedIds,
+      avatarFile,
+      permissions,
     });
   };
 
@@ -139,6 +145,10 @@ export function useNewGroupPage() {
     t,
     router,
     groupName,
+    avatarFile,
+    setAvatarFile,
+    permissions,
+    setPermissions,
     searchQuery,
     setSearchQuery,
     selectedMap,

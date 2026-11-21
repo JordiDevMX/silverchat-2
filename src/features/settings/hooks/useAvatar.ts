@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { resolveAvatarSigningTarget } from "@/features/messages/lib/channelMediaSigning";
 import { useAuth } from "@/lib/auth-provider";
 import { getCSSGradient, getGradientForUser } from "@/lib/avatar";
 import { computeSignedUrlRefreshMs, getSignedUrlPolicy } from "@/lib/signed-url-policy";
@@ -36,12 +37,27 @@ export function useAvatarUrl(path: string | null | undefined, options?: { enable
     queryFn: async () => {
       if (isStorageOutage()) throw new Error("storage_outage");
       try {
-        const r = await supabase.storage
-          .from("avatars")
-          .createSignedUrl(path ?? "", policy.ttlSeconds);
-        if (r.error) throw r.error;
-        retainImageInMemory(r.data.signedUrl);
-        return r.data.signedUrl;
+        const target = resolveAvatarSigningTarget(path);
+        if (!target) throw new Error("Avatar unavailable");
+        let signedUrl: string;
+        if (target.mode === "edge") {
+          const result = await supabase.functions.invoke<{ signedUrl?: string; error?: string }>(
+            "sign-channel-media",
+            { body: target.body },
+          );
+          if (result.error || !result.data?.signedUrl) {
+            throw result.error ?? new Error(result.data?.error ?? "signing_failed");
+          }
+          signedUrl = result.data.signedUrl;
+        } else {
+          const r = await supabase.storage
+            .from("avatars")
+            .createSignedUrl(target.path, policy.ttlSeconds);
+          if (r.error) throw r.error;
+          signedUrl = r.data.signedUrl;
+        }
+        retainImageInMemory(signedUrl);
+        return signedUrl;
       } catch (err: unknown) {
         const status = getStorageErrorStatus(err);
         if (status === 504 || status === 503) markStorageOutage();

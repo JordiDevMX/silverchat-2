@@ -10,6 +10,7 @@ type Action = {
   message: Message;
   content?: string;
   pin?: boolean;
+  moderateCommunityDelete?: boolean;
 };
 export function useMessageActions(chatId: string) {
   const cache = useQueryClient();
@@ -25,13 +26,17 @@ export function useMessageActions(chatId: string) {
           : action.kind === "delete_me"
             ? await supabase.rpc("delete_chat_message_for_me", { p_message_id: id })
             : action.kind === "delete_everyone"
-              ? await supabase
-                  .from("messages")
-                  .update({ deleted_at: new Date().toISOString(), deleted_for_everyone: true })
-                  .eq("id", id)
-                  .eq(action.message.channel_id ? "channel_id" : "chat_id", chatId)
-                  .select("id")
-                  .single()
+              ? action.message.channel_id
+                ? await supabase.rpc("delete_channel_post", { p_message_id: id })
+                : action.moderateCommunityDelete
+                  ? await supabase.rpc("moderate_delete_community_message", { p_message_id: id })
+                  : await supabase
+                      .from("messages")
+                      .update({ deleted_at: new Date().toISOString(), deleted_for_everyone: true })
+                      .eq("id", id)
+                      .eq("chat_id", chatId)
+                      .select("id")
+                      .single()
               : await supabase
                   .from("messages")
                   .update({ content: action.content ?? "", edited_at: new Date().toISOString() })
@@ -141,8 +146,8 @@ export function useMessageActions(chatId: string) {
       mutation.mutateAsync({ kind: "edit", message, content }),
     pin: (message: Message, pin: boolean) => mutation.mutateAsync({ kind: "pin", message, pin }),
     deleteForMe: (message: Message) => mutation.mutateAsync({ kind: "delete_me", message }),
-    deleteForEveryone: (message: Message) =>
-      mutation.mutateAsync({ kind: "delete_everyone", message }),
+    deleteForEveryone: (message: Message, moderateCommunityDelete = false) =>
+      mutation.mutateAsync({ kind: "delete_everyone", message, moderateCommunityDelete }),
     forward: (message: Message, chatIds: string[], ids: string[]) =>
       forward.mutateAsync({ message, chatIds, ids }),
     copy: (content: string) => navigator.clipboard.writeText(content),

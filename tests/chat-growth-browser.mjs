@@ -439,8 +439,35 @@ async function setupRoutes(context) {
       return route.fulfill({ status: 200, contentType: "image/svg+xml", body: avatarBytes });
     }
 
-    if (p.endsWith("/channels")) return result(filterEq(channels));
+    if (p.endsWith("/channels") || p.endsWith("/channels_public")) {
+      const stripOwner = p.endsWith("/channels_public");
+      const list = filterEq(channels).map((c) => {
+        if (!stripOwner) return c;
+        const { owner_id: _o, ...rest } = c;
+        return rest;
+      });
+      return result(list);
+    }
     if (p.endsWith("/channel_followers")) return result(filterEq(channelFollows));
+    if (p.endsWith("/rpc/get_channel_viewer_context")) {
+      const ch = channels.find((c) => c.id === body.p_channel_id);
+      const isOwner = ch?.owner_id === me;
+      const following = channelFollows.some(
+        (f) => f.channel_id === body.p_channel_id && f.user_id === me,
+      );
+      return respond(route, {
+        viewer_role: isOwner ? "owner" : following ? "follower" : "visitor",
+        following,
+      });
+    }
+    if (p.endsWith("/rpc/get_channel_messages")) {
+      return respond(
+        route,
+        messages
+          .filter((m) => m.channel_id === body.p_channel_id && !m.deleted_for_everyone)
+          .slice(0, body.p_limit ?? 100),
+      );
+    }
 
     if (p.endsWith("/chats")) return result(filterEq(chats));
     if (p.endsWith("/chat_members")) {

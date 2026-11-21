@@ -39,18 +39,6 @@ export function AuthenticatedLayout() {
         <PendingDeletionBanner />
         <Outlet />
       </>
-    ) : section === "communities" ? (
-      <ChatLayout>
-        <main
-          id="main"
-          className="grid min-h-[calc(100dvh-var(--shell-tab-height))] place-content-center gap-2 px-6 text-center"
-        >
-          <h1 className="text-3xl font-semibold">Coming soon</h1>
-          <p className="text-muted-foreground">
-            Work in progress <span aria-hidden="true">👷 🚧</span>
-          </p>
-        </main>
-      </ChatLayout>
     ) : (
       <SectionLayout />
     );

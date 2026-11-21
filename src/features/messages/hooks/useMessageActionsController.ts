@@ -1,7 +1,11 @@
 import { useCallback, useState } from "react";
 import { useAuth } from "@/lib/auth-provider";
 import { useMessageText } from "../i18n";
-import { getAvailableActions, type MessageAction } from "../lib/actionMatrix";
+import {
+  canModerateCommunityMessage,
+  getAvailableActions,
+  type MessageAction,
+} from "../lib/actionMatrix";
 import { isWriteRestricted } from "../lib/writePermissions";
 import type { ChatDetails, Message } from "../types";
 import { useMessageActions } from "./useMessageActions";
@@ -103,16 +107,24 @@ export function useMessageActionsController({
     openMenu: (m, point) => {
       if (
         !busy &&
-        getAvailableActions(m, user?.id ?? "", chat.readOnly, Date.now(), writeRestricted).length
+        getAvailableActions(
+          m,
+          user?.id ?? "",
+          chat.readOnly,
+          Date.now(),
+          writeRestricted,
+          chat.channelStaffRole ?? null,
+          canModerateCommunityMessage(chat, m),
+        ).length
       )
         setSelected({ message: m, point, mode: "menu" });
     },
     openReactions: (m) => {
-      if (!busy && !chat.readOnly && !m.localStatus && !m.deleted_for_everyone)
+      if (!busy && !chat.readOnly && !chat.channelMode && !m.localStatus && !m.deleted_for_everyone)
         setSelected({ message: m, mode: "react" });
     },
     react: (m, emoji) => {
-      if (!chat.readOnly) void run(() => reactions.toggle(m, emoji));
+      if (!chat.readOnly && !chat.channelMode) void run(() => reactions.toggle(m, emoji));
     },
     unpin: (m) => {
       if (!chat.readOnly) void run(() => actions.pin(m, false));

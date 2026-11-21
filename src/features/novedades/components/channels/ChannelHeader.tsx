@@ -5,21 +5,22 @@ import { MuteSubmenu } from "@/features/chat-settings/components/MuteSubmenu";
 import { ReportModal } from "@/features/chat-settings/components/ReportModal";
 import { Avatar, NavLink } from "@/features/settings/components/shared";
 import { useChannelHeaderActions } from "../../hooks/channels/useChannelHeaderActions";
-import type { Channel, Follow } from "../../types";
+import type { Channel, ChannelStaffRole, Follow } from "../../types";
 import "@/styles/chat-settings.css";
 
 export function ChannelHeader({
   channel: c,
   follow,
+  staffRole = null,
   onSearch,
 }: {
   channel: Channel;
   follow: Follow | null;
+  staffRole?: ChannelStaffRole;
   onSearch?: () => void;
 }) {
   const {
     say,
-    user,
     add,
     remove,
     mute,
@@ -83,9 +84,10 @@ export function ChannelHeader({
           contextType="channel"
           channel={{
             following: !!follow,
-            canSearch: !!follow || c.owner_id === user?.id,
+            canSearch: !!follow || Boolean(staffRole),
             hasLink: true,
-            isOwner: c.owner_id === user?.id,
+            isOwner: staffRole === "owner",
+            isAdmin: staffRole === "admin",
           }}
           point={menu}
           onClose={closeMenu}
@@ -111,7 +113,7 @@ export function ChannelHeader({
           onChoose={(until) => mute.mutate(until, { onSuccess: () => setOpen(false) })}
         />
       )}
-      {reportOpen && c.owner_id !== user?.id && (
+      {reportOpen && staffRole !== "owner" && (
         <ReportModal
           target={{
             kind: "channel",
@@ -119,7 +121,7 @@ export function ChannelHeader({
             name: c.name,
             slug: c.slug,
             following: !!follow,
-            blockUserId: c.owner_id,
+            isStaff: Boolean(staffRole),
           }}
           onClose={() => setReportOpen(false)}
         />

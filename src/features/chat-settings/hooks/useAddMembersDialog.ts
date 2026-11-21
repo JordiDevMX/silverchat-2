@@ -16,7 +16,9 @@ export function useAddMembersDialog(
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const names = useRef(new Map<string, string>());
-  const hook = useAddMembers(chat.id, text, context);
+  const needApproval =
+    context === "group" && chat.own?.role !== "admin" && Boolean(chat.requireAdminApproval);
+  const hook = useAddMembers(chat.id, text, context, needApproval);
   const close = onClose ?? ui.close;
   const excluded = new Set([user?.id, ...chat.members.map((m) => m.user_id)]);
   const contacts = (hook.contacts.data ?? []).filter((p) => p.id && !excluded.has(p.id));
@@ -27,8 +29,18 @@ export function useAddMembersDialog(
   const submit = async () => {
     setError("");
     try {
-      const count = await hook.add(selected);
-      ui.notify(say(`Added ${count} members`, `Se añadieron ${count} miembros`));
+      const res = await hook.add(selected);
+      if (typeof res === "object" && res.mode === "requested") {
+        ui.notify(
+          say(
+            "Request sent — waiting for admin approval",
+            "Solicitud enviada — esperando aprobación de un administrador",
+          ),
+        );
+      } else {
+        const count = typeof res === "number" ? res : res.count;
+        ui.notify(say(`Added ${count} members`, `Se añadieron ${count} miembros`));
+      }
       close();
     } catch {
       setError(

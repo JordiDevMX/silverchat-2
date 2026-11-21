@@ -8,6 +8,7 @@ export function communityDetails(
 ): ChatDetails {
   const mapped = members.map((member) => ({
     ...member,
+    role: (member.role === "admin" ? "admin" : "member") as "admin" | "member",
     chat_id: community.id,
     last_read_at: null,
     muted_until: null,
@@ -25,11 +26,20 @@ export function communityDetails(
     avatar: community.avatar_url,
     createdAt: community.created_at,
     createdBy: community.owner_id,
+    communityOwnerId: community.owner_id,
+    communityRole:
+      community.owner_id === userId
+        ? "owner"
+        : community.role === "admin"
+          ? "admin"
+          : community.role === "moderator"
+            ? "moderator"
+            : "member",
     members: mapped,
     own: {
       chat_id: community.id,
       user_id: userId,
-      role: community.role,
+      role: community.role === "admin" ? "admin" : "member",
       joined_at: community.joined_at,
       last_read_at: null,
       muted_until: null,

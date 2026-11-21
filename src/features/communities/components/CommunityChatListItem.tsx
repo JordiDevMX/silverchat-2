@@ -31,7 +31,14 @@ export function CommunityChatListItem({
             />
           )
         }
-        pinned={chat.membership.pinned_at && <Pin size={14} aria-label={say("Pinned", "Fijado")} />}
+        pinned={
+          <>
+            {chat.system_role === "announcements" && (
+              <Badge variant="default">{say("Official", "Oficial")}</Badge>
+            )}
+            {chat.membership.pinned_at && <Pin size={14} aria-label={say("Pinned", "Fijado")} />}
+          </>
+        }
         preview={chat.last_message_preview ?? say("No messages yet", "Aún no hay mensajes")}
         timestamp={formatCommunityTimestamp(chat.last_message_at, language)}
         status={

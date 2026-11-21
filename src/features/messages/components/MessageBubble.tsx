@@ -4,7 +4,7 @@ import { MessageSurface } from "@/components/ui/conversation-surface";
 import { Avatar } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
 import { useMessageText } from "../i18n";
-import { getAvailableActions } from "../lib/actionMatrix";
+import { canModerateCommunityMessage, getAvailableActions } from "../lib/actionMatrix";
 import { messageStatus } from "../lib/messageStatus";
 import type { ChatDetails, Message } from "../types";
 import { formatMessageTime } from "../utils/formatMessageTime";
@@ -44,8 +44,15 @@ export function MessageBubble({
   }, []);
   useEffect(() => () => cancelPress(), [cancelPress]);
   const available =
-    getAvailableActions(message, user?.id ?? "", chat.readOnly, Date.now(), ui.writeRestricted)
-      .length > 0;
+    getAvailableActions(
+      message,
+      user?.id ?? "",
+      chat.readOnly,
+      Date.now(),
+      ui.writeRestricted,
+      chat.channelStaffRole ?? null,
+      canModerateCommunityMessage(chat, message),
+    ).length > 0;
   const status = messageStatus(message, chat.members);
   if (message.type === "system" && !message.deleted_for_everyone)
     return (

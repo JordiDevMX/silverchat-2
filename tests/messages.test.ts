@@ -336,3 +336,55 @@ test("canManageGroupWriteRule allows only group admins in group context and excl
   assert.equal(canManageGroupWriteRule("community", "group", "admin"), false);
   assert.equal(canManageGroupWriteRule("community", "community_chat", "admin"), false);
 });
+test("isWriteRestricted honors community silence, write_policy, and moderator announcement writer grant", () => {
+  assert.equal(
+    isWriteRestricted({
+      type: "community_chat",
+      onlyAdminsCanSend: false,
+      channelMode: false,
+      communityRole: "moderator",
+      writePolicy: "moderators",
+      systemRole: null,
+      communitySilencedUntil: null,
+    }),
+    false,
+  );
+  assert.equal(
+    isWriteRestricted({
+      type: "community_chat",
+      onlyAdminsCanSend: false,
+      channelMode: false,
+      communityRole: "moderator",
+      writePolicy: "moderators",
+      systemRole: null,
+      communitySilencedUntil: new Date(Date.now() + 60_000).toISOString(),
+    }),
+    true,
+  );
+  assert.equal(
+    isWriteRestricted({
+      type: "community_chat",
+      onlyAdminsCanSend: true,
+      channelMode: false,
+      communityRole: "moderator",
+      writePolicy: "admins",
+      systemRole: "announcements",
+      isAnnouncementWriter: true,
+      communitySilencedUntil: null,
+    }),
+    false,
+  );
+  assert.equal(
+    isWriteRestricted({
+      type: "community_chat",
+      onlyAdminsCanSend: true,
+      channelMode: false,
+      communityRole: "moderator",
+      writePolicy: "admins",
+      systemRole: "announcements",
+      isAnnouncementWriter: false,
+      communitySilencedUntil: null,
+    }),
+    true,
+  );
+});

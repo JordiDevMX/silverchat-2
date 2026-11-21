@@ -159,6 +159,8 @@ test("community settings actions distinguish members, admins and owners who may 
     "unmute",
     "add_members",
     "create_chat",
+    "view_bans",
+    "view_audit_log",
     "leave",
   ]);
   assert.ok(getAvailableCommunityActions(community, "owner", true, true, false).includes("delete"));
@@ -169,12 +171,44 @@ test("community settings actions distinguish members, admins and owners who may 
 test("shared settings adapter protects the current owner after succession, not the original creator", () => {
   const details = communityDetails(
     { ...community, owner_id: "successor" },
-    [{ community_id: "community", user_id: "successor", role: "admin", joined_at: "2026-01-02" }],
+    [
+      {
+        community_id: "community",
+        user_id: "successor",
+        role: "admin",
+        joined_at: "2026-01-02",
+        silence_reason: null,
+        silenced_by: null,
+        silenced_until: null,
+      },
+    ],
     "owner",
   );
   assert.equal(details.createdBy, "successor");
   assert.equal(details.members[0]?.role, "admin");
   assert.equal(details.communityId, "community");
+});
+test("community actions support moderators read-only ban view and owner ownership transfer", () => {
+  assert.ok(
+    getAvailableCommunityActions(community, "mod", false, false, false, "moderator").includes(
+      "view_bans",
+    ),
+  );
+  assert.ok(
+    getAvailableCommunityActions(community, "mod", false, false, false, "moderator").includes(
+      "view_audit_log",
+    ),
+  );
+  assert.ok(
+    !getAvailableCommunityActions(community, "mod", false, false, false, "moderator").includes(
+      "delete",
+    ),
+  );
+  assert.ok(
+    getAvailableCommunityActions(community, "owner", true, true, false, "owner").includes(
+      "transfer_ownership",
+    ),
+  );
 });
 test("migration has the required RPC privilege boundary and both succession triggers", () => {
   const sql = readFileSync(

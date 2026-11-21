@@ -34,12 +34,10 @@ SELECT pg_temp.assert_true((SELECT count(*)=1 FROM public.story_views WHERE stor
 SELECT pg_temp.assert_true((SELECT count(*)=0 FROM public.get_story_viewers(:'story')),'Viewers list is owner only');
 SELECT pg_temp.rejects(format('SELECT public.delete_story(%L)',:'story'),'Not authorized');
 SELECT public.follow_channel(:'channel');
-SELECT pg_temp.assert_true((SELECT count(*)=1 FROM public.messages WHERE id=:'post'),'Follower can read channel');
+SELECT pg_temp.assert_true((SELECT count(*)=0 FROM public.messages WHERE id=:'post'),'Follower cannot raw-select channel messages');
+SELECT pg_temp.assert_true((SELECT count(*)=1 AND bool_and(sender_id IS NULL) FROM public.get_channel_messages(:'channel') WHERE id=:'post'),'Follower reads channel broadcast without sender_id');
 SELECT pg_temp.rejects(format('INSERT INTO public.messages(channel_id,sender_id,type,content) VALUES(%L,auth.uid(),''text'',''comment'')',:'channel'),'row-level security');
-SELECT public.set_message_reaction(:'post','👍');
-SELECT public.set_message_reaction(:'post','❤️');
-SELECT pg_temp.assert_true((SELECT count(*)=1 FROM public.message_reactions WHERE message_id=:'post' AND emoji='❤️'),'Channel reaction replaces previous');
-SELECT pg_temp.rejects(format('SELECT public.set_message_reaction(%L,''🤖'')',:'post'),'eight channel reactions');
+SELECT pg_temp.rejects(format('SELECT public.set_message_reaction(%L,''👍'')',:'post'),'Reactions are disabled in channels');
 SELECT pg_temp.rejects(format('SELECT public.update_channel_info(%L,''Attacker'')',:'channel'),'Only the channel owner');
 UPDATE public.channel_followers SET muted_until='9999-12-31T23:59:59Z',last_read_at=now() WHERE channel_id=:'channel' AND user_id=auth.uid();
 SELECT pg_temp.assert_true((SELECT muted_until>now() FROM public.channel_followers WHERE channel_id=:'channel' AND user_id=auth.uid()),'Follower can mute their subscription');
@@ -48,8 +46,8 @@ INSERT INTO public.messages(chat_id,sender_id,type,content,reply_to_story_id) VA
 SELECT public.create_self_chat() AS self \gset
 SELECT pg_temp.rejects(format('INSERT INTO public.messages(chat_id,sender_id,type,content,reply_to_story_id) VALUES(%L,auth.uid(),''text'',''wrong scope'',%L)',:'self',:'story'),'Story reply target');
 SELECT public.unfollow_channel(:'channel');
-SELECT pg_temp.assert_true((SELECT count(*)=0 FROM public.messages WHERE id=:'post'),'Unfollow removes message access');
-SELECT pg_temp.rejects(format('SELECT public.set_message_reaction(%L,''👍'')',:'post'),'Message unavailable');
+SELECT pg_temp.assert_true((SELECT count(*)=0 FROM public.channel_followers WHERE channel_id=:'channel' AND user_id=auth.uid()),'Unfollow removes follower subscription');
+SELECT pg_temp.rejects(format('SELECT public.set_message_reaction(%L,''👍'')',:'post'),'Reactions are disabled in channels');
 RESET ROLE;
 SELECT set_config('request.jwt.claims','{"sub":"d1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal1"}',true);
 SET LOCAL ROLE authenticated;
