@@ -13,6 +13,7 @@ import { useReactions } from "./useReactions";
 export type UI = {
   openMenu: (message: Message, point: { x: number; y: number }) => void;
   openReactions: (message: Message) => void;
+  reply: (message: Message) => void;
   react: (message: Message, emoji: string) => void;
   navigate: (id: string) => void;
   unpin: (message: Message) => void;
@@ -122,6 +123,15 @@ export function useMessageActionsController({
     openReactions: (m) => {
       if (!busy && !chat.readOnly && !chat.channelMode && !m.localStatus && !m.deleted_for_everyone)
         setSelected({ message: m, mode: "react" });
+    },
+    reply: (m) => {
+      if (
+        !busy &&
+        getAvailableActions(m, user?.id ?? "", chat.readOnly, Date.now(), writeRestricted).includes(
+          "reply",
+        )
+      )
+        onReply(m);
     },
     react: (m, emoji) => {
       if (!chat.readOnly && !chat.channelMode) void run(() => reactions.toggle(m, emoji));

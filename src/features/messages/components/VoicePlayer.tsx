@@ -32,7 +32,7 @@ export function VoicePlayer({
       >
         {player.playing ? <Pause /> : <Play />}
       </button>
-      <div className="voice-track">
+      <div className="voice-track" data-no-swipe-reply="true">
         <VoiceWaveform peaks={peaks} progress={player.position / (length || 1)} />
         <input
           type="range"

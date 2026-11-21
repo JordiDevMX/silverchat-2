@@ -1,11 +1,13 @@
-import { AlertCircle, Check, CheckCheck, LoaderCircle, MoreHorizontal } from "lucide-react";
+import { AlertCircle, Check, CheckCheck, LoaderCircle, MoreHorizontal, Reply } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { MessageSurface } from "@/components/ui/conversation-surface";
 import { Avatar } from "@/features/settings/components/shared";
 import { useAuth } from "@/lib/auth-provider";
+import { useSwipeToReply } from "../hooks/useSwipeToReply";
 import { useMessageText } from "../i18n";
 import { canModerateCommunityMessage, getAvailableActions } from "../lib/actionMatrix";
 import { messageStatus } from "../lib/messageStatus";
+import { canSwipeReplyToMessage } from "../lib/swipeToReply";
 import type { ChatDetails, Message } from "../types";
 import { formatMessageTime } from "../utils/formatMessageTime";
 import { useMessageActionUI } from "./MessageActionsProvider";
@@ -53,6 +55,15 @@ export function MessageBubble({
       chat.channelStaffRole ?? null,
       canModerateCommunityMessage(chat, message),
     ).length > 0;
+  const canSwipeReply =
+    !ui.busy &&
+    !chat.channelMode &&
+    canSwipeReplyToMessage(message, user?.id ?? "", chat.readOnly, ui.writeRestricted);
+  const swipe = useSwipeToReply({
+    enabled: canSwipeReply,
+    onReply: () => ui.reply(message),
+    onSwipeLock: cancelPress,
+  });
   const status = messageStatus(message, chat.members);
   if (message.type === "system" && !message.deleted_for_everyone)
     return (
@@ -69,134 +80,146 @@ export function MessageBubble({
   }[status];
   return (
     <div
+      ref={swipe.rowRef}
       data-message-id={message.id}
+      data-swipe-enabled={canSwipeReply ? "true" : undefined}
       className={`message-row ${own ? "own" : "incoming"} ${grouped ? "grouped" : ""} ${chat.type === "group" || chat.type === "community_chat" ? "group-chat" : ""}`}
+      {...(canSwipeReply ? swipe.rowHandlers : undefined)}
     >
-      {showAvatar ? (
-        <Avatar profile={message.sender ?? { id: message.sender_id }} size="small" />
-      ) : chat.type === "group" || chat.type === "community_chat" ? (
-        <span className="message-avatar-space" />
-      ) : null}
-      <div className="message-stack">
-        {available && (
-          <button
-            type="button"
-            className="message-overflow message-icon"
-            disabled={ui.busy}
-            aria-label={say("Message actions", "Acciones del mensaje")}
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              ui.openMenu(message, { x: rect.left, y: rect.bottom });
-            }}
-          >
-            <MoreHorizontal size={18} />
-          </button>
-        )}
-
-        <MessageSurface
-          own={own}
-          sticker={message.type === "sticker" && !message.deleted_for_everyone}
-          onContextMenu={(e) => {
-            if (available) {
-              e.preventDefault();
-              cancelPress();
-              ui.openMenu(message, { x: e.clientX, y: e.clientY });
-            }
-          }}
-          onPointerDown={(e) => {
-            if (e.pointerType === "mouse" || !available) return;
-            cancelPress();
-            const { clientX: x, clientY: y } = e;
-            press.current = {
-              x,
-              y,
-              timer: setTimeout(() => {
-                press.current = null;
-                suppressClickUntil.current = Date.now() + 800;
-                ui.openMenu(message, { x, y });
-              }, 500),
-            };
-          }}
-          onPointerMove={(e) => {
-            if (
-              press.current &&
-              Math.hypot(e.clientX - press.current.x, e.clientY - press.current.y) > 10
-            )
-              cancelPress();
-          }}
-          onClickCapture={(e) => {
-            if (Date.now() < suppressClickUntil.current) {
-              e.preventDefault();
-              e.stopPropagation();
-            }
-          }}
-          onPointerUp={cancelPress}
-          onPointerCancel={cancelPress}
-        >
-          {message.deleted_for_everyone ? (
-            <p className="message-deleted">
-              {say("This message was deleted", "Este mensaje fue eliminado")}
-            </p>
-          ) : (
-            <>
-              {message.forwarded_from_message_id && (
-                <small className="forwarded-label">{say("Forwarded", "Reenviado")}</small>
-              )}
-              {showAvatar && (
-                <strong className="message-author">
-                  {message.sender?.display_name ?? say("Member", "Miembro")}
-                </strong>
-              )}
-              {message.reply_to_story_id && (
-                <small className="story-reply-reference">
-                  {say("Reply to a story", "Respuesta a una historia")}
-                </small>
-              )}
-              {message.reply_to_message_id && <ReplyPreview message={message} />}
-              <MessageContent
-                message={message}
-                members={chat.members}
-                onOpen={() => onMedia(message)}
-              />
-              {message.type !== "sticker" && (
-                <div className="message-meta">
-                  <time dateTime={message.created_at}>
-                    {formatMessageTime(message.created_at, language)}
-                  </time>
-                  {message.edited_at && <span>{say("edited", "editado")}</span>}
-                  {own &&
-                    (status === "failed" ? (
-                      <button
-                        type="button"
-                        aria-label={statusLabel}
-                        className="message-retry"
-                        onClick={() => onRetry(message)}
-                      >
-                        <AlertCircle size={14} />
-                      </button>
-                    ) : (
-                      <span
-                        role="img"
-                        aria-label={statusLabel}
-                        className={`message-status ${status}`}
-                      >
-                        {status === "pending" ? (
-                          <LoaderCircle size={13} className="spin" />
-                        ) : status === "sent" ? (
-                          <Check size={13} />
-                        ) : (
-                          <CheckCheck size={13} />
-                        )}
-                      </span>
-                    ))}
-                </div>
-              )}
-            </>
+      {canSwipeReply && (
+        <div ref={swipe.indicatorRef} className="message-swipe-indicator" aria-hidden="true">
+          <Reply size={17} />
+        </div>
+      )}
+      <div ref={swipe.trackRef} className="message-swipe-track">
+        {showAvatar ? (
+          <Avatar profile={message.sender ?? { id: message.sender_id }} size="small" />
+        ) : chat.type === "group" || chat.type === "community_chat" ? (
+          <span className="message-avatar-space" />
+        ) : null}
+        <div className="message-stack">
+          {available && (
+            <button
+              type="button"
+              className="message-overflow message-icon"
+              disabled={ui.busy}
+              aria-label={say("Message actions", "Acciones del mensaje")}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                ui.openMenu(message, { x: rect.left, y: rect.bottom });
+              }}
+            >
+              <MoreHorizontal size={18} />
+            </button>
           )}
-        </MessageSurface>
-        {!message.deleted_for_everyone && message.reactions.length > 0 && (
-          <ReactionsDisplay message={message} members={chat.members} />
-        )}
+
+          <MessageSurface
+            own={own}
+            sticker={message.type === "sticker" && !message.deleted_for_everyone}
+            onContextMenu={(e) => {
+              if (available) {
+                e.preventDefault();
+                cancelPress();
+                swipe.cancel();
+                ui.openMenu(message, { x: e.clientX, y: e.clientY });
+              }
+            }}
+            onPointerDown={(e) => {
+              if (e.pointerType === "mouse" || !available) return;
+              cancelPress();
+              const { clientX: x, clientY: y } = e;
+              press.current = {
+                x,
+                y,
+                timer: setTimeout(() => {
+                  press.current = null;
+                  suppressClickUntil.current = Date.now() + 800;
+                  swipe.cancel();
+                  ui.openMenu(message, { x, y });
+                }, 500),
+              };
+            }}
+            onPointerMove={(e) => {
+              if (
+                press.current &&
+                Math.hypot(e.clientX - press.current.x, e.clientY - press.current.y) > 10
+              )
+                cancelPress();
+            }}
+            onClickCapture={(e) => {
+              if (Date.now() < suppressClickUntil.current) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }}
+            onPointerUp={cancelPress}
+            onPointerCancel={cancelPress}
+          >
+            {message.deleted_for_everyone ? (
+              <p className="message-deleted">
+                {say("This message was deleted", "Este mensaje fue eliminado")}
+              </p>
+            ) : (
+              <>
+                {message.forwarded_from_message_id && (
+                  <small className="forwarded-label">{say("Forwarded", "Reenviado")}</small>
+                )}
+                {showAvatar && (
+                  <strong className="message-author">
+                    {message.sender?.display_name ?? say("Member", "Miembro")}
+                  </strong>
+                )}
+                {message.reply_to_story_id && (
+                  <small className="story-reply-reference">
+                    {say("Reply to a story", "Respuesta a una historia")}
+                  </small>
+                )}
+                {message.reply_to_message_id && <ReplyPreview message={message} />}
+                <MessageContent
+                  message={message}
+                  members={chat.members}
+                  onOpen={() => onMedia(message)}
+                />
+                {message.type !== "sticker" && (
+                  <div className="message-meta">
+                    <time dateTime={message.created_at}>
+                      {formatMessageTime(message.created_at, language)}
+                    </time>
+                    {message.edited_at && <span>{say("edited", "editado")}</span>}
+                    {own &&
+                      (status === "failed" ? (
+                        <button
+                          type="button"
+                          aria-label={statusLabel}
+                          className="message-retry"
+                          onClick={() => onRetry(message)}
+                        >
+                          <AlertCircle size={14} />
+                        </button>
+                      ) : (
+                        <span
+                          role="img"
+                          aria-label={statusLabel}
+                          className={`message-status ${status}`}
+                        >
+                          {status === "pending" ? (
+                            <LoaderCircle size={13} className="spin" />
+                          ) : status === "sent" ? (
+                            <Check size={13} />
+                          ) : (
+                            <CheckCheck size={13} />
+                          )}
+                        </span>
+                      ))}
+                  </div>
+                )}
+              </>
+            )}
+          </MessageSurface>
+          {!message.deleted_for_everyone && message.reactions.length > 0 && (
+            <ReactionsDisplay message={message} members={chat.members} />
+          )}
+        </div>
       </div>
     </div>
   );

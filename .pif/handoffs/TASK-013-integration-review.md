@@ -17,3 +17,9 @@ The Product Owner confirmed receipt of incoming calls from multiple app sections
 The Staging operator reported applying and inspecting migration 20261120000000. Production rollout is a separate decision.
 
 Integration conflicts and automated checks are closed for the reviewed tree. Separate simultaneous database sessions, live outsider JWT/PostgREST, live GoTrue MFA and the real StrictMode remount probe have no new execution evidence in this review. Task-wide gate changes, acceptance and merge remain with the Product Owner. Canonical PIF records retain their existing status.
+
+## Production follow-up after PR #46
+
+On November 20, 2026, the Production call-history request returned HTTP 400 with PostgreSQL error `42703`: `calls.decline_reason` was missing. The merged frontend selected that column, which migration `20261116120000_calls_enhancements.sql` introduced.
+
+The Product Owner authorized the calls database rollout and subsequently confirmed that the reported issue was resolved. The Production migration ledger and an end-to-end Production voice or video session were not independently verified in this review.

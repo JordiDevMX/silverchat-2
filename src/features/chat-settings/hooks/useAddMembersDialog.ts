@@ -36,10 +36,14 @@ export function useAddMembersDialog(
             "Request sent — waiting for admin approval",
             "Solicitud enviada — esperando aprobación de un administrador",
           ),
+          null,
+          { tone: "info" },
         );
       } else {
         const count = typeof res === "number" ? res : res.count;
-        ui.notify(say(`Added ${count} members`, `Se añadieron ${count} miembros`));
+        ui.notify(say(`Added ${count} members`, `Se añadieron ${count} miembros`), null, {
+          tone: "success",
+        });
       }
       close();
     } catch {
