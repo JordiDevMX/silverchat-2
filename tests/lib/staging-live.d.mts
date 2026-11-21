@@ -42,11 +42,18 @@ export declare function runCommunityLockIsolationScenario(params: {
   probeControlWrite: (
     attempt: number,
   ) => Promise<{ error: { code?: string; message?: string } | null }>;
+  confirmLockHeld: (attempt: number) => Promise<{ confirmed: boolean }>;
   runUnrelatedWrites: () => Promise<
     [
       { error: { code?: string; message?: string } | null },
       { error: { code?: string; message?: string } | null },
     ]
+  >;
+  signalUnrelatedWritesCompleted: () => Promise<
+    | {
+        error?: { code?: string; message?: string } | null;
+      }
+    | undefined
   >;
   probeHoldThresholdMs?: number;
   probeRetryDelayMs?: number;
@@ -57,8 +64,14 @@ export declare function runCommunityLockIsolationScenario(params: {
   probesAttempted: number;
   holderPid: number;
   blockedControlPid: number;
+  phase1ObserverPid: number;
+  phase3ObserverPid: number;
   dbLockVerifiedAtStart: boolean;
   dbLockVerifiedAfterUnrelatedWindow: boolean;
+  lockConfirmedAtElapsedMs: number;
+  unrelatedDispatchedAtElapsedMs: number;
+  unrelatedFinishedAtElapsedMs: number;
+  releaseSignalSentAtElapsedMs: number;
   unrelatedElapsedMs: number;
   controlElapsedMs: number;
   directSend: string;

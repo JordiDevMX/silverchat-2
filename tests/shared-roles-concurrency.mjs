@@ -327,49 +327,98 @@ try {
   assert.ifError(ownerDemote.error);
 
   // 6. Unrelated direct + group sends proceed while a Postgres-observed community row lock
-  // blocks a control community insert (`pg_locks` + `pg_blocking_pids(l.pid)` verified at start
-  // and end of the hold window).
+  // blocks a control community insert.
+  // Two-barrier database handshake:
+  // - Phase 1 (`srcGroupId` in `public.chats` locked inside a subtransaction): the holder polls
+  //   `pg_locks` until BOTH the control session (`v_blocked_pid` on `public.communities`) AND
+  //   the Phase-1 observer (`v_phase1_pid` on `public.chats`) are blocked by `pg_backend_pid()`,
+  //   sets `v_blocked_start := true`, holds `v_phase1_pid` for 550ms, and rolls back only the
+  //   inner subtransaction to release `srcGroupId`. Node dispatches the two unrelated sends ONLY
+  //   after that `UPDATE` on `srcGroupId` was held >=450ms and released by the holder.
+  // - Phase 3 (`chId` in `public.channels` locked in the outer transaction): Node updates `chId`
+  //   ONLY after both unrelated sends succeed. The holder waits in `pg_locks` for that waiter
+  //   (`v_phase3_pid` on `public.channels`), then immediately verifies `v_blocked_pid` is STILL
+  //   blocked by `pg_backend_pid()` (`v_blocked_end := true`) before releasing the lock.
   const lockSql = [
-    "CREATE TEMP TABLE _lock_obs (holder_pid int, blocked_pid int, blocked_at_start boolean, blocked_at_end boolean);",
+    "CREATE TEMP TABLE _lock_obs (holder_pid int, blocked_pid int, phase1_gate_pid int, phase3_gate_pid int, blocked_at_start boolean, blocked_at_end boolean);",
     "DO $$",
     "DECLARE",
     "  v_blocked_pid int;",
+    "  v_phase1_pid int;",
+    "  v_phase3_pid int;",
     "  v_blocked_start boolean := false;",
     "  v_blocked_end boolean := false;",
     "BEGIN",
     `  PERFORM 1 FROM public.communities WHERE id = '${commId}' FOR UPDATE;`,
-    "  FOR i IN 1..80 LOOP",
-    "    SELECT l.pid INTO v_blocked_pid",
-    "    FROM pg_locks l",
-    "    WHERE NOT l.granted",
-    "      AND pg_backend_pid() = ANY(pg_blocking_pids(l.pid))",
-    "      AND EXISTS (",
-    "        SELECT 1 FROM pg_locks cl",
-    "        WHERE cl.pid = l.pid",
-    "          AND cl.relation = 'public.communities'::regclass",
-    "          AND cl.granted",
-    "      )",
-    "    LIMIT 1;",
-    "    IF v_blocked_pid IS NOT NULL THEN",
-    "      v_blocked_start := true;",
-    "      EXIT;",
-    "    END IF;",
-    "    PERFORM pg_sleep(0.1);",
-    "  END LOOP;",
+    `  PERFORM 1 FROM public.channels WHERE id = '${chId}' FOR UPDATE;`,
+    "  BEGIN",
+    `    PERFORM 1 FROM public.chats WHERE id = '${srcGroupId}' FOR UPDATE;`,
+    "    FOR i IN 1..120 LOOP",
+    "      SELECT l.pid INTO v_blocked_pid",
+    "      FROM pg_locks l",
+    "      WHERE NOT l.granted",
+    "        AND pg_backend_pid() = ANY(pg_blocking_pids(l.pid))",
+    "        AND EXISTS (",
+    "          SELECT 1 FROM pg_locks cl",
+    "          WHERE cl.pid = l.pid",
+    "            AND cl.relation = 'public.communities'::regclass",
+    "            AND cl.mode = 'RowShareLock'",
+    "            AND cl.granted",
+    "        )",
+    "      LIMIT 1;",
+    "      SELECT l.pid INTO v_phase1_pid",
+    "      FROM pg_locks l",
+    "      WHERE NOT l.granted",
+    "        AND pg_backend_pid() = ANY(pg_blocking_pids(l.pid))",
+    "        AND EXISTS (",
+    "          SELECT 1 FROM pg_locks cl",
+    "          WHERE cl.pid = l.pid",
+    "            AND cl.relation = 'public.chats'::regclass",
+    "            AND cl.mode = 'RowExclusiveLock'",
+    "            AND cl.granted",
+    "        )",
+    "      LIMIT 1;",
+    "      IF v_blocked_pid IS NOT NULL AND v_phase1_pid IS NOT NULL THEN",
+    "        v_blocked_start := true;",
+    "        PERFORM pg_sleep(0.55);",
+    "        RAISE EXCEPTION 'phase1_lock_confirmed';",
+    "      END IF;",
+    "      PERFORM pg_sleep(0.05);",
+    "    END LOOP;",
+    "  EXCEPTION WHEN OTHERS THEN",
+    "    NULL;",
+    "  END;",
     "  IF v_blocked_start THEN",
-    "    PERFORM pg_sleep(2.5);",
-    "    v_blocked_end := (",
-    "      v_blocked_pid IS NOT NULL",
-    "      AND pg_backend_pid() = ANY(pg_blocking_pids(v_blocked_pid))",
-    "      AND EXISTS (",
-    "        SELECT 1 FROM pg_locks l",
-    "        WHERE l.pid = v_blocked_pid AND NOT l.granted",
-    "      )",
-    "    );",
+    "    FOR i IN 1..120 LOOP",
+    "      SELECT l.pid INTO v_phase3_pid",
+    "      FROM pg_locks l",
+    "      WHERE NOT l.granted",
+    "        AND pg_backend_pid() = ANY(pg_blocking_pids(l.pid))",
+    "        AND EXISTS (",
+    "          SELECT 1 FROM pg_locks cl",
+    "          WHERE cl.pid = l.pid",
+    "            AND cl.relation = 'public.channels'::regclass",
+    "            AND cl.mode = 'RowExclusiveLock'",
+    "            AND cl.granted",
+    "        )",
+    "      LIMIT 1;",
+    "      IF v_phase3_pid IS NOT NULL THEN",
+    "        v_blocked_end := (",
+    "          v_blocked_pid IS NOT NULL",
+    "          AND pg_backend_pid() = ANY(pg_blocking_pids(v_blocked_pid))",
+    "          AND EXISTS (",
+    "            SELECT 1 FROM pg_locks l",
+    "            WHERE l.pid = v_blocked_pid AND NOT l.granted",
+    "          )",
+    "        );",
+    "        EXIT;",
+    "      END IF;",
+    "      PERFORM pg_sleep(0.05);",
+    "    END LOOP;",
     "  END IF;",
-    "  INSERT INTO _lock_obs VALUES (pg_backend_pid(), v_blocked_pid, v_blocked_start, v_blocked_end);",
+    "  INSERT INTO _lock_obs VALUES (pg_backend_pid(), v_blocked_pid, v_phase1_pid, v_phase3_pid, v_blocked_start, v_blocked_end);",
     "END $$;",
-    "SELECT holder_pid, blocked_pid, blocked_at_start, blocked_at_end FROM _lock_obs;",
+    "SELECT holder_pid, blocked_pid, phase1_gate_pid, phase3_gate_pid, blocked_at_start, blocked_at_end FROM _lock_obs;",
   ].join(" ");
 
   raceObservations.unrelatedSendsUnderCommunityLock = await runCommunityLockIsolationScenario({
@@ -387,6 +436,18 @@ try {
         sender_id: uAdmin.user.id,
         content: `Lock probe ${attempt}`,
       }),
+    confirmLockHeld: async (attempt) => {
+      const tGate = performance.now();
+      const gateRes = await admin
+        .from("chats")
+        .update({ description: `Phase1 lock gate ${attempt}` })
+        .eq("id", srcGroupId);
+      assert.ifError(gateRes.error);
+      const gateElapsedMs = performance.now() - tGate;
+      // The holder holds v_phase1_pid for 550ms after confirming v_blocked_pid in pg_locks
+      // before rolling back the subtransaction on srcGroupId.
+      return { confirmed: gateElapsedMs >= 450 };
+    },
     runUnrelatedWrites: () =>
       Promise.all([
         uMember.client.from("messages").insert({
@@ -400,6 +461,8 @@ try {
           content: "Unrelated group send while community locked",
         }),
       ]),
+    signalUnrelatedWritesCompleted: () =>
+      admin.from("channels").update({ description: "Phase3 completion gate" }).eq("id", chId),
   });
 
   primaryPassed = true;

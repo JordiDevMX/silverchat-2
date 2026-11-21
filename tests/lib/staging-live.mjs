@@ -217,22 +217,42 @@ function parseLockObservationRows(stdout) {
  * Runs Scenario 6 (unrelated direct & group sends completing while a community lock
  * is verifiably held in Postgres and blocking a control community write).
  *
- * - Attaches child exit/error handlers immediately without unobserved rejections.
- * - Races probe waits against early child termination and settles the child in `finally`.
- * - Requires database-level lock observation (`holder_pid`, `blocked_pid`,
- *   `blocked_at_start === true`, `blocked_at_end === true`) so a merely slow HTTP
- *   control request without an actual DB row lock fails deterministically.
+ * Enforces strict causal ordering:
+ * 1. A control write is dispatched and must remain pending while `confirmLockHeld`
+ *    independently confirms in the database that the holder transaction blocks the
+ *    control session (`blocked_at_start = true`, `phase1_gate_pid` observed).
+ * 2. Only AFTER `confirmLockHeld` resolves with `{ confirmed: true }` (while the
+ *    control write is still pending and the holder is still alive) does the harness
+ *    dispatch `runUnrelatedWrites()`.
+ * 3. Only AFTER both unrelated writes resolve does the harness call
+ *    `signalUnrelatedWritesCompleted()`, which triggers the holder to re-verify in
+ *    `pg_locks` that the exact same control session is STILL blocked (`blocked_at_end = true`,
+ *    `phase3_gate_pid` observed) before releasing the lock.
  */
 export async function runCommunityLockIsolationScenario({
   spawnLockHolder,
   probeControlWrite,
+  confirmLockHeld,
   runUnrelatedWrites,
-  probeHoldThresholdMs = 900,
-  probeRetryDelayMs = 250,
+  signalUnrelatedWritesCompleted,
+  probeHoldThresholdMs = 450,
+  probeRetryDelayMs = 200,
   maxProbes = 15,
   unrelatedTimeoutMs = 2500,
   childSettleTimeoutMs = 3000,
 }) {
+  if (typeof confirmLockHeld !== "function") {
+    throw new Error(
+      "confirmLockHeld database observer callback is required before dispatching unrelated writes",
+    );
+  }
+  if (typeof signalUnrelatedWritesCompleted !== "function") {
+    throw new Error(
+      "signalUnrelatedWritesCompleted barrier callback is required to hold the lock through both unrelated writes",
+    );
+  }
+
+  const scenarioStartPerfMs = performance.now();
   const lockProc = spawnLockHolder();
   let lockStdout = "";
   let lockStderr = "";
@@ -291,6 +311,7 @@ export async function runCommunityLockIsolationScenario({
     let activeControl = null;
     let controlResolved = false;
     let probesAttempted = 0;
+    let lockConfirmedAtElapsedMs = null;
 
     for (let attempt = 0; attempt < maxProbes && !lockExited; attempt++) {
       probesAttempted++;
@@ -305,10 +326,29 @@ export async function runCommunityLockIsolationScenario({
 
       await sleepOrEarlyChildFailure(probeHoldThresholdMs);
       if (!controlResolved && !lockExited) {
-        activeControl = promise;
-        break;
+        // Control request is in-flight; wait for independent database confirmation that
+        // the holder blocks the control session BEFORE dispatching unrelated writes.
+        for (let cTry = 0; cTry < 12 && !controlResolved && !lockExited; cTry++) {
+          const confirmation = await Promise.race([
+            Promise.resolve().then(() => confirmLockHeld(attempt + 1)),
+            earlyExitPromise,
+          ]);
+          if (confirmation?.confirmed === true && !controlResolved && !lockExited) {
+            activeControl = promise;
+            lockConfirmedAtElapsedMs = Math.round(performance.now() - scenarioStartPerfMs);
+            break;
+          }
+          if (!controlResolved && !lockExited) {
+            await sleepOrEarlyChildFailure(probeRetryDelayMs);
+          }
+        }
+        if (activeControl) break;
       }
-      const fastOutcome = await promise;
+      const fastOutcome = await withTimeout(
+        promise,
+        unrelatedTimeoutMs,
+        "unconfirmed control probe",
+      );
       assert.ifError(fastOutcome.res?.error);
       if (!lockExited) {
         await sleepOrEarlyChildFailure(probeRetryDelayMs);
@@ -320,8 +360,14 @@ export async function runCommunityLockIsolationScenario({
       throw new Error(`Lock holder exited ${lockExitCode}: ${(lockStderr || lockStdout).trim()}`);
     }
     assert(
-      activeControl && !controlResolved && !lockExited,
-      "Expected a control community write to stay blocked while community lock holder runs",
+      activeControl && !controlResolved && !lockExited && lockConfirmedAtElapsedMs !== null,
+      "Expected database observer to confirm holder blocks control session before dispatching unrelated writes",
+    );
+
+    const unrelatedDispatchedAtElapsedMs = Math.round(performance.now() - scenarioStartPerfMs);
+    assert(
+      lockConfirmedAtElapsedMs <= unrelatedDispatchedAtElapsedMs,
+      "Database lock confirmation must occur before unrelated writes are dispatched",
     );
 
     const tUnrelatedStart = performance.now();
@@ -331,6 +377,7 @@ export async function runCommunityLockIsolationScenario({
       "unrelated direct + group sends under community lock",
     );
     const unrelatedElapsedMs = Math.round(performance.now() - tUnrelatedStart);
+    const unrelatedFinishedAtElapsedMs = Math.round(performance.now() - scenarioStartPerfMs);
     assert.ifError(directSend?.error);
     assert.ifError(groupSend?.error);
     assert.equal(
@@ -344,7 +391,18 @@ export async function runCommunityLockIsolationScenario({
       "Community lock holder must still be alive when unrelated sends finish",
     );
 
-    const settled = await withTimeout(lockSettledPromise, 15_000, "lock holder completion");
+    // Signal the lock holder that both unrelated sends have completed so it can take
+    // its second pg_locks sample while still holding the community lock, then commit.
+    const releaseSignalSentAtElapsedMs = Math.round(performance.now() - scenarioStartPerfMs);
+    const [signalRes, settled] = await Promise.all([
+      withTimeout(
+        Promise.resolve().then(() => signalUnrelatedWritesCompleted()),
+        10_000,
+        "unrelated writes completion signal",
+      ),
+      withTimeout(lockSettledPromise, 15_000, "lock holder completion"),
+    ]);
+    assert.ifError(signalRes?.error);
     if (settled.error) throw settled.error;
     if (settled.code !== 0) {
       throw new Error(`Lock holder exited ${settled.code}: ${(lockStderr || lockStdout).trim()}`);
@@ -358,10 +416,25 @@ export async function runCommunityLockIsolationScenario({
         Number.isInteger(Number(dbObs.blocked_pid)) &&
         Number(dbObs.blocked_pid) > 0 &&
         Number(dbObs.blocked_pid) !== Number(dbObs.holder_pid) &&
+        Number.isInteger(Number(dbObs.phase1_gate_pid)) &&
+        Number(dbObs.phase1_gate_pid) > 0 &&
+        Number.isInteger(Number(dbObs.phase3_gate_pid)) &&
+        Number(dbObs.phase3_gate_pid) > 0 &&
         dbObs.blocked_at_start === true &&
         dbObs.blocked_at_end === true,
-      `Database lock observation must confirm holder_pid blocked control session on public.communities across the unrelated-send window (got ${JSON.stringify(dbObs)})`,
+      `Database lock observation must confirm holder_pid blocked control session across the phase1->phase3 window (got ${JSON.stringify(dbObs)})`,
     );
+
+    if (
+      dbObs.first_observed_elapsed_ms !== undefined &&
+      dbObs.second_observed_elapsed_ms !== undefined
+    ) {
+      assert(
+        Number(dbObs.first_observed_elapsed_ms) <= unrelatedDispatchedAtElapsedMs &&
+          unrelatedFinishedAtElapsedMs <= Number(dbObs.second_observed_elapsed_ms),
+        `Database lock observations [${dbObs.first_observed_elapsed_ms}ms, ${dbObs.second_observed_elapsed_ms}ms] must bracket unrelated writes [${unrelatedDispatchedAtElapsedMs}ms, ${unrelatedFinishedAtElapsedMs}ms]`,
+      );
+    }
 
     const controlOutcome = await withTimeout(activeControl, 10_000, "control write completion");
     assert.ifError(controlOutcome.res?.error);
@@ -374,8 +447,14 @@ export async function runCommunityLockIsolationScenario({
       probesAttempted,
       holderPid: Number(dbObs.holder_pid),
       blockedControlPid: Number(dbObs.blocked_pid),
+      phase1ObserverPid: Number(dbObs.phase1_gate_pid),
+      phase3ObserverPid: Number(dbObs.phase3_gate_pid),
       dbLockVerifiedAtStart: dbObs.blocked_at_start === true,
       dbLockVerifiedAfterUnrelatedWindow: dbObs.blocked_at_end === true,
+      lockConfirmedAtElapsedMs,
+      unrelatedDispatchedAtElapsedMs,
+      unrelatedFinishedAtElapsedMs,
+      releaseSignalSentAtElapsedMs,
       unrelatedElapsedMs,
       controlElapsedMs: controlOutcome.elapsedMs,
       directSend: directSend?.error ? `err:${directSend.error.code ?? "unknown"}` : "ok",

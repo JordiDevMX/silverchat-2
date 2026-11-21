@@ -694,7 +694,7 @@ test("runConcurrentChannelCreation tracks draft channel ID before dispatch and c
   assert.equal(absentSummary.cleanup.checkedCounts.channels, 1);
 });
 
-test("runCommunityLockIsolationScenario handles early child exit 23 without unhandled rejection and rejects slow-control negative control without DB lock", async () => {
+test("runCommunityLockIsolationScenario handles early child exit 23 without unhandled rejection, rejects negative control without DB lock, and enforces lock-before-writes ordering under delayed acquisition", async () => {
   // 1. Early child exit 23 during first control probe must settle cleanly, emit zero unhandledRejection, and reach outer cleanup
   let unhandledCount = 0;
   const onUnhandled = () => {
@@ -727,7 +727,9 @@ test("runCommunityLockIsolationScenario handles early child exit 23 without unha
           await new Promise((r) => setTimeout(r, 400));
           return { error: null };
         },
+        confirmLockHeld: async () => ({ confirmed: true }),
         runUnrelatedWrites: async () => [{ error: null }, { error: null }],
+        signalUnrelatedWritesCompleted: async () => ({ error: null }),
       });
       primaryPassed = true;
     } catch (err) {
@@ -752,11 +754,11 @@ test("runCommunityLockIsolationScenario handles early child exit 23 without unha
     process.off("unhandledRejection", onUnhandled);
   }
 
-  // 2. Negative control: child only sleeps (no DB lock observed), control insert resolves slowly (150ms > 60ms threshold), unrelated sends return immediately -> MUST fail
+  // 2. Negative control: child only sleeps (no DB lock observed), control insert resolves slowly, unrelated sends return immediately -> MUST fail
   await assert.rejects(
     () =>
       runCommunityLockIsolationScenario({
-        probeHoldThresholdMs: 60,
+        probeHoldThresholdMs: 40,
         spawnLockHolder: () => {
           const dataCbs: Array<(chunk: string) => void> = [];
           const exitCbs: Array<(...args: unknown[]) => void> = [];
@@ -768,6 +770,8 @@ test("runCommunityLockIsolationScenario handles early child exit 23 without unha
                     {
                       holder_pid: 1001,
                       blocked_pid: null,
+                      phase1_gate_pid: null,
+                      phase3_gate_pid: null,
                       blocked_at_start: false,
                       blocked_at_end: false,
                     },
@@ -796,8 +800,161 @@ test("runCommunityLockIsolationScenario handles early child exit 23 without unha
           await new Promise((r) => setTimeout(r, 150));
           return { error: null };
         },
+        confirmLockHeld: async () => ({ confirmed: true }),
         runUnrelatedWrites: async () => [{ error: null }, { error: null }],
+        signalUnrelatedWritesCompleted: async () => ({ error: null }),
       }),
     /Database lock observation must confirm holder_pid blocked control session/,
   );
+
+  // 3a. Delayed acquisition regression (reverse order rejection): if unrelated writes ran at ~50ms
+  // BEFORE the holder actually acquired the lock and observed the blocked control session at 140ms,
+  // the scenario MUST reject.
+  await assert.rejects(
+    () =>
+      runCommunityLockIsolationScenario({
+        probeHoldThresholdMs: 40,
+        spawnLockHolder: () => {
+          const dataCbs: Array<(chunk: string) => void> = [];
+          const exitCbs: Array<(...args: unknown[]) => void> = [];
+          setTimeout(() => {
+            for (const cb of dataCbs) {
+              cb(
+                JSON.stringify({
+                  rows: [
+                    {
+                      holder_pid: 2001,
+                      blocked_pid: 2002,
+                      phase1_gate_pid: 2003,
+                      phase3_gate_pid: 2004,
+                      blocked_at_start: true,
+                      blocked_at_end: true,
+                      first_observed_elapsed_ms: 140,
+                      second_observed_elapsed_ms: 390,
+                    },
+                  ],
+                }),
+              );
+            }
+            for (const cb of exitCbs) cb(0);
+          }, 160);
+          return {
+            killed: false,
+            kill() {
+              this.killed = true;
+            },
+            stdout: {
+              on(ev, cb) {
+                if (ev === "data") dataCbs.push(cb);
+              },
+            },
+            once(ev, cb) {
+              if (ev === "exit") exitCbs.push(cb);
+            },
+          };
+        },
+        probeControlWrite: async () => {
+          await new Promise((r) => setTimeout(r, 200));
+          return { error: null };
+        },
+        // Spoofed/premature confirmation at 40ms before the DB actually observed the lock at 140ms
+        confirmLockHeld: async () => ({ confirmed: true }),
+        runUnrelatedWrites: async () => [{ error: null }, { error: null }],
+        signalUnrelatedWritesCompleted: async () => ({ error: null }),
+      }),
+    /Database lock observations \[140ms, 390ms\] must bracket unrelated writes/,
+  );
+
+  // 3b. Delayed acquisition gated by confirmLockHeld: when the control request is delayed in flight
+  // (reaching the DB and getting locked only at ~120ms, after the 40ms probe threshold),
+  // confirmLockHeld waits for the DB lock observation before resolving, so runUnrelatedWrites is
+  // NEVER dispatched before 120ms, and the holder stays open until signalUnrelatedWritesCompleted.
+  const t0 = performance.now();
+  let lockAcquiredAndControlBlockedAtMs = 0;
+  let unrelatedDispatchedAtMs = 0;
+  let unrelatedCompletedAtMs = 0;
+  let secondSampleAndReleaseAtMs = 0;
+  let releaseControl!: () => void;
+  const controlGate = new Promise<void>((r) => {
+    releaseControl = r;
+  });
+  let releaseHolderExit!: () => void;
+  const holderExitGate = new Promise<void>((r) => {
+    releaseHolderExit = r;
+  });
+  const stdoutCbs: Array<(chunk: string) => void> = [];
+  const exitCbs: Array<(...args: unknown[]) => void> = [];
+
+  const outcome = await runCommunityLockIsolationScenario({
+    probeHoldThresholdMs: 40,
+    spawnLockHolder: () => {
+      void holderExitGate.then(() => {
+        for (const cb of stdoutCbs) {
+          cb(
+            JSON.stringify({
+              rows: [
+                {
+                  holder_pid: 3001,
+                  blocked_pid: 3002,
+                  phase1_gate_pid: 3003,
+                  phase3_gate_pid: 3004,
+                  blocked_at_start: true,
+                  blocked_at_end: true,
+                  first_observed_elapsed_ms: lockAcquiredAndControlBlockedAtMs,
+                  second_observed_elapsed_ms: secondSampleAndReleaseAtMs,
+                },
+              ],
+            }),
+          );
+        }
+        for (const cb of exitCbs) cb(0);
+      });
+      return {
+        killed: false,
+        kill() {
+          this.killed = true;
+        },
+        stdout: {
+          on(ev, cb) {
+            if (ev === "data") stdoutCbs.push(cb);
+          },
+        },
+        once(ev, cb) {
+          if (ev === "exit") exitCbs.push(cb);
+        },
+      };
+    },
+    probeControlWrite: async () => {
+      await controlGate;
+      return { error: null };
+    },
+    confirmLockHeld: async () => {
+      // Simulate delayed lock acquisition + control arrival at ~120ms (well after 40ms threshold)
+      await new Promise((r) => setTimeout(r, 85));
+      lockAcquiredAndControlBlockedAtMs = Math.round(performance.now() - t0);
+      return { confirmed: true };
+    },
+    runUnrelatedWrites: async () => {
+      unrelatedDispatchedAtMs = Math.round(performance.now() - t0);
+      await new Promise((r) => setTimeout(r, 25));
+      unrelatedCompletedAtMs = Math.round(performance.now() - t0);
+      return [{ error: null }, { error: null }];
+    },
+    signalUnrelatedWritesCompleted: async () => {
+      secondSampleAndReleaseAtMs = Math.round(performance.now() - t0);
+      releaseHolderExit();
+      setTimeout(() => releaseControl(), 15);
+      return { error: null };
+    },
+  });
+
+  assert.ok(
+    lockAcquiredAndControlBlockedAtMs >= 100 &&
+      unrelatedDispatchedAtMs >= lockAcquiredAndControlBlockedAtMs &&
+      unrelatedCompletedAtMs >= unrelatedDispatchedAtMs &&
+      secondSampleAndReleaseAtMs >= unrelatedCompletedAtMs,
+    `Expected strict event order lockConfirmed(${lockAcquiredAndControlBlockedAtMs}) <= unrelatedDispatch(${unrelatedDispatchedAtMs}) <= unrelatedDone(${unrelatedCompletedAtMs}) <= secondSample(${secondSampleAndReleaseAtMs})`,
+  );
+  assert.equal(outcome.dbLockVerifiedAtStart, true);
+  assert.equal(outcome.dbLockVerifiedAfterUnrelatedWindow, true);
 });
