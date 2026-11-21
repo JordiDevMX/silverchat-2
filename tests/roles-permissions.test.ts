@@ -44,7 +44,11 @@ import {
   resolveGroupPreset,
 } from "../src/features/roles/lib/permissions.ts";
 import { encodeQrMatrix, qrToSvgPath } from "../src/features/roles/lib/qr.ts";
-import { parseAuthorizedStagingOrigin } from "./lib/staging-live.mjs";
+import {
+  createStagingTestUser,
+  parseAuthorizedStagingOrigin,
+  StagingCleanupVerifier,
+} from "./lib/staging-live.mjs";
 
 test("Group permissions matrix enforces OC-01 and configurable 5 toggles", () => {
   assert.deepEqual(DEFAULT_GROUP_PERMISSIONS, {
@@ -420,4 +424,117 @@ test("parseAuthorizedStagingOrigin binds origin to Staging ref before credential
       "https://gffdrrtatxdiucigtwdn.supabase.co/rest/v1",
     ),
   );
+});
+
+test("StagingCleanupVerifier fails on non-404 bucket check (e.g. 503), leftover resources, and derives passed from cleanup", async () => {
+  // 1. 404 / "Bucket not found" succeeds cleanly
+  const cleanVerifier = new StagingCleanupVerifier();
+  await cleanVerifier.verifyBucketAbsent(
+    {
+      storage: {
+        getBucket: async () => ({
+          data: null,
+          error: { message: "Bucket not found", statusCode: "404" },
+        }),
+      },
+    },
+    "channel-media",
+  );
+  const okLines: string[] = [];
+  const okSummary = cleanVerifier.emitSummary(
+    { suite: "offline-clean", origin: "https://gffdrrtatxdiucigtwdn.supabase.co", passed: true },
+    (l) => okLines.push(l),
+  );
+  assert.equal(okSummary.passed, true);
+  assert.equal(okLines.length, 1);
+
+  // 2. Synthetic Storage 503 during getBucket MUST fail and set passed=false even when primaryPassed=true
+  const errVerifier = new StagingCleanupVerifier();
+  await errVerifier.verifyBucketAbsent(
+    {
+      storage: {
+        getBucket: async () => ({
+          data: null,
+          error: { message: "Service Unavailable", status: 503 },
+        }),
+      },
+    },
+    "channel-media",
+  );
+  const errLines: string[] = [];
+  assert.throws(
+    () =>
+      errVerifier.emitSummary(
+        { suite: "offline-503", origin: "https://gffdrrtatxdiucigtwdn.supabase.co", passed: true },
+        (l) => errLines.push(l),
+      ),
+    /Staging cleanup verification failed/,
+  );
+  const errParsed = JSON.parse(errLines[0] ?? "{}") as {
+    passed?: boolean;
+    cleanup?: { cleanupErrors?: string[]; leftovers?: string[] };
+  };
+  assert.equal(errParsed.passed, false);
+  assert.equal(errParsed.cleanup?.cleanupErrors?.length, 1);
+
+  // 3. Existing bucket / leftover resource MUST fail with passed=false and non-empty leftovers
+  const leftoverVerifier = new StagingCleanupVerifier();
+  await leftoverVerifier.verifyBucketAbsent(
+    {
+      storage: {
+        getBucket: async () => ({ data: { id: "channel-media" }, error: null }),
+      },
+    },
+    "channel-media",
+  );
+  const leftoverLines: string[] = [];
+  assert.throws(
+    () =>
+      leftoverVerifier.emitSummary(
+        {
+          suite: "offline-leftover",
+          origin: "https://gffdrrtatxdiucigtwdn.supabase.co",
+          passed: true,
+        },
+        (l) => leftoverLines.push(l),
+      ),
+    /Staging cleanup verification failed/,
+  );
+  const leftoverParsed = JSON.parse(leftoverLines[0] ?? "{}") as {
+    passed?: boolean;
+    cleanup?: { leftovers?: string[] };
+  };
+  assert.equal(leftoverParsed.passed, false);
+  assert.deepEqual(leftoverParsed.cleanup?.leftovers, ["bucket:channel-media"]);
+});
+
+test("createStagingTestUser registers created user ID before sign-in so partial auth failure cleans up", async () => {
+  const registered: string[] = [];
+  await assert.rejects(
+    () =>
+      createStagingTestUser({
+        url: "https://gffdrrtatxdiucigtwdn.supabase.co",
+        anonKey: "anon",
+        prefix: "srp-test",
+        tag: "auth-fail",
+        registeredUserIds: registered,
+        admin: {
+          auth: {
+            admin: {
+              createUser: async () => ({ data: { user: { id: "user-partial-1" } }, error: null }),
+            },
+          },
+        },
+        createClientFn: () => ({
+          auth: {
+            signInWithPassword: async () => ({
+              data: null,
+              error: new Error("Simulated auth outage"),
+            }),
+          },
+        }),
+      }),
+    /Simulated auth outage/,
+  );
+  assert.deepEqual(registered, ["user-partial-1"]);
 });

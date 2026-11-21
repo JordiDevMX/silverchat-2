@@ -298,6 +298,7 @@ try {
   await page.locator("button.conversation-identity").click();
   const contactDialog = page.getByRole("dialog", { name: "Contact profile", exact: true });
   await contactDialog.waitFor();
+  await contactDialog.getByRole("button", { name: "Block", exact: true }).waitFor();
   assert.equal(await contactDialog.getByRole("button", { name: "Block", exact: true }).count(), 1);
   assert.equal(await contactDialog.getByRole("button", { name: /Report/ }).count(), 0);
   await contactDialog.getByRole("button", { name: "Close", exact: true }).click();

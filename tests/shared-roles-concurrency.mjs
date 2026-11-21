@@ -1,37 +1,34 @@
 // Live Staging multi-session concurrency & transaction-serialization verification.
 // Strictly binds normalized origin to Staging `gffdrrtatxdiucigtwdn` before key lookup.
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
-import { resolveAuthorizedStagingConfig, StagingCleanupVerifier } from "./lib/staging-live.mjs";
+import {
+  createStagingTestUser,
+  resolveAuthorizedStagingConfig,
+  StagingCleanupVerifier,
+} from "./lib/staging-live.mjs";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const cliScript = path.join(rootDir, "node_modules", "supabase", "dist", "supabase.js");
 const { url, anonKey, serviceKey } = resolveAuthorizedStagingConfig(rootDir);
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-
-async function makeUser(tag) {
-  const email = `srp-conc-${tag}-${Date.now()}@example.test`;
-  const password = `Srp!${crypto.randomUUID()}`;
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: {
-      username: `conc_${tag}_${Date.now().toString().slice(-4)}`,
-      display_name: tag,
-    },
-  });
-  if (error || !data.user) throw error ?? new Error("createUser failed");
-  const client = createClient(url, anonKey, { auth: { persistSession: false } });
-  const signIn = await client.auth.signInWithPassword({ email, password });
-  if (signIn.error || !signIn.data.session) throw signIn.error ?? new Error("signIn failed");
-  return { user: data.user, client };
-}
 
 function outcomeTag(res) {
   if (!res.error) return "ok";
   return `err:${res.error.code ?? "unknown"}`;
+}
+
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms waiting for ${label}`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 let uOwner;
@@ -42,9 +39,22 @@ let chId;
 let commId;
 let grpId;
 let srcGroupId;
+let directChatId;
+const registeredUserIds = [];
 let primaryPassed = false;
 const raceObservations = {};
 const cleanup = new StagingCleanupVerifier();
+
+const makeUser = (tag) =>
+  createStagingTestUser({
+    url,
+    anonKey,
+    admin,
+    prefix: "srp-conc",
+    tag,
+    registeredUserIds,
+    createClientFn: createClient,
+  });
 
 try {
   uOwner = await makeUser("owner");
@@ -52,7 +62,7 @@ try {
   uMod = await makeUser("mod");
   uMember = await makeUser("member");
 
-  // 1. Concurrent idempotent create_channel retry with the same client UUID
+  // 1. Concurrent idempotent create_channel retry with the same client UUID (both MUST return draft UUID)
   const chDraftId = crypto.randomUUID();
   const slug = `conc-ch-${Date.now()}`;
   const [c1, c2] = await Promise.all([
@@ -69,9 +79,10 @@ try {
       p_description: "Concurrency",
     }),
   ]);
-  const chOk = [c1, c2].filter((r) => !r.error);
-  assert(chOk.length >= 1, "At least one concurrent create_channel must succeed");
-  for (const r of chOk) assert.equal(r.data, chDraftId);
+  assert.ifError(c1.error);
+  assert.ifError(c2.error);
+  assert.equal(c1.data, chDraftId, "First concurrent create_channel must return draft UUID");
+  assert.equal(c2.data, chDraftId, "Second concurrent create_channel must return draft UUID");
   chId = chDraftId;
   raceObservations.createChannel = [outcomeTag(c1), outcomeTag(c2)];
 
@@ -108,6 +119,24 @@ try {
     .single();
   assert.ifError(seedMsg.error);
 
+  // Direct chat between uMember & uAdmin (accepted) for unrelated direct-send check under community lock
+  const directReqRes = await uMember.client.rpc("create_direct_chat_request", {
+    p_target_user_id: uAdmin.user.id,
+    p_initial_content: "Concurrency direct seed",
+  });
+  assert.ifError(directReqRes.error);
+  directChatId = directReqRes.data;
+  const reqRow = await uAdmin.client
+    .from("chat_requests")
+    .select("id")
+    .eq("chat_id", directChatId)
+    .single();
+  assert.ifError(reqRow.error);
+  const acceptRes = await uAdmin.client.rpc("accept_chat_request", {
+    p_request_id: reqRow.data.id,
+  });
+  assert.ifError(acceptRes.error);
+
   // Community setup (every RPC asserted explicitly)
   const commRes = await uOwner.client.rpc("create_community", {
     p_name: "Conc Community",
@@ -115,6 +144,7 @@ try {
   });
   assert.ifError(commRes.error);
   commId = commRes.data;
+  assert(UUID_RE.test(commId), "Expected valid UUID for community");
 
   const joins = await Promise.all([
     uOwner.client.rpc("join_community", { p_community_id: commId, p_user_id: uAdmin.user.id }),
@@ -164,9 +194,6 @@ try {
   assert.ifError(baseModFwd.error);
 
   // 3b. Concurrent HTTP/RPC requests: owner revokes writer grant while moderator sends & forwards
-  // Note: Promise.all issues overlapping client requests; Postgres row-level serialization in
-  // serialize_chat_message_write determines whether each concurrent write commits before revocation
-  // ("ok") or strictly after ("err:42501"), while every post-commit write MUST fail with 42501.
   const tRevokeStart = performance.now();
   const [revokeRes, modSendRes, modFwdRes] = await Promise.all([
     uOwner.client.rpc("set_announcement_writer", {
@@ -313,8 +340,128 @@ try {
   });
   assert.ifError(ownerDemote.error);
 
+  // 6. Unrelated direct + group sends proceed without waiting on a held community lock.
+  // Session A (single `db query --linked` process) acquires `FOR UPDATE` on the community row for 8 seconds.
+  // Session B (control) probes community message insertion until a probe blocks >900ms while lockProc is alive,
+  // confirming the community lock IS held. Session C then sends to unrelated direct & group chats with a 2500ms timeout.
+  const lockSql = `DO $$ BEGIN PERFORM 1 FROM public.communities WHERE id = '${commId}' FOR UPDATE; PERFORM pg_sleep(8); END $$;`;
+  const lockProc = spawn(
+    process.execPath,
+    [cliScript, "--workdir", rootDir, "db", "query", "--linked", lockSql],
+    { stdio: ["ignore", "pipe", "pipe"] },
+  );
+  let lockStdout = "";
+  let lockStderr = "";
+  let lockExited = false;
+  lockProc.stdout.on("data", (d) => {
+    lockStdout += d.toString();
+  });
+  lockProc.stderr.on("data", (d) => {
+    lockStderr += d.toString();
+  });
+  const lockDonePromise = new Promise((resolve, reject) => {
+    lockProc.once("error", (err) => {
+      lockExited = true;
+      reject(err);
+    });
+    lockProc.once("exit", (code) => {
+      lockExited = true;
+      if (code === 0) resolve();
+      else reject(new Error(`Lock holder exited ${code}: ${lockStderr || lockStdout}`));
+    });
+  });
+
+  try {
+    let activeControl = null;
+    let controlResolved = false;
+    let probesAttempted = 0;
+
+    for (let attempt = 0; attempt < 15 && !lockExited; attempt++) {
+      probesAttempted++;
+      controlResolved = false;
+      const tStart = performance.now();
+      const promise = uAdmin.client
+        .from("messages")
+        .insert({
+          chat_id: avisosChat.id,
+          sender_id: uAdmin.user.id,
+          content: `Lock probe ${attempt + 1}`,
+        })
+        .then((res) => {
+          controlResolved = true;
+          return { res, elapsedMs: Math.round(performance.now() - tStart) };
+        });
+
+      await new Promise((r) => setTimeout(r, 900));
+      if (!controlResolved && !lockExited) {
+        activeControl = promise;
+        break;
+      }
+      const fastOutcome = await promise;
+      assert.ifError(fastOutcome.res.error);
+      await new Promise((r) => setTimeout(r, 300));
+    }
+
+    assert(
+      activeControl && !controlResolved && !lockExited,
+      "Expected a control community write to stay blocked (>900ms) while community lock holder runs",
+    );
+
+    const tUnrelatedStart = performance.now();
+    const [directSend, groupSend] = await withTimeout(
+      Promise.all([
+        uMember.client.from("messages").insert({
+          chat_id: directChatId,
+          sender_id: uMember.user.id,
+          content: "Unrelated direct send while community locked",
+        }),
+        uMember.client.from("messages").insert({
+          chat_id: grpId,
+          sender_id: uMember.user.id,
+          content: "Unrelated group send while community locked",
+        }),
+      ]),
+      2500,
+      "unrelated direct + group sends under community lock",
+    );
+    const unrelatedElapsedMs = Math.round(performance.now() - tUnrelatedStart);
+    assert.ifError(directSend.error);
+    assert.ifError(groupSend.error);
+    assert.equal(
+      controlResolved,
+      false,
+      "Control community insert must still be blocked when unrelated direct & group sends finish",
+    );
+    assert.equal(
+      lockExited,
+      false,
+      "Community lock holder must still be alive when unrelated sends finish",
+    );
+
+    await lockDonePromise;
+    const controlOutcome = await activeControl;
+    assert.ifError(controlOutcome.res.error);
+    assert(
+      controlOutcome.elapsedMs > unrelatedElapsedMs + 1000,
+      `Control community write (${controlOutcome.elapsedMs}ms) must finish well after unrelated sends (${unrelatedElapsedMs}ms)`,
+    );
+
+    raceObservations.unrelatedSendsUnderCommunityLock = {
+      probesAttempted,
+      controlBlockedBeforeUnrelatedSends: true,
+      unrelatedElapsedMs,
+      controlElapsedMs: controlOutcome.elapsedMs,
+      directSend: outcomeTag(directSend),
+      groupSend: outcomeTag(groupSend),
+      controlSend: outcomeTag(controlOutcome.res),
+    };
+  } finally {
+    if (!lockExited && !lockProc.killed) {
+      lockProc.kill();
+    }
+  }
+
   primaryPassed = true;
-  console.log("ALL STAGING TWO-SESSION CONCURRENCY CHECKS PASSED!");
 } finally {
   if (chId && uOwner) {
     await cleanup.runStep("delete_channel", () =>
@@ -334,29 +481,34 @@ try {
       admin.from("chats").delete().eq("id", srcGroupId),
     );
   }
-  for (const u of [uOwner, uAdmin, uMod, uMember]) {
-    if (u?.user?.id) {
-      await cleanup.runStep(`delete_user:${u.user.id}`, () =>
-        admin.auth.admin.deleteUser(u.user.id),
-      );
-    }
+  if (directChatId) {
+    await cleanup.runStep("delete_direct_chat", () =>
+      admin.from("chats").delete().eq("id", directChatId),
+    );
+  }
+  for (const uid of registeredUserIds) {
+    await cleanup.runStep(`delete_user:${uid}`, () => admin.auth.admin.deleteUser(uid));
   }
 
   await cleanup.verifyRowAbsent(admin, "channels", chId, "channels");
   await cleanup.verifyRowAbsent(admin, "communities", commId, "communities");
   await cleanup.verifyRowAbsent(admin, "chats", grpId, "chats");
   await cleanup.verifyRowAbsent(admin, "chats", srcGroupId, "chats");
-  for (const u of [uOwner, uAdmin, uMod, uMember]) {
-    if (u?.user?.id) await cleanup.verifyUserAbsent(admin, u.user.id);
+  await cleanup.verifyRowAbsent(admin, "chats", directChatId, "chats");
+  for (const uid of registeredUserIds) {
+    await cleanup.verifyUserAbsent(admin, uid);
   }
 
   try {
-    cleanup.emitSummary({
+    const summary = cleanup.emitSummary({
       suite: "shared-roles-concurrency",
       origin: url,
       passed: primaryPassed,
       metrics: raceObservations,
     });
+    if (summary.passed) {
+      console.log("ALL STAGING TWO-SESSION CONCURRENCY CHECKS PASSED!");
+    }
   } catch (cleanupErr) {
     console.error(cleanupErr);
     process.exitCode = 1;

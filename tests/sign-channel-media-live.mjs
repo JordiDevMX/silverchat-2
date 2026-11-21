@@ -4,27 +4,15 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
-import { resolveAuthorizedStagingConfig, StagingCleanupVerifier } from "./lib/staging-live.mjs";
+import {
+  createStagingTestUser,
+  resolveAuthorizedStagingConfig,
+  StagingCleanupVerifier,
+} from "./lib/staging-live.mjs";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const { url, anonKey, serviceKey } = resolveAuthorizedStagingConfig(rootDir);
 const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-
-async function makeUser(tag) {
-  const email = `srp-edge-${tag}-${Date.now()}@example.test`;
-  const password = `Srp!${crypto.randomUUID()}`;
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { username: `srp_${tag}_${Date.now().toString().slice(-4)}`, display_name: tag },
-  });
-  if (error || !data.user) throw error ?? new Error("createUser failed");
-  const client = createClient(url, anonKey, { auth: { persistSession: false } });
-  const signIn = await client.auth.signInWithPassword({ email, password });
-  if (signIn.error || !signIn.data.session) throw signIn.error ?? new Error("signIn failed");
-  return { user: data.user, token: signIn.data.session.access_token, client };
-}
 
 async function callSign(token, body) {
   const res = await fetch(`${url}/functions/v1/sign-channel-media`, {
@@ -45,10 +33,22 @@ let uOutsider;
 let chId;
 let grpId;
 let uploadId;
+const registeredUserIds = [];
 const cleanupObjects = [];
 const createdBuckets = [];
 let primaryPassed = false;
 const cleanup = new StagingCleanupVerifier();
+
+const makeUser = (tag) =>
+  createStagingTestUser({
+    url,
+    anonKey,
+    admin,
+    prefix: "srp-edge",
+    tag,
+    registeredUserIds,
+    createClientFn: createClient,
+  });
 
 try {
   for (const bucketName of ["avatars", "channel-media"]) {
@@ -205,7 +205,6 @@ try {
   );
 
   primaryPassed = true;
-  console.log("ALL STAGING EDGE SIGNING CONTRACT CHECKS PASSED!");
 } finally {
   if (chId && uOwner) {
     await cleanup.runStep("delete_channel", () =>
@@ -230,12 +229,8 @@ try {
       admin.storage.deleteBucket(bucket),
     );
   }
-  for (const u of [uOwner, uViewer, uOutsider]) {
-    if (u?.user?.id) {
-      await cleanup.runStep(`delete_user:${u.user.id}`, () =>
-        admin.auth.admin.deleteUser(u.user.id),
-      );
-    }
+  for (const uid of registeredUserIds) {
+    await cleanup.runStep(`delete_user:${uid}`, () => admin.auth.admin.deleteUser(uid));
   }
 
   await cleanup.verifyRowAbsent(admin, "channels", chId, "channels");
@@ -247,17 +242,20 @@ try {
   for (const bucket of createdBuckets) {
     await cleanup.verifyBucketAbsent(admin, bucket);
   }
-  for (const u of [uOwner, uViewer, uOutsider]) {
-    if (u?.user?.id) await cleanup.verifyUserAbsent(admin, u.user.id);
+  for (const uid of registeredUserIds) {
+    await cleanup.verifyUserAbsent(admin, uid);
   }
 
   try {
-    cleanup.emitSummary({
+    const summary = cleanup.emitSummary({
       suite: "sign-channel-media-live",
       origin: url,
       passed: primaryPassed,
       metrics: { checksVerified: 8 },
     });
+    if (summary.passed) {
+      console.log("ALL STAGING EDGE SIGNING CONTRACT CHECKS PASSED!");
+    }
   } catch (cleanupErr) {
     console.error(cleanupErr);
     process.exitCode = 1;

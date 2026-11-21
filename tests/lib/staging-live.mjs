@@ -75,6 +75,52 @@ export function resolveAuthorizedStagingConfig(rootDir) {
   return { ref: AUTHORIZED_STAGING_REF, url: expectedOrigin, anonKey, serviceKey };
 }
 
+function isMissingResourceError(error) {
+  if (!error || typeof error !== "object") return false;
+  const status = error.status ?? error.statusCode;
+  if (status === 404 || status === "404") return true;
+  const msg = typeof error.message === "string" ? error.message.toLowerCase() : "";
+  return /\bnot found\b/.test(msg);
+}
+
+/**
+ * Creates a disposable Staging auth user and registers its ID BEFORE signing in,
+ * so partial auth failures still get cleaned up in `finally`.
+ */
+export async function createStagingTestUser({
+  url,
+  anonKey,
+  admin,
+  prefix,
+  tag,
+  registeredUserIds,
+  createClientFn,
+}) {
+  const suffix = `${Date.now()}_${Math.floor(Math.random() * 10_000)}`;
+  const email = `${prefix}-${tag}-${suffix}@example.test`;
+  const password = `Srp!${crypto.randomUUID()}`;
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      username: `${prefix.replace(/[^a-z0-9]/gi, "_")}_${tag}_${suffix.slice(-6)}`,
+      display_name: tag,
+    },
+  });
+  if (data?.user?.id && Array.isArray(registeredUserIds)) {
+    registeredUserIds.push(data.user.id);
+  }
+  if (error || !data?.user) throw error ?? new Error("createUser failed");
+
+  const client = createClientFn(url, anonKey, { auth: { persistSession: false } });
+  const signIn = await client.auth.signInWithPassword({ email, password });
+  if (signIn.error || !signIn.data?.session) {
+    throw signIn.error ?? new Error("signIn failed");
+  }
+  return { user: data.user, token: signIn.data.session.access_token, client };
+}
+
 export class StagingCleanupVerifier {
   #errors = [];
   #leftovers = [];
@@ -115,9 +161,8 @@ export class StagingCleanupVerifier {
     this.#checked.users.push(userId);
     const { data, error } = await admin.auth.admin.getUserById(userId);
     if (error) {
-      const msg = error.message?.toLowerCase() ?? "";
-      if (!msg.includes("not found") && error.status !== 404) {
-        this.#errors.push(`verify user(${userId}): ${error.message}`);
+      if (!isMissingResourceError(error)) {
+        this.#errors.push(`verify user(${userId}): ${error.message ?? String(error)}`);
       }
       return;
     }
@@ -134,7 +179,7 @@ export class StagingCleanupVerifier {
     const fileName = slash >= 0 ? objectPath.slice(slash + 1) : objectPath;
     const { data, error } = await admin.storage.from(bucket).list(folder, { search: fileName });
     if (error) {
-      this.#errors.push(`verify storage(${label}): ${error.message}`);
+      this.#errors.push(`verify storage(${label}): ${error.message ?? String(error)}`);
     } else if ((data ?? []).some((item) => item.name === fileName)) {
       this.#leftovers.push(`storage:${label}`);
     }
@@ -143,31 +188,40 @@ export class StagingCleanupVerifier {
   async verifyBucketAbsent(admin, bucket) {
     this.#checked.buckets.push(bucket);
     const { data, error } = await admin.storage.getBucket(bucket);
-    if (!error && data) {
+    if (error) {
+      if (!isMissingResourceError(error)) {
+        this.#errors.push(`verify bucket(${bucket}): ${error.message ?? String(error)}`);
+      }
+      return;
+    }
+    if (data) {
       this.#leftovers.push(`bucket:${bucket}`);
     }
   }
 
-  emitSummary({ suite, origin, passed, metrics = {} }) {
+  emitSummary({ suite, origin, passed: primaryPassed, metrics = {} }, logFn = console.log) {
+    const clean = this.#errors.length === 0 && this.#leftovers.length === 0;
+    const allPassed = Boolean(primaryPassed) && clean;
     const summary = {
       suite,
       targetRef: AUTHORIZED_STAGING_REF,
       origin,
-      passed,
+      passed: allPassed,
       metrics,
       cleanup: {
         checkedCounts: Object.fromEntries(
           Object.entries(this.#checked).map(([k, v]) => [k, v.length]),
         ),
-        cleanupErrors: this.#errors,
-        leftovers: this.#leftovers,
+        cleanupErrors: [...this.#errors],
+        leftovers: [...this.#leftovers],
       },
     };
-    console.log(JSON.stringify(summary));
-    if (this.#errors.length > 0 || this.#leftovers.length > 0) {
+    logFn(JSON.stringify(summary));
+    if (!clean) {
       throw new Error(
         `Staging cleanup verification failed: errors=${JSON.stringify(this.#errors)}, leftovers=${JSON.stringify(this.#leftovers)}`,
       );
     }
+    return summary;
   }
 }
