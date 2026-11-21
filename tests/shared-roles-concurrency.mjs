@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js";
 import {
   createStagingTestUser,
   resolveAuthorizedStagingConfig,
+  runCommunityLockIsolationScenario,
+  runConcurrentChannelCreation,
   StagingCleanupVerifier,
 } from "./lib/staging-live.mjs";
 
@@ -21,14 +23,6 @@ const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
 function outcomeTag(res) {
   if (!res.error) return "ok";
   return `err:${res.error.code ?? "unknown"}`;
-}
-
-function withTimeout(promise, ms, label) {
-  let timer;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms waiting for ${label}`)), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 let uOwner;
@@ -62,28 +56,20 @@ try {
   uMod = await makeUser("mod");
   uMember = await makeUser("member");
 
-  // 1. Concurrent idempotent create_channel retry with the same client UUID (both MUST return draft UUID)
+  // 1. Concurrent idempotent create_channel retry with the same client UUID.
+  // Tracks `chId` BEFORE dispatch so partial failures still clean up and verify absence.
   const chDraftId = crypto.randomUUID();
   const slug = `conc-ch-${Date.now()}`;
-  const [c1, c2] = await Promise.all([
-    uOwner.client.rpc("create_channel", {
-      p_channel_id: chDraftId,
-      p_name: "Conc News",
-      p_slug: slug,
-      p_description: "Concurrency",
-    }),
-    uOwner.client.rpc("create_channel", {
-      p_channel_id: chDraftId,
-      p_name: "Conc News",
-      p_slug: slug,
-      p_description: "Concurrency",
-    }),
-  ]);
-  assert.ifError(c1.error);
-  assert.ifError(c2.error);
-  assert.equal(c1.data, chDraftId, "First concurrent create_channel must return draft UUID");
-  assert.equal(c2.data, chDraftId, "Second concurrent create_channel must return draft UUID");
-  chId = chDraftId;
+  const [c1, c2] = await runConcurrentChannelCreation({
+    ownerClient: uOwner.client,
+    draftId: chDraftId,
+    name: "Conc News",
+    slug,
+    description: "Concurrency",
+    onTrackChannelId: (id) => {
+      chId = id;
+    },
+  });
   raceObservations.createChannel = [outcomeTag(c1), outcomeTag(c2)];
 
   // 2. Concurrent channel staff appoint + follow + OC-02 follower_count invariant
@@ -340,75 +326,68 @@ try {
   });
   assert.ifError(ownerDemote.error);
 
-  // 6. Unrelated direct + group sends proceed without waiting on a held community lock.
-  // Session A (single `db query --linked` process) acquires `FOR UPDATE` on the community row for 8 seconds.
-  // Session B (control) probes community message insertion until a probe blocks >900ms while lockProc is alive,
-  // confirming the community lock IS held. Session C then sends to unrelated direct & group chats with a 2500ms timeout.
-  const lockSql = `DO $$ BEGIN PERFORM 1 FROM public.communities WHERE id = '${commId}' FOR UPDATE; PERFORM pg_sleep(8); END $$;`;
-  const lockProc = spawn(
-    process.execPath,
-    [cliScript, "--workdir", rootDir, "db", "query", "--linked", lockSql],
-    { stdio: ["ignore", "pipe", "pipe"] },
-  );
-  let lockStdout = "";
-  let lockStderr = "";
-  let lockExited = false;
-  lockProc.stdout.on("data", (d) => {
-    lockStdout += d.toString();
-  });
-  lockProc.stderr.on("data", (d) => {
-    lockStderr += d.toString();
-  });
-  const lockDonePromise = new Promise((resolve, reject) => {
-    lockProc.once("error", (err) => {
-      lockExited = true;
-      reject(err);
-    });
-    lockProc.once("exit", (code) => {
-      lockExited = true;
-      if (code === 0) resolve();
-      else reject(new Error(`Lock holder exited ${code}: ${lockStderr || lockStdout}`));
-    });
-  });
+  // 6. Unrelated direct + group sends proceed while a Postgres-observed community row lock
+  // blocks a control community insert (`pg_locks` + `pg_blocking_pids(l.pid)` verified at start
+  // and end of the hold window).
+  const lockSql = [
+    "CREATE TEMP TABLE _lock_obs (holder_pid int, blocked_pid int, blocked_at_start boolean, blocked_at_end boolean);",
+    "DO $$",
+    "DECLARE",
+    "  v_blocked_pid int;",
+    "  v_blocked_start boolean := false;",
+    "  v_blocked_end boolean := false;",
+    "BEGIN",
+    `  PERFORM 1 FROM public.communities WHERE id = '${commId}' FOR UPDATE;`,
+    "  FOR i IN 1..80 LOOP",
+    "    SELECT l.pid INTO v_blocked_pid",
+    "    FROM pg_locks l",
+    "    WHERE NOT l.granted",
+    "      AND pg_backend_pid() = ANY(pg_blocking_pids(l.pid))",
+    "      AND EXISTS (",
+    "        SELECT 1 FROM pg_locks cl",
+    "        WHERE cl.pid = l.pid",
+    "          AND cl.relation = 'public.communities'::regclass",
+    "          AND cl.granted",
+    "      )",
+    "    LIMIT 1;",
+    "    IF v_blocked_pid IS NOT NULL THEN",
+    "      v_blocked_start := true;",
+    "      EXIT;",
+    "    END IF;",
+    "    PERFORM pg_sleep(0.1);",
+    "  END LOOP;",
+    "  IF v_blocked_start THEN",
+    "    PERFORM pg_sleep(2.5);",
+    "    v_blocked_end := (",
+    "      v_blocked_pid IS NOT NULL",
+    "      AND pg_backend_pid() = ANY(pg_blocking_pids(v_blocked_pid))",
+    "      AND EXISTS (",
+    "        SELECT 1 FROM pg_locks l",
+    "        WHERE l.pid = v_blocked_pid AND NOT l.granted",
+    "      )",
+    "    );",
+    "  END IF;",
+    "  INSERT INTO _lock_obs VALUES (pg_backend_pid(), v_blocked_pid, v_blocked_start, v_blocked_end);",
+    "END $$;",
+    "SELECT holder_pid, blocked_pid, blocked_at_start, blocked_at_end FROM _lock_obs;",
+  ].join(" ");
 
-  try {
-    let activeControl = null;
-    let controlResolved = false;
-    let probesAttempted = 0;
-
-    for (let attempt = 0; attempt < 15 && !lockExited; attempt++) {
-      probesAttempted++;
-      controlResolved = false;
-      const tStart = performance.now();
-      const promise = uAdmin.client
-        .from("messages")
-        .insert({
-          chat_id: avisosChat.id,
-          sender_id: uAdmin.user.id,
-          content: `Lock probe ${attempt + 1}`,
-        })
-        .then((res) => {
-          controlResolved = true;
-          return { res, elapsedMs: Math.round(performance.now() - tStart) };
-        });
-
-      await new Promise((r) => setTimeout(r, 900));
-      if (!controlResolved && !lockExited) {
-        activeControl = promise;
-        break;
-      }
-      const fastOutcome = await promise;
-      assert.ifError(fastOutcome.res.error);
-      await new Promise((r) => setTimeout(r, 300));
-    }
-
-    assert(
-      activeControl && !controlResolved && !lockExited,
-      "Expected a control community write to stay blocked (>900ms) while community lock holder runs",
-    );
-
-    const tUnrelatedStart = performance.now();
-    const [directSend, groupSend] = await withTimeout(
+  raceObservations.unrelatedSendsUnderCommunityLock = await runCommunityLockIsolationScenario({
+    spawnLockHolder: () =>
+      spawn(
+        process.execPath,
+        [cliScript, "--workdir", rootDir, "db", "query", "--linked", lockSql],
+        {
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      ),
+    probeControlWrite: (attempt) =>
+      uAdmin.client.from("messages").insert({
+        chat_id: avisosChat.id,
+        sender_id: uAdmin.user.id,
+        content: `Lock probe ${attempt}`,
+      }),
+    runUnrelatedWrites: () =>
       Promise.all([
         uMember.client.from("messages").insert({
           chat_id: directChatId,
@@ -421,53 +400,11 @@ try {
           content: "Unrelated group send while community locked",
         }),
       ]),
-      2500,
-      "unrelated direct + group sends under community lock",
-    );
-    const unrelatedElapsedMs = Math.round(performance.now() - tUnrelatedStart);
-    assert.ifError(directSend.error);
-    assert.ifError(groupSend.error);
-    assert.equal(
-      controlResolved,
-      false,
-      "Control community insert must still be blocked when unrelated direct & group sends finish",
-    );
-    assert.equal(
-      lockExited,
-      false,
-      "Community lock holder must still be alive when unrelated sends finish",
-    );
-
-    await lockDonePromise;
-    const controlOutcome = await activeControl;
-    assert.ifError(controlOutcome.res.error);
-    assert(
-      controlOutcome.elapsedMs > unrelatedElapsedMs + 1000,
-      `Control community write (${controlOutcome.elapsedMs}ms) must finish well after unrelated sends (${unrelatedElapsedMs}ms)`,
-    );
-
-    raceObservations.unrelatedSendsUnderCommunityLock = {
-      probesAttempted,
-      controlBlockedBeforeUnrelatedSends: true,
-      unrelatedElapsedMs,
-      controlElapsedMs: controlOutcome.elapsedMs,
-      directSend: outcomeTag(directSend),
-      groupSend: outcomeTag(groupSend),
-      controlSend: outcomeTag(controlOutcome.res),
-    };
-  } finally {
-    if (!lockExited && !lockProc.killed) {
-      lockProc.kill();
-    }
-  }
+  });
 
   primaryPassed = true;
 } finally {
-  if (chId && uOwner) {
-    await cleanup.runStep("delete_channel", () =>
-      uOwner.client.rpc("delete_channel", { p_channel_id: chId }),
-    );
-  }
+  await cleanup.cleanupAndVerifyChannel(admin, uOwner?.client, chId);
   if (commId && uOwner) {
     await cleanup.runStep("delete_community", () =>
       uOwner.client.rpc("delete_community", { p_community_id: commId }),
@@ -490,7 +427,6 @@ try {
     await cleanup.runStep(`delete_user:${uid}`, () => admin.auth.admin.deleteUser(uid));
   }
 
-  await cleanup.verifyRowAbsent(admin, "channels", chId, "channels");
   await cleanup.verifyRowAbsent(admin, "communities", commId, "communities");
   await cleanup.verifyRowAbsent(admin, "chats", grpId, "chats");
   await cleanup.verifyRowAbsent(admin, "chats", srcGroupId, "chats");

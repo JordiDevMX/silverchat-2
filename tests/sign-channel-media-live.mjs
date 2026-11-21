@@ -67,13 +67,15 @@ try {
   assert.equal(unauth.status, 401, "Unauthenticated request must return 401");
 
   const slug = `edge-test-${Date.now()}`;
+  chId = crypto.randomUUID();
   const chRes = await uOwner.client.rpc("create_channel", {
+    p_channel_id: chId,
     p_name: "Edge Sign Test",
     p_slug: slug,
     p_description: "Test",
   });
   assert.ifError(chRes.error);
-  chId = chRes.data;
+  assert.equal(chRes.data, chId);
 
   const avatarPath = `chat-${chId}/channel-live.webp`;
   const tinyBytes = new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80]);
@@ -206,11 +208,7 @@ try {
 
   primaryPassed = true;
 } finally {
-  if (chId && uOwner) {
-    await cleanup.runStep("delete_channel", () =>
-      uOwner.client.rpc("delete_channel", { p_channel_id: chId }),
-    );
-  }
+  await cleanup.cleanupAndVerifyChannel(admin, uOwner?.client, chId);
   if (grpId) {
     await cleanup.runStep("delete_chat", () => admin.from("chats").delete().eq("id", grpId));
   }
@@ -233,7 +231,6 @@ try {
     await cleanup.runStep(`delete_user:${uid}`, () => admin.auth.admin.deleteUser(uid));
   }
 
-  await cleanup.verifyRowAbsent(admin, "channels", chId, "channels");
   await cleanup.verifyRowAbsent(admin, "chats", grpId, "chats");
   await cleanup.verifyRowAbsent(admin, "file_uploads", uploadId, "uploads");
   for (const [bucket, objPath] of cleanupObjects) {

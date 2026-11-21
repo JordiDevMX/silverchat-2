@@ -75,12 +75,54 @@ export function resolveAuthorizedStagingConfig(rootDir) {
   return { ref: AUTHORIZED_STAGING_REF, url: expectedOrigin, anonKey, serviceKey };
 }
 
-function isMissingResourceError(error) {
+/**
+ * Recognizes resource-specific absence ("bucket" vs "user") while giving
+ * precedence to explicit non-404 HTTP/service failure statuses and rejecting
+ * generic upstream/service "not found" errors.
+ */
+export function isMissingResourceError(error, kind) {
   if (!error || typeof error !== "object") return false;
-  const status = error.status ?? error.statusCode;
-  if (status === 404 || status === "404") return true;
-  const msg = typeof error.message === "string" ? error.message.toLowerCase() : "";
-  return /\bnot found\b/.test(msg);
+
+  const rawStatuses = [error.status, error.statusCode].filter(
+    (s) => s !== undefined && s !== null && s !== "",
+  );
+  let saw404 = false;
+  for (const raw of rawStatuses) {
+    const num = typeof raw === "number" ? raw : Number(raw);
+    if (Number.isFinite(num)) {
+      if (num === 404) {
+        saw404 = true;
+      } else if (num >= 500 || num === 401 || num === 403 || num === 408 || num === 429) {
+        return false;
+      } else if (num !== 400) {
+        // Note: @supabase/storage-js sometimes wraps statusCode "404" in status 400; any other non-404 status fails.
+        return false;
+      }
+    } else if (String(raw) !== "404") {
+      return false;
+    }
+  }
+
+  const msg = typeof error.message === "string" ? error.message.trim() : "";
+  const code = typeof error.code === "string" ? error.code.trim().toLowerCase() : "";
+
+  if (/\b(upstream|service|gateway|route|endpoint|proxy|server)\b/i.test(msg)) {
+    return false;
+  }
+
+  if (kind === "bucket") {
+    if (code === "nosuchbucket" || code === "bucket_not_found") return true;
+    if (/^(bucket not found|the resource was not found)\.?$/i.test(msg)) return true;
+    return saw404 && /\bbucket\b/i.test(msg) && /\bnot found\b/i.test(msg);
+  }
+
+  if (kind === "user") {
+    if (code === "user_not_found") return true;
+    if (/^user not found\.?$/i.test(msg)) return true;
+    return saw404 && /\buser\b/i.test(msg) && /\bnot found\b/i.test(msg);
+  }
+
+  return false;
 }
 
 /**
@@ -121,6 +163,239 @@ export async function createStagingTestUser({
   return { user: data.user, token: signIn.data.session.access_token, client };
 }
 
+/**
+ * Registers the draft channel UUID for cleanup BEFORE dispatching concurrent
+ * `create_channel` requests, and requires both concurrent calls to succeed with
+ * the exact draft UUID.
+ */
+export async function runConcurrentChannelCreation({
+  ownerClient,
+  draftId,
+  name,
+  slug,
+  description,
+  onTrackChannelId,
+}) {
+  onTrackChannelId(draftId);
+  const payload = {
+    p_channel_id: draftId,
+    p_name: name,
+    p_slug: slug,
+    p_description: description,
+  };
+  const [c1, c2] = await Promise.all([
+    ownerClient.rpc("create_channel", payload),
+    ownerClient.rpc("create_channel", payload),
+  ]);
+  assert.ifError(c1.error);
+  assert.ifError(c2.error);
+  assert.equal(c1.data, draftId, "First concurrent create_channel must return draft UUID");
+  assert.equal(c2.data, draftId, "Second concurrent create_channel must return draft UUID");
+  return [c1, c2];
+}
+
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms waiting for ${label}`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function parseLockObservationRows(stdout) {
+  const jsonStart = stdout.indexOf("{");
+  if (jsonStart < 0) return null;
+  try {
+    const parsed = JSON.parse(stdout.slice(jsonStart));
+    return Array.isArray(parsed.rows) ? (parsed.rows[0] ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Runs Scenario 6 (unrelated direct & group sends completing while a community lock
+ * is verifiably held in Postgres and blocking a control community write).
+ *
+ * - Attaches child exit/error handlers immediately without unobserved rejections.
+ * - Races probe waits against early child termination and settles the child in `finally`.
+ * - Requires database-level lock observation (`holder_pid`, `blocked_pid`,
+ *   `blocked_at_start === true`, `blocked_at_end === true`) so a merely slow HTTP
+ *   control request without an actual DB row lock fails deterministically.
+ */
+export async function runCommunityLockIsolationScenario({
+  spawnLockHolder,
+  probeControlWrite,
+  runUnrelatedWrites,
+  probeHoldThresholdMs = 900,
+  probeRetryDelayMs = 250,
+  maxProbes = 15,
+  unrelatedTimeoutMs = 2500,
+  childSettleTimeoutMs = 3000,
+}) {
+  const lockProc = spawnLockHolder();
+  let lockStdout = "";
+  let lockStderr = "";
+  let lockExited = false;
+  let lockExitCode = null;
+  let lockSpawnError = null;
+
+  lockProc.stdout?.on("data", (d) => {
+    lockStdout += d.toString();
+  });
+  lockProc.stderr?.on("data", (d) => {
+    lockStderr += d.toString();
+  });
+
+  let rejectEarlyExit;
+  const earlyExitPromise = new Promise((_, reject) => {
+    rejectEarlyExit = reject;
+  });
+  // Prevent Node UnhandledPromiseRejection if the child fails before earlyExitPromise is raced/awaited.
+  earlyExitPromise.catch(() => {});
+
+  const lockSettledPromise = new Promise((resolve) => {
+    lockProc.once("error", (err) => {
+      lockExited = true;
+      lockSpawnError = err;
+      rejectEarlyExit(err);
+      resolve({ code: null, error: err });
+    });
+    lockProc.once("exit", (code) => {
+      lockExited = true;
+      lockExitCode = code;
+      if (code !== 0) {
+        rejectEarlyExit(
+          new Error(`Lock holder exited ${code}: ${(lockStderr || lockStdout).trim()}`),
+        );
+      }
+      resolve({ code, error: null });
+    });
+  });
+
+  const sleepOrEarlyChildFailure = (ms) => {
+    if (lockSpawnError) return Promise.reject(lockSpawnError);
+    if (lockExited && lockExitCode !== 0) {
+      return Promise.reject(
+        new Error(`Lock holder exited ${lockExitCode}: ${(lockStderr || lockStdout).trim()}`),
+      );
+    }
+    let timer;
+    const sleep = new Promise((r) => {
+      timer = setTimeout(r, ms);
+    });
+    return Promise.race([sleep, earlyExitPromise]).finally(() => clearTimeout(timer));
+  };
+
+  try {
+    let activeControl = null;
+    let controlResolved = false;
+    let probesAttempted = 0;
+
+    for (let attempt = 0; attempt < maxProbes && !lockExited; attempt++) {
+      probesAttempted++;
+      controlResolved = false;
+      const tStart = performance.now();
+      const promise = Promise.resolve()
+        .then(() => probeControlWrite(attempt + 1))
+        .then((res) => {
+          controlResolved = true;
+          return { res, elapsedMs: Math.round(performance.now() - tStart) };
+        });
+
+      await sleepOrEarlyChildFailure(probeHoldThresholdMs);
+      if (!controlResolved && !lockExited) {
+        activeControl = promise;
+        break;
+      }
+      const fastOutcome = await promise;
+      assert.ifError(fastOutcome.res?.error);
+      if (!lockExited) {
+        await sleepOrEarlyChildFailure(probeRetryDelayMs);
+      }
+    }
+
+    if (lockSpawnError) throw lockSpawnError;
+    if (lockExited && lockExitCode !== 0) {
+      throw new Error(`Lock holder exited ${lockExitCode}: ${(lockStderr || lockStdout).trim()}`);
+    }
+    assert(
+      activeControl && !controlResolved && !lockExited,
+      "Expected a control community write to stay blocked while community lock holder runs",
+    );
+
+    const tUnrelatedStart = performance.now();
+    const [directSend, groupSend] = await withTimeout(
+      Promise.race([runUnrelatedWrites(), earlyExitPromise]),
+      unrelatedTimeoutMs,
+      "unrelated direct + group sends under community lock",
+    );
+    const unrelatedElapsedMs = Math.round(performance.now() - tUnrelatedStart);
+    assert.ifError(directSend?.error);
+    assert.ifError(groupSend?.error);
+    assert.equal(
+      controlResolved,
+      false,
+      "Control community insert must still be blocked when unrelated direct & group sends finish",
+    );
+    assert.equal(
+      lockExited,
+      false,
+      "Community lock holder must still be alive when unrelated sends finish",
+    );
+
+    const settled = await withTimeout(lockSettledPromise, 15_000, "lock holder completion");
+    if (settled.error) throw settled.error;
+    if (settled.code !== 0) {
+      throw new Error(`Lock holder exited ${settled.code}: ${(lockStderr || lockStdout).trim()}`);
+    }
+
+    const dbObs = parseLockObservationRows(lockStdout);
+    assert(
+      dbObs &&
+        Number.isInteger(Number(dbObs.holder_pid)) &&
+        Number(dbObs.holder_pid) > 0 &&
+        Number.isInteger(Number(dbObs.blocked_pid)) &&
+        Number(dbObs.blocked_pid) > 0 &&
+        Number(dbObs.blocked_pid) !== Number(dbObs.holder_pid) &&
+        dbObs.blocked_at_start === true &&
+        dbObs.blocked_at_end === true,
+      `Database lock observation must confirm holder_pid blocked control session on public.communities across the unrelated-send window (got ${JSON.stringify(dbObs)})`,
+    );
+
+    const controlOutcome = await withTimeout(activeControl, 10_000, "control write completion");
+    assert.ifError(controlOutcome.res?.error);
+    assert(
+      controlOutcome.elapsedMs > unrelatedElapsedMs,
+      `Control community write (${controlOutcome.elapsedMs}ms) must finish after unrelated sends (${unrelatedElapsedMs}ms)`,
+    );
+
+    return {
+      probesAttempted,
+      holderPid: Number(dbObs.holder_pid),
+      blockedControlPid: Number(dbObs.blocked_pid),
+      dbLockVerifiedAtStart: dbObs.blocked_at_start === true,
+      dbLockVerifiedAfterUnrelatedWindow: dbObs.blocked_at_end === true,
+      unrelatedElapsedMs,
+      controlElapsedMs: controlOutcome.elapsedMs,
+      directSend: directSend?.error ? `err:${directSend.error.code ?? "unknown"}` : "ok",
+      groupSend: groupSend?.error ? `err:${groupSend.error.code ?? "unknown"}` : "ok",
+      controlSend: controlOutcome.res?.error
+        ? `err:${controlOutcome.res.error.code ?? "unknown"}`
+        : "ok",
+    };
+  } finally {
+    if (!lockExited && !lockProc.killed) {
+      try {
+        lockProc.kill();
+      } catch {}
+    }
+    await withTimeout(lockSettledPromise, childSettleTimeoutMs, "child process settle").catch(
+      () => {},
+    );
+  }
+}
+
 export class StagingCleanupVerifier {
   #errors = [];
   #leftovers = [];
@@ -145,6 +420,29 @@ export class StagingCleanupVerifier {
     }
   }
 
+  /**
+   * Deletes a tracked channel row if present (ignoring absence when a test fails
+   * before or during creation), then verifies the row is absent in `public.channels`.
+   */
+  async cleanupAndVerifyChannel(admin, ownerClient, channelId) {
+    if (!channelId) return;
+    await this.runStep(`delete_channel:${channelId}`, async () => {
+      const { data, error } = await admin
+        .from("channels")
+        .select("id")
+        .eq("id", channelId)
+        .maybeSingle();
+      if (error) return { error };
+      if (!data) return { error: null };
+      if (ownerClient) {
+        const rpc = await ownerClient.rpc("delete_channel", { p_channel_id: channelId });
+        if (!rpc.error) return rpc;
+      }
+      return admin.from("channels").delete().eq("id", channelId);
+    });
+    await this.verifyRowAbsent(admin, "channels", channelId, "channels");
+  }
+
   async verifyRowAbsent(admin, table, id, bucketKey) {
     if (!id) return;
     this.#checked[bucketKey]?.push(id);
@@ -161,7 +459,7 @@ export class StagingCleanupVerifier {
     this.#checked.users.push(userId);
     const { data, error } = await admin.auth.admin.getUserById(userId);
     if (error) {
-      if (!isMissingResourceError(error)) {
+      if (!isMissingResourceError(error, "user")) {
         this.#errors.push(`verify user(${userId}): ${error.message ?? String(error)}`);
       }
       return;
@@ -189,7 +487,7 @@ export class StagingCleanupVerifier {
     this.#checked.buckets.push(bucket);
     const { data, error } = await admin.storage.getBucket(bucket);
     if (error) {
-      if (!isMissingResourceError(error)) {
+      if (!isMissingResourceError(error, "bucket")) {
         this.#errors.push(`verify bucket(${bucket}): ${error.message ?? String(error)}`);
       }
       return;

@@ -47,6 +47,8 @@ import { encodeQrMatrix, qrToSvgPath } from "../src/features/roles/lib/qr.ts";
 import {
   createStagingTestUser,
   parseAuthorizedStagingOrigin,
+  runCommunityLockIsolationScenario,
+  runConcurrentChannelCreation,
   StagingCleanupVerifier,
 } from "./lib/staging-live.mjs";
 
@@ -537,4 +539,265 @@ test("createStagingTestUser registers created user ID before sign-in so partial 
     /Simulated auth outage/,
   );
   assert.deepEqual(registered, ["user-partial-1"]);
+});
+
+test("StagingCleanupVerifier rejects 503 'Upstream service not found' on both bucket and user checks", async () => {
+  const verifier = new StagingCleanupVerifier();
+  await verifier.verifyBucketAbsent(
+    {
+      storage: {
+        getBucket: async () => ({
+          data: null,
+          error: { status: 503, message: "Upstream service not found" },
+        }),
+      },
+    },
+    "channel-media",
+  );
+  await verifier.verifyUserAbsent(
+    {
+      auth: {
+        admin: {
+          getUserById: async () => ({
+            data: null,
+            error: { status: 503, message: "Upstream service not found" },
+          }),
+        },
+      },
+    },
+    "user-503",
+  );
+  const lines: string[] = [];
+  assert.throws(
+    () =>
+      verifier.emitSummary(
+        {
+          suite: "offline-503-not-found",
+          origin: "https://gffdrrtatxdiucigtwdn.supabase.co",
+          passed: true,
+        },
+        (l) => lines.push(l),
+      ),
+    /Staging cleanup verification failed/,
+  );
+  const parsed = JSON.parse(lines[0] ?? "{}") as {
+    passed?: boolean;
+    cleanup?: { cleanupErrors?: string[] };
+  };
+  assert.equal(parsed.passed, false);
+  assert.equal(parsed.cleanup?.cleanupErrors?.length, 2);
+});
+
+test("runConcurrentChannelCreation tracks draft channel ID before dispatch and cleanup handles present or absent fixture", async () => {
+  let trackedId: string | undefined;
+  let callCount = 0;
+  await assert.rejects(
+    () =>
+      runConcurrentChannelCreation({
+        draftId: "00000000-0000-4000-8000-000000000999",
+        name: "Partial Fail",
+        slug: "partial-fail",
+        description: "Test",
+        onTrackChannelId: (id) => {
+          trackedId = id;
+        },
+        ownerClient: {
+          rpc: async () => {
+            callCount++;
+            if (callCount === 1) {
+              return { data: "00000000-0000-4000-8000-000000000999", error: null };
+            }
+            return { data: null, error: { message: "Second call failed" } };
+          },
+        },
+      }),
+    /Second call failed/,
+  );
+  assert.equal(
+    trackedId,
+    "00000000-0000-4000-8000-000000000999",
+    "Draft channel ID must be tracked before dispatch",
+  );
+
+  // Present fixture: deleted then verified absent
+  let rowExists = true;
+  let deletedViaRpc = false;
+  const presentVerifier = new StagingCleanupVerifier();
+  await presentVerifier.cleanupAndVerifyChannel(
+    {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: rowExists ? { id: trackedId } : null,
+              error: null,
+            }),
+          }),
+        }),
+        delete: () => ({
+          eq: async () => {
+            rowExists = false;
+            return { error: null };
+          },
+        }),
+      }),
+    },
+    {
+      rpc: async () => {
+        deletedViaRpc = true;
+        rowExists = false;
+        return { error: null };
+      },
+    },
+    trackedId,
+  );
+  assert.equal(deletedViaRpc, true);
+  const presentSummary = presentVerifier.emitSummary(
+    {
+      suite: "channel-present-cleanup",
+      origin: "https://gffdrrtatxdiucigtwdn.supabase.co",
+      passed: false,
+    },
+    () => {},
+  );
+  assert.equal(presentSummary.passed, false);
+  assert.deepEqual(presentSummary.cleanup.cleanupErrors, []);
+  assert.deepEqual(presentSummary.cleanup.leftovers, []);
+  assert.equal(presentSummary.cleanup.checkedCounts.channels, 1);
+
+  // Absent fixture (both creates failed): skips delete without error and verifies absence
+  const absentVerifier = new StagingCleanupVerifier();
+  await absentVerifier.cleanupAndVerifyChannel(
+    {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null, error: null }),
+          }),
+        }),
+      }),
+    },
+    {
+      rpc: async () => ({ error: { message: "Should not be called when absent" } }),
+    },
+    trackedId,
+  );
+  const absentSummary = absentVerifier.emitSummary(
+    {
+      suite: "channel-absent-cleanup",
+      origin: "https://gffdrrtatxdiucigtwdn.supabase.co",
+      passed: true,
+    },
+    () => {},
+  );
+  assert.equal(absentSummary.passed, true);
+  assert.equal(absentSummary.cleanup.checkedCounts.channels, 1);
+});
+
+test("runCommunityLockIsolationScenario handles early child exit 23 without unhandled rejection and rejects slow-control negative control without DB lock", async () => {
+  // 1. Early child exit 23 during first control probe must settle cleanly, emit zero unhandledRejection, and reach outer cleanup
+  let unhandledCount = 0;
+  const onUnhandled = () => {
+    unhandledCount++;
+  };
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    let primaryPassed = false;
+    const verifier = new StagingCleanupVerifier();
+    let scenarioError: unknown = null;
+    try {
+      await runCommunityLockIsolationScenario({
+        probeHoldThresholdMs: 200,
+        spawnLockHolder: () => {
+          const exitCbs: Array<(...args: unknown[]) => void> = [];
+          setTimeout(() => {
+            for (const cb of exitCbs) cb(23);
+          }, 20);
+          return {
+            killed: false,
+            kill() {
+              this.killed = true;
+            },
+            once(ev, cb) {
+              if (ev === "exit") exitCbs.push(cb);
+            },
+          };
+        },
+        probeControlWrite: async () => {
+          await new Promise((r) => setTimeout(r, 400));
+          return { error: null };
+        },
+        runUnrelatedWrites: async () => [{ error: null }, { error: null }],
+      });
+      primaryPassed = true;
+    } catch (err) {
+      scenarioError = err;
+    }
+    const summaryLines: string[] = [];
+    const summary = verifier.emitSummary(
+      {
+        suite: "early-child-exit-23",
+        origin: "https://gffdrrtatxdiucigtwdn.supabase.co",
+        passed: primaryPassed,
+      },
+      (l) => summaryLines.push(l),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(unhandledCount, 0, "Early child exit must not trigger unhandledRejection");
+    assert.ok(
+      scenarioError instanceof Error && /Lock holder exited 23/.test(scenarioError.message),
+    );
+    assert.equal(summary.passed, false);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
+
+  // 2. Negative control: child only sleeps (no DB lock observed), control insert resolves slowly (150ms > 60ms threshold), unrelated sends return immediately -> MUST fail
+  await assert.rejects(
+    () =>
+      runCommunityLockIsolationScenario({
+        probeHoldThresholdMs: 60,
+        spawnLockHolder: () => {
+          const dataCbs: Array<(chunk: string) => void> = [];
+          const exitCbs: Array<(...args: unknown[]) => void> = [];
+          setTimeout(() => {
+            for (const cb of dataCbs) {
+              cb(
+                JSON.stringify({
+                  rows: [
+                    {
+                      holder_pid: 1001,
+                      blocked_pid: null,
+                      blocked_at_start: false,
+                      blocked_at_end: false,
+                    },
+                  ],
+                }),
+              );
+            }
+            for (const cb of exitCbs) cb(0);
+          }, 120);
+          return {
+            killed: false,
+            kill() {
+              this.killed = true;
+            },
+            stdout: {
+              on(ev, cb) {
+                if (ev === "data") dataCbs.push(cb);
+              },
+            },
+            once(ev, cb) {
+              if (ev === "exit") exitCbs.push(cb);
+            },
+          };
+        },
+        probeControlWrite: async () => {
+          await new Promise((r) => setTimeout(r, 150));
+          return { error: null };
+        },
+        runUnrelatedWrites: async () => [{ error: null }, { error: null }],
+      }),
+    /Database lock observation must confirm holder_pid blocked control session/,
+  );
 });
