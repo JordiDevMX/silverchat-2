@@ -93,6 +93,8 @@ export function useConversationController(chatId: string) {
   const chooseReply = (message: Message) => {
     cache.setQueryData(["reply-draft", user?.id ?? "", chatId, message.id], message);
     setReplyId(message.id);
+    // Focus synchronously inside the user gesture so mobile keyboards open, with rAF fallback.
+    document.querySelector<HTMLTextAreaElement>(".composer-input textarea")?.focus();
     requestAnimationFrame(() =>
       document.querySelector<HTMLTextAreaElement>(".composer-input textarea")?.focus(),
     );

@@ -152,16 +152,63 @@
     outline-offset: -3px;
   }
   .message-row {
+    position: relative;
     display: flex;
     align-items: flex-start;
     gap: 8px;
     margin-top: 12px;
   }
+  .message-row[data-swipe-enabled="true"] {
+    touch-action: pan-y pinch-zoom;
+  }
+  .message-row[data-swiping="true"] {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grabbing;
+  }
+  .message-swipe-track {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
   .message-row.grouped {
     margin-top: 4px;
   }
-  .message-row.own {
+  .message-row.own .message-swipe-track {
     flex-direction: row-reverse;
+  }
+  .message-swipe-indicator {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 34px;
+    height: 34px;
+    border-radius: 9999px;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate3d(-8px, -50%, 0) scale(0.5);
+    background: color-mix(in oklab, var(--card) 92%, var(--silver));
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
+    box-shadow: var(--shadow-silver);
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out),
+      box-shadow var(--duration-fast) var(--ease-out);
+  }
+  .message-swipe-indicator[data-armed="true"] {
+    background: var(--primary);
+    border-color: color-mix(in oklab, var(--neon-glow) 65%, transparent);
+    color: var(--primary-foreground);
+    box-shadow: var(--shadow-glow);
+  }
+  :root:not([data-theme="dark"]).theme-yellow .message-swipe-indicator[data-armed="true"] {
+    color: var(--foreground);
   }
   .message-stack {
     position: relative;
@@ -390,6 +437,16 @@
     }
     .channel-follow-cta {
       border-color: ButtonText;
+    }
+    .message-swipe-indicator {
+      background: Canvas;
+      color: CanvasText;
+      border-color: CanvasText;
+    }
+    .message-swipe-indicator[data-armed="true"] {
+      background: Highlight;
+      color: HighlightText;
+      border-color: Highlight;
     }
   }
   .message-loading {
@@ -1048,6 +1105,11 @@
   .message-row:hover .message-overflow,
   .message-row:focus-within .message-overflow {
     opacity: 1;
+  }
+  @media (hover: none) {
+    .message-overflow {
+      opacity: 1;
+    }
   }
   .message-context-menu {
     left: var(--menu-left);
